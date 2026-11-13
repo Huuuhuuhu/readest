@@ -62,6 +62,16 @@ describe('TV remote input ownership', () => {
     dialog.remove();
   });
 
+  it('repairs focus when a subpage replaces the focused control', async () => {
+    const main = document.querySelector('main')!;
+    await Promise.resolve();
+    document.querySelector('button')!.focus();
+    main.innerHTML = '<button>Back to player</button><input aria-label="Voice search">';
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(main.querySelector('button'));
+  });
+
   it('adjusts a transparent range with left/right while up/down still navigates', () => {
     const range = document.querySelector('input')!;
     range.type = 'range';

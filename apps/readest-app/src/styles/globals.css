@@ -1676,5 +1676,6 @@
 }
 
 [data-tv-mode='true'] input[type='range']:focus {
+  outline-offset: 6px !important;
   opacity: 1 !important;
 }

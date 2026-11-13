@@ -30,14 +30,17 @@ vi.mock('@/components/Dialog', () => ({
     header,
     children,
     boxClassName,
+    onClose,
   }: {
     isOpen: boolean;
     header?: React.ReactNode;
     children: React.ReactNode;
     boxClassName?: string;
+    onClose: () => void;
   }) =>
     isOpen ? (
       <div role='dialog' className='modal-box' data-box-class={boxClassName}>
+        <button onClick={onClose}>Remote Back</button>
         {header}
         {children}
       </div>
@@ -213,6 +216,18 @@ describe('TTSPlayerSheet', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+  });
+
+  test('remote Back returns from speed to player before closing and does not toggle playback', async () => {
+    const props = makeProps();
+    render(<TTSPlayerSheet {...props} />);
+    fireEvent.click(screen.getByLabelText('Speed'));
+    fireEvent.click(screen.getByRole('button', { name: 'Remote Back' }));
+    expect(screen.getByLabelText('Speed')).toBeTruthy();
+    expect(props.onClose).not.toHaveBeenCalled();
+    expect(props.onTogglePlay).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Remote Back' }));
+    expect(props.onClose).toHaveBeenCalledOnce();
   });
 
   test('opened while the clients initialize, it loads the voices once they are ready', async () => {

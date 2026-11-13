@@ -186,6 +186,22 @@ const beginEditing = (field: TextField) => {
 export const installTVInput = (doc: Document = document): (() => void) => {
   if (!isTVMode()) return () => {};
   const win = doc.defaultView!;
+  const scopeFocus = new WeakMap<TVScope, HTMLElement>();
+  const repairFocus = () => {
+    const scope = getTVScope();
+    if (!scope || scope.reading || scope.element.contains(doc.activeElement)) return;
+    queueMicrotask(() => {
+      if (
+        getTVScope() !== scope ||
+        scope.element.contains(doc.activeElement) ||
+        !isTVVisible(scope.element)
+      )
+        return;
+      const previous = scopeFocus.get(scope);
+      if (previous && scope.element.contains(previous) && isTVVisible(previous)) focusTV(previous);
+      else focusScope(scope);
+    });
+  };
   doc.documentElement.dataset['tvMode'] = 'true';
   let held: {
     target: HTMLElement;
@@ -211,11 +227,11 @@ export const installTVInput = (doc: Document = document): (() => void) => {
       if (textField(el)) prepareField(el);
     });
     for (const el of fields.keys()) if (!el.isConnected) fields.delete(el);
+    repairFocus();
   };
   prepare();
   const observer = new MutationObserver(prepare);
   observer.observe(doc.body, { childList: true, subtree: true });
-  const scopeFocus = new WeakMap<TVScope, HTMLElement>();
   const onFocus = (event: FocusEvent) => {
     const target = event.target as HTMLElement;
     if (textField(target)) prepareField(target);
@@ -223,13 +239,7 @@ export const installTVInput = (doc: Document = document): (() => void) => {
     if (scope && !scope.reading && !scope.element.contains(target)) {
       // Narration/renderer position updates must not steal a panel's focus.
       // Wait for the current commit so a newly opened higher scope can take over.
-      queueMicrotask(() => {
-        if (getTVScope() !== scope || scope.element.contains(doc.activeElement)) return;
-        const previous = scopeFocus.get(scope);
-        if (previous && scope.element.contains(previous) && isTVVisible(previous))
-          focusTV(previous);
-        else focusScope(scope);
-      });
+      repairFocus();
       return;
     }
     if (scope) scopeFocus.set(scope, target);

@@ -1,6 +1,6 @@
-import { isTVMode } from '@/utils/tvInput';
+import { focusTV, isTVMode } from '@/utils/tvInput';
 import clsx from 'clsx';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   MdAlarm,
   MdArrowBackIosNew,
@@ -177,6 +177,18 @@ const TTSPlayerSheet = ({
   // the title.
   const [coverFailed, setCoverFailed] = useState(false);
   const [view, setView] = useState<SheetView>('main');
+  const lastView = useRef<SheetView>('main');
+  useLayoutEffect(() => {
+    const previous = lastView.current;
+    lastView.current = view;
+    if (!isTVMode() || view !== 'main' || previous === 'main') return;
+    const frame = requestAnimationFrame(() =>
+      focusTV(
+        document.querySelector<HTMLElement>(`#tts_player_sheet [data-tv-sheet-view="${previous}"]`),
+      ),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [view]);
   const [voiceGroups, setVoiceGroups] = useState<TTSVoicesGroup[]>([]);
   const [rate, setRate] = useState(viewSettings?.ttsRate ?? 1.0);
   const [selectedVoice, setSelectedVoice] = useState('');
@@ -658,6 +670,7 @@ const TTSPlayerSheet = ({
             <button
               type='button'
               aria-label={_('Speed')}
+              data-tv-sheet-view='speed'
               onClick={() => setView('speed')}
               className='not-eink:bg-base-200 eink-bordered flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl'
             >
@@ -669,6 +682,7 @@ const TTSPlayerSheet = ({
             <button
               type='button'
               aria-label={_('Voice')}
+              data-tv-sheet-view='voice'
               onClick={() => setView('voice')}
               className='not-eink:bg-base-200 eink-bordered flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl'
             >
@@ -680,6 +694,7 @@ const TTSPlayerSheet = ({
             <button
               type='button'
               aria-label={_('Sleep Timer')}
+              data-tv-sheet-view='timer'
               onClick={() => setView('timer')}
               className='not-eink:bg-base-200 eink-bordered flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl'
             >
@@ -693,6 +708,7 @@ const TTSPlayerSheet = ({
             <button
               type='button'
               aria-label={_('Offline Audio')}
+              data-tv-sheet-view='chapters'
               onClick={handleOpenDownloads}
               className='not-eink:bg-base-200 eink-bordered flex w-full items-center gap-3 rounded-xl px-3 py-2.5'
             >
