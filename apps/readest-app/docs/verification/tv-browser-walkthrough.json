@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-14",
+  "source": "4222d0a7dcd4db49dbf4acde6b738379780e7e8f",
+  "environment": "Desktop Edge, local Next.js TV mode; keyboard events emulate remote buttons. This is not an Android TV device test.",
+  "passed": [
+    "Reading menu -> table of contents -> browse without moving text -> confirm chapter and return to text",
+    "Font size and maximum columns change from first-level reading menu; single-column rendering",
+    "Search and annotation: focus stays read-only, one OK edits, one Back restores navigation and keeps draft",
+    "Notebook entry, note editing and keyboard navigation after editing",
+    "Paragraph selection -> annotation toolbar -> save annotation",
+    "RSVP start, pause, control bar, layered Back and exit",
+    "Auto-scroll enabled through original scrolled layout, start, pause, Up controls, Back controls, Back stops at current position",
+    "TTS opens from idle; voice subpage takes focus; Back restores voice button; user pause survives closing and reopening player",
+    "Active player prevents narration moving focus into the underlying document; removing a focused subpage control selects a valid replacement"
+  ],
+  "not_verified": [
+    "Android IME and OEM key dispatch",
+    "Physical TV sound and viewing distance",
+    "Phone-to-TV end-to-end upload and credentials",
+    "Wi-Fi/Ethernet changes and app restart",
+    "Fresh installed APK with all Readest domains blocked",
+    "Third-party OAuth and paid services using real accounts"
+  ]
+}

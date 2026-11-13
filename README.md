@@ -1,7 +1,22 @@
-> **Readest TV fork — work in progress, based on v0.12.20.** Development is on
-> [`tv/0.12.20`](https://github.com/Huuuhuuhu/readest/tree/tv/0.12.20).
-> See [TV implementation and verification status](apps/readest-app/docs/android-tv.md).
-> The account-free core, independent services, and phone portal are not yet complete.
+> **Readest TV — 0.12.20-tv.2 (ARMv7 / Android 8+)**
+>
+> [Download the signed APK](https://github.com/Huuuhuuhu/readest/releases/tag/tv-0.12.20-v2) ·
+> [TV controls and implementation](apps/readest-app/docs/android-tv.md) ·
+> [Network services](apps/readest-app/docs/android-tv-network.md) ·
+> [Device acceptance steps](apps/readest-app/docs/android-tv-acceptance.md)
+>
+> This fork adds remote navigation, account-free local reading, direct Edge/system/custom TTS,
+> and a LAN phone portal for book uploads and TTS/WebDAV/OPDS settings. Anonymous public
+> books, fonts and Word Lens downloads remain optional. No Readest login, membership,
+> telemetry or official voice/translation proxy is used. The APK has its own application ID
+> (`com.bilingify.readest.tv`) and upgrades the earlier TV test package.
+>
+> Code, automated checks and a signed package are delivered; physical TV/phone acceptance
+> remains explicitly unverified. The release is marked as a prerelease for that reason.
+> Source: [`tv/0.12.20`](https://github.com/Huuuhuuhu/readest/tree/tv/0.12.20).
+>
+> The original Readest project documentation and credits follow. For this fork's supported
+> services and installation, use the TV documents above.
 
 <div align="center">
   <a href="https://readest.com?utm_source=github&utm_medium=referral&utm_campaign=readme" target="_blank">

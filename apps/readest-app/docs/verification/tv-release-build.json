@@ -1,0 +1,83 @@
+{
+  "sourceCommit": "d3d21081e03284eac0c4d27fd6d2dfb1942b6653",
+  "branch": "tv/0.12.20",
+  "workflow": {
+    "id": 43497283868,
+    "head_sha": "d3d21081e03284eac0c4d27fd6d2dfb1942b6653",
+    "conclusion": "success",
+    "status": "completed",
+    "html_url": "https://github.com/Huuuhuuhu/readest/actions/runs/43497283868"
+  },
+  "artifact": {
+    "id": 14073617909,
+    "archiveSha256": "134825d84ae4fdff6ed61e7c2bf86397a50d23ef3312cefba3e6f26383a43e8a",
+    "archiveBytes": 33179575,
+    "unsignedApkBytes": 44161020
+  },
+  "apk": {
+    "apk": "Readest-TV-0.12.20-tv.2-armv7.apk",
+    "sha256": "4288a2ff599470e23a08e864e50a47a6ac6d653f31c6a2aeda32bc08640a3957",
+    "size": 44248727,
+    "applicationId": "com.bilingify.readest.tv",
+    "versionName": "0.12.20-tv.2",
+    "versionCode": 12021,
+    "abi": "armeabi-v7a",
+    "minimumAndroid": "8.0 / API 26",
+    "certificateSha256": "1f1b5c0a40289dee9ee6627f525ff484db7d8586658ebf103b23cc5eaf01967c",
+    "releaseBuild": true,
+    "leanbackLauncher": true,
+    "billingPermission": false
+  },
+  "checks": {
+    "frontendPassed": 14320,
+    "frontendSkipped": 10,
+    "frontendTestFilesPassed": 1153,
+    "frontendTestFilesSkipped": 1,
+    "rustPassed": 192,
+    "rustFailed": 0,
+    "typeCheck": "passed",
+    "biomeLint": "passed (2 info-level notices)",
+    "format": "passed",
+    "rustFmt": "passed",
+    "clippy": "passed with -D warnings",
+    "nativeKeyJUnit": "app:testUniversalReleaseUnitTest passed",
+    "armv7Build": "passed",
+    "zipAlignment": "16 KB page / 4-byte ZIP alignment verified",
+    "signature": "apksigner verified; certificate matches P1"
+  },
+  "browserWalkthrough": {
+    "date": "2026-11-14",
+    "source": "4222d0a7dcd4db49dbf4acde6b738379780e7e8f",
+    "environment": "Desktop Edge, local Next.js TV mode; keyboard events emulate remote buttons. This is not an Android TV device test.",
+    "passed": [
+      "Reading menu -> table of contents -> browse without moving text -> confirm chapter and return to text",
+      "Font size and maximum columns change from first-level reading menu; single-column rendering",
+      "Search and annotation: focus stays read-only, one OK edits, one Back restores navigation and keeps draft",
+      "Notebook entry, note editing and keyboard navigation after editing",
+      "Paragraph selection -> annotation toolbar -> save annotation",
+      "RSVP start, pause, control bar, layered Back and exit",
+      "Auto-scroll enabled through original scrolled layout, start, pause, Up controls, Back controls, Back stops at current position",
+      "TTS opens from idle; voice subpage takes focus; Back restores voice button; user pause survives closing and reopening player",
+      "Active player prevents narration moving focus into the underlying document; removing a focused subpage control selects a valid replacement"
+    ],
+    "not_verified": [
+      "Android IME and OEM key dispatch",
+      "Physical TV sound and viewing distance",
+      "Phone-to-TV end-to-end upload and credentials",
+      "Wi-Fi/Ethernet changes and app restart",
+      "Fresh installed APK with all Readest domains blocked",
+      "Third-party OAuth and paid services using real accounts"
+    ]
+  },
+  "notes": [
+    "The release excludes unused browser source maps; KEEP_SOURCEMAPS=1 remains an explicit debugging option.",
+    "CI noted the pinned artifact upload action declares Node 20 and is run by GitHub on Node 24; upload completed successfully.",
+    "Physical TV/phone, Android IME and network/restart acceptance has not been performed."
+  ],
+  "publication": {
+    "url": "https://github.com/Huuuhuuhu/readest/releases/tag/tv-0.12.20-v2",
+    "tag": "tv-0.12.20-v2",
+    "prerelease": true,
+    "allSevenAssetDigestsVerified": true
+  }
+}
