@@ -1,5 +1,6 @@
 import clsx from 'clsx';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { focusTV, isTVMode } from '@/utils/tvInput';
 import { useAppRouter } from '@/hooks/useAppRouter';
 import { useEnv } from '@/context/EnvContext';
 import { useAuth } from '@/context/AuthContext';
@@ -84,6 +85,22 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   const [showCustomDictionaries, setShowCustomDictionaries] = useState(false);
   const [showCustomTranslators, setShowCustomTranslators] = useState(false);
   const [showWordLens, setShowWordLens] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const wasWordLensOpen = useRef(false);
+  useEffect(() => {
+    const returning = wasWordLensOpen.current && !showWordLens;
+    wasWordLensOpen.current = showWordLens;
+    if (!returning || !isTVMode()) return;
+    // The entry is remounted when the subpage closes. Restore it after the
+    // child scope's cleanup, instead of focusing the dialog's first tab.
+    queueMicrotask(() => {
+      focusTV(
+        panelRef.current?.querySelector<HTMLElement>(
+          '[data-setting-id="settings.language.wordlens"] button',
+        ),
+      );
+    });
+  }, [showWordLens]);
 
   // Translation is unavailable for PDFs and for books already in the target
   // language (issue #5600). The reader toolbar's toggler has always refused
@@ -438,7 +455,7 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   }
 
   return (
-    <div className={clsx('my-4 w-full space-y-6')}>
+    <div ref={panelRef} className={clsx('my-4 w-full space-y-6')}>
       <BoxedList title={_('Language')} data-setting-id='settings.language.interfaceLanguage'>
         <SettingsRow label={_('Language')}>
           <SettingsSelect

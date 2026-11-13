@@ -52,9 +52,12 @@ readability at television viewing distance, or external file-picker navigation.
 
 ## Remaining phases
 
-2. Remove account/payment/entitlement code and official runtime networking; detach
-   local and self-configured functions from those dependencies. Preserve direct Edge
-   TTS, Android/local TTS and independently configured TTS without official fallback.
+2. Remove Readest account/payment/entitlement/telemetry code and account-dependent
+   official services; detach local and self-configured functions from them. Keep
+   optional public sample books, fonts and Word Lens packs, including verified
+   anonymous resources hosted by Readest. Classify calls by service, path and purpose,
+   not hostname. Preserve direct Edge TTS, Android/local TTS and independent services
+   without official fallback. See [the network scope and evidence](android-tv-network.md).
 3. Add the TV-hosted mobile browser portal for file upload and service configuration,
    shared persistent configuration, temporary device authorization, real LAN address
    selection and network/port changes. Implement independently; do not copy code from
@@ -64,3 +67,21 @@ readability at television viewing distance, or external file-picker navigation.
 
 The complete account-free/offline/phone-portal acceptance criteria remain outstanding.
 Do not label an intermediate build as satisfying them.
+
+## Phase 2: public-resource scope correction
+
+Blocking all official services is a fault-injection acceptance condition, not a
+production domain denylist. Local startup/reading/settings must still work; explicitly
+requested public downloads may fail locally. Restoring the network must allow a manual
+retry, without login, unlocking or automatic background retry loops. No central network
+policy framework is needed for this correction.
+
+The first change keeps Word Lens downloads and removes their dependency on the
+authenticated cloud-storage module. Cached catalogs/packs work without a network probe;
+disabling automatic downloads includes the catalog; failed automatic pack downloads
+stop until an explicit retry. The existing Word Lens page now offers Refresh without
+enabling automatic downloads. Sample-book TV entry points, optional font persistence,
+the remaining account/service removal and device-level network validation are pending.
+The Word Lens subpage owns TV navigation/Back, enters with visible focus, and restores
+focus to its entry in Language settings when closed. Browser keyboard verification
+covered this path and a failed public download without losing the reading position.

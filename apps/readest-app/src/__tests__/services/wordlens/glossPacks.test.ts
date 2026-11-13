@@ -266,7 +266,8 @@ describe('glossPacks', () => {
       const manifest: WordLensManifest = { schemaVersion: 1, packs: [pack] };
       const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest))
         .buffer as ArrayBuffer;
-      // Only the manifest is fetched; the pack is already cached.
+      await appService.writeFile('wordlens/manifest.json', 'Data', JSON.stringify(manifest));
+      // Both the manifest and pack are already cached.
       const download: BytesDownloader = vi.fn(async () => manifestBytes);
 
       const index = await loadGlossIndex(appService, 'en', 'zh', {
@@ -291,6 +292,25 @@ describe('glossPacks', () => {
   });
 
   describe('allowDownload', () => {
+    it('does not join an in-flight download when only a local pack was requested', async () => {
+      const { ensurePack } = await importGlossPacks();
+      const { appService } = createFakeAppService();
+      const pack = makePack({}, await sha256Hex(packBytes()));
+      let finish!: (bytes: ArrayBuffer) => void;
+      const download = vi.fn<BytesDownloader>(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+      const online = ensurePack(appService, pack, { download });
+      await vi.waitFor(() => expect(download).toHaveBeenCalledOnce());
+
+      expect(await ensurePack(appService, pack, { allowDownload: false })).toBeNull();
+      finish(packBytes());
+      await expect(online).resolves.toBe('wordlens/en-zh.json');
+    });
+
     it('ensurePack with allowDownload:false returns null and never downloads when uncached', async () => {
       const { ensurePack } = await importGlossPacks();
       const { appService, store } = createFakeAppService();
@@ -328,7 +348,7 @@ describe('glossPacks', () => {
       const manifest: WordLensManifest = { schemaVersion: 1, packs: [pack] };
       const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest))
         .buffer as ArrayBuffer;
-      // Manifest still downloads; the *pack* must not.
+      // Disabling downloads also applies to the manifest, not only the pack.
       const download: BytesDownloader = vi.fn(async (url: string) => {
         if (url.includes('manifest.json')) return manifestBytes;
         throw new Error('pack download must not happen with allowDownload:false');
@@ -339,6 +359,54 @@ describe('glossPacks', () => {
         allowDownload: false,
       });
       expect(index).toBeNull();
+      expect(download).not.toHaveBeenCalled();
+    });
+
+    it('opens a persisted pack without contacting the CDN after a restart', async () => {
+      const { appService } = createFakeAppService();
+      const pack = makePack({}, await sha256Hex(packBytes()));
+      await appService.writeFile(
+        'wordlens/manifest.json',
+        'Data',
+        JSON.stringify({ schemaVersion: 1, packs: [pack] }),
+      );
+      await appService.writeFile('wordlens/en-zh.json', 'Data', packBytes());
+      await appService.writeFile('wordlens/en-zh.json.sha', 'Data', pack.sha256);
+      const download = vi.fn<BytesDownloader>().mockRejectedValue(new Error('CDN blocked'));
+      const { loadGlossIndex } = await importGlossPacks();
+
+      const index = await loadGlossIndex(appService, 'en', 'zh', {
+        download,
+        allowDownload: false,
+      });
+
+      expect(index?.lookup('cryptic')?.gloss).toBe('晦涩的');
+      expect(download).not.toHaveBeenCalled();
+    });
+
+    it('does not retry a failed automatic pack download on each chapter refresh', async () => {
+      const { loadGlossIndex, ensurePack } = await importGlossPacks();
+      const { appService } = createFakeAppService();
+      const pack = makePack({}, await sha256Hex(packBytes()));
+      const manifest = new TextEncoder().encode(
+        JSON.stringify({ schemaVersion: 1, packs: [pack] }),
+      );
+      const download = vi.fn<BytesDownloader>(async (url) => {
+        if (url.includes('manifest.json')) return manifest.buffer as ArrayBuffer;
+        throw new Error('CDN blocked');
+      });
+
+      for (let chapter = 0; chapter < 3; chapter++) {
+        expect(await loadGlossIndex(appService, 'en', 'zh', { download })).toBeNull();
+      }
+      expect(download).toHaveBeenCalledTimes(2); // one manifest + one pack attempt
+
+      // The user can explicitly retry when connectivity returns, without signing in.
+      download.mockResolvedValue(packBytes());
+      expect(await ensurePack(appService, pack, { download })).toBe('wordlens/en-zh.json');
+      const index = await loadGlossIndex(appService, 'en', 'zh', { download });
+      expect(index?.lookup('cryptic')?.gloss).toBe('晦涩的');
+      expect(download).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -436,6 +504,38 @@ describe('glossPacks', () => {
   });
 
   describe('fetchManifest', () => {
+    it('uses its persisted manifest before attempting the network', async () => {
+      const { fetchManifest } = await importGlossPacks();
+      const { appService } = createFakeAppService();
+      const manifest: WordLensManifest = { schemaVersion: 1, packs: [makePack({}, 'abc')] };
+      await appService.writeFile('wordlens/manifest.json', 'Data', JSON.stringify(manifest));
+      const download = vi.fn<BytesDownloader>().mockRejectedValue(new Error('CDN blocked'));
+
+      expect(await fetchManifest(appService, { download })).toEqual(manifest);
+      expect(download).not.toHaveBeenCalled();
+    });
+
+    it('an offline-only lookup neither waits for an online request nor poisons a later explicit download', async () => {
+      const { fetchManifest } = await importGlossPacks();
+      const { appService } = createFakeAppService();
+      const manifest: WordLensManifest = { schemaVersion: 1, packs: [] };
+      let finish!: (bytes: ArrayBuffer) => void;
+      const download = vi.fn<BytesDownloader>(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+
+      expect(await fetchManifest(appService, { download, allowDownload: false })).toBeNull();
+      expect(download).not.toHaveBeenCalled();
+      const online = fetchManifest(appService, { download });
+      await vi.waitFor(() => expect(download).toHaveBeenCalledOnce());
+      expect(await fetchManifest(appService, { allowDownload: false })).toBeNull();
+      finish(new TextEncoder().encode(JSON.stringify(manifest)).buffer as ArrayBuffer);
+      expect(await online).toEqual(manifest);
+    });
+
     it('downloads, persists to Data, then serves the persisted copy when offline', async () => {
       const { fetchManifest } = await importGlossPacks();
       const { appService } = createFakeAppService();

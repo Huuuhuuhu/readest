@@ -5,6 +5,7 @@ import { useReaderStore } from '@/store/readerStore';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useTVScope } from '@/hooks/useTVScope';
 import { saveViewSettings } from '@/helpers/settings';
 import { getLocale } from '@/utils/misc';
 import { formatBytes } from '@/utils/book';
@@ -41,6 +42,8 @@ interface WordLensPanelProps {
 const baseCode = (lang?: string | null): string => (lang || '').toLowerCase().split('-')[0] || '';
 
 const WordLensPanel: React.FC<WordLensPanelProps> = ({ bookKey, onBack }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useTVScope(panelRef, true, { priority: 100, onBack, onMenu: onBack });
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
   const { getViewSettings, setViewSettings } = useReaderStore();
@@ -70,18 +73,23 @@ const WordLensPanel: React.FC<WordLensPanelProps> = ({ bookKey, onBack }) => {
     null,
   );
   const [resolving, setResolving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
 
-  // Fetch the manifest once on mount to filter the hint-language selector and
-  // resolve the data-pack row. If it fails, the selector falls back to the full
-  // TRANSLATED_LANGS list (see availableTargets below).
+  // Opening this resource page requests its catalog, preferring the local copy.
+  // A failed request stays local until the user explicitly presses Refresh.
   useEffect(() => {
     if (!appService) return;
     let cancelled = false;
-    void fetchManifest(appService).then((m) => {
-      if (!cancelled) setManifest(m);
-    });
+    setRefreshing(true);
+    void fetchManifest(appService)
+      .then((m) => {
+        if (!cancelled) setManifest(m);
+      })
+      .finally(() => {
+        if (!cancelled) setRefreshing(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -235,6 +243,16 @@ const WordLensPanel: React.FC<WordLensPanelProps> = ({ bookKey, onBack }) => {
     }
   };
 
+  const handleRefresh = async () => {
+    if (!appService || refreshing) return;
+    setRefreshing(true);
+    try {
+      setManifest(await fetchManifest(appService, { force: true }));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!appService || !packStatus) return;
     await deletePack(appService, packStatus.pack);
@@ -251,7 +269,7 @@ const WordLensPanel: React.FC<WordLensPanelProps> = ({ bookKey, onBack }) => {
         />
       );
     }
-    if (resolving) {
+    if (resolving || refreshing) {
       return (
         <SettingsRow label={_('Data pack')}>
           <span className='loading loading-spinner loading-sm' />
@@ -262,7 +280,11 @@ const WordLensPanel: React.FC<WordLensPanelProps> = ({ bookKey, onBack }) => {
       return (
         <SettingsRow
           label={_('Data pack')}
-          description={_('No data available for this language pair yet.')}
+          description={
+            manifest
+              ? _('No data available for this language pair yet.')
+              : _('Failed to download Word Lens data')
+          }
         />
       );
     }
@@ -314,7 +336,7 @@ const WordLensPanel: React.FC<WordLensPanelProps> = ({ bookKey, onBack }) => {
   };
 
   return (
-    <div className={clsx('my-4 w-full space-y-6')}>
+    <div ref={panelRef} className={clsx('my-4 w-full space-y-6')}>
       <SubPageHeader
         parentLabel={_('Language')}
         currentLabel={_('Word Lens')}
@@ -399,6 +421,16 @@ const WordLensPanel: React.FC<WordLensPanelProps> = ({ bookKey, onBack }) => {
       </BoxedList>
 
       <BoxedList title={_('Data')}>
+        <SettingsRow label={_('Available data packs')}>
+          <button
+            type='button'
+            onClick={handleRefresh}
+            aria-busy={refreshing}
+            className='btn btn-ghost btn-sm eink-bordered shrink-0'
+          >
+            {_('Refresh')}
+          </button>
+        </SettingsRow>
         {renderDataPackRow()}
         <SettingsSwitchRow
           label={_('Auto-download')}

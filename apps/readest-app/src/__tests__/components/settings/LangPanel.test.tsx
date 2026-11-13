@@ -11,7 +11,7 @@
  * an already-on book stays toggleable so the user can turn it back off.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, cleanup, screen, fireEvent } from '@testing-library/react';
+import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react';
 
 import LangPanel from '@/components/settings/LangPanel';
 import { saveViewSettings } from '@/helpers/settings';
@@ -53,6 +53,12 @@ vi.mock('@/hooks/useResetSettings', () => ({
 
 vi.mock('@/hooks/useKeyDownActions', () => ({
   useKeyDownActions: () => {},
+}));
+
+vi.mock('@/components/settings/WordLensPanel', () => ({
+  default: ({ onBack }: { onBack: () => void }) => (
+    <button onClick={onBack}>Back from Word Lens</button>
+  ),
 }));
 
 const viewSettings = () =>
@@ -156,6 +162,26 @@ describe('LangPanel — Enable Translation availability', () => {
 
     expect(getEnableTranslationToggle().disabled).toBe(false);
   });
+});
+
+it('restores TV focus to the Word Lens entry after leaving its subpage', async () => {
+  vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+  try {
+    render(<LangPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
+    const entry = screen.getByRole('button', { name: /^Word Lens/ });
+    entry.focus();
+    fireEvent.click(entry);
+    const back = screen.getByRole('button', { name: 'Back from Word Lens' });
+    back.focus();
+    fireEvent.click(back);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: /^Word Lens/ })),
+    );
+  } finally {
+    cleanup();
+    vi.unstubAllEnvs();
+  }
 });
 
 const encode = (part: object) => Buffer.from(JSON.stringify(part)).toString('base64url');

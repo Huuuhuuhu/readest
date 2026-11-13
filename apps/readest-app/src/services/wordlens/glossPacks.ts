@@ -1,8 +1,7 @@
 import { isWebAppPlatform } from '@/services/environment';
-import { downloadFile } from '@/libs/storage';
 import type { AppService } from '@/types/system';
 import type { ProgressHandler } from '@/utils/transfer';
-import { webDownload } from '@/utils/transfer';
+import { tauriDownload, webDownload } from '@/utils/transfer';
 import { GlossIndex } from './glossIndex';
 import type { GlossIndexData } from './types';
 
@@ -47,8 +46,8 @@ const ensureStoreDir = async (appService: AppService): Promise<void> => {
   }
 };
 
-// Type of the (injectable) Rust-backed downloader, matching libs/storage's
-// `downloadFile`. Injected so the temp-file path can be unit-tested.
+// The public download path deliberately has no cloud-storage/auth dependency.
+// Injected so the native temp-file path can be unit-tested.
 type DownloadFileFn = (params: {
   appService: AppService;
   dst: string;
@@ -65,8 +64,8 @@ type DownloadFileFn = (params: {
  * `resolveFilePath(rel, 'Data')` and addressed with base 'None'), mirroring
  * the OPDS auto-download idiom in `services/opds/autoDownload.ts`. Routing
  * through Rust (rather than a webview fetch) avoids cross-origin/CORS concerns
- * on the webview — CSP itself is fine, since tauri.conf's connect-src
- * whitelists https://*.readest.com.
+ * on the webview. Only the requested public resource URL is passed to the
+ * downloader; there is no signed-URL lookup or Readest account credential.
  */
 export const downloadViaTempFile = async (
   appService: AppService,
@@ -79,8 +78,8 @@ export const downloadViaTempFile = async (
   crypto.getRandomValues(ids);
   const tmpRel = `${STORE_DIR}/.dl-${ids[0]!.toString(36)}.tmp`;
   const dst = await appService.resolveFilePath(tmpRel, 'Data'); // ABSOLUTE path under Data
-  await downloadFileFn({ appService, dst, cfp: dst, url, onProgress, singleThreaded: true });
   try {
+    await downloadFileFn({ appService, dst, cfp: dst, url, onProgress, singleThreaded: true });
     return (await appService.readFile(dst, 'None', 'binary')) as ArrayBuffer;
   } finally {
     try {
@@ -93,8 +92,7 @@ export const downloadViaTempFile = async (
 
 // Default cross-platform downloader. On web a plain fetch to the CDN works and
 // gives streaming progress; on Tauri we route through the Rust download path to
-// avoid cross-origin/CORS concerns on the webview (CSP is fine — tauri.conf's
-// connect-src whitelists https://*.readest.com), writing to a temp file and
+// avoid cross-origin/CORS concerns on the webview, writing to a temp file and
 // reading the bytes back for hashing.
 export const defaultDownloader = async (
   appService: AppService,
@@ -105,7 +103,12 @@ export const defaultDownloader = async (
     const { blob } = await webDownload(url, onProgress);
     return await blob.arrayBuffer();
   }
-  return downloadViaTempFile(appService, downloadFile, url, onProgress);
+  return downloadViaTempFile(
+    appService,
+    ({ dst, url, onProgress }) => tauriDownload(url, dst, onProgress, undefined, undefined, true),
+    url,
+    onProgress,
+  );
 };
 
 const getDownloader =
@@ -124,11 +127,15 @@ export const resolvePack = (
 export const listAvailableTargets = (manifest: WordLensManifest | null, source: string): string[] =>
   manifest?.packs.filter((p) => p.source === source).map((p) => p.target) ?? [];
 
-// In-session memoized manifest (one network attempt per session unless forced).
+// Prefer the persisted public catalog. Only an explicit refresh bypasses it;
+// an offline-only reader must never wait for another caller's network request.
 let manifestPromise: Promise<WordLensManifest | null> | null = null;
 
 // Module-level lazy cache: one resolved GlossIndex per pair per session.
 const indexCache = new Map<string, Promise<GlossIndex | null>>();
+// A failed optional download must not restart on every chapter/style refresh.
+// Explicit downloads from Settings can retry and clear this session-only latch.
+const failedAutomaticDownloads = new Set<string>();
 
 const readPersistedManifest = async (appService: AppService): Promise<WordLensManifest | null> => {
   try {
@@ -142,11 +149,14 @@ const readPersistedManifest = async (appService: AppService): Promise<WordLensMa
 
 export const fetchManifest = async (
   appService: AppService,
-  opts?: { download?: BytesDownloader; force?: boolean },
+  opts?: { download?: BytesDownloader; force?: boolean; allowDownload?: boolean },
 ): Promise<WordLensManifest | null> => {
+  if (opts?.allowDownload === false) return readPersistedManifest(appService);
   if (manifestPromise && !opts?.force) return manifestPromise;
   const download = getDownloader(appService, opts?.download);
   manifestPromise = (async () => {
+    const persisted = await readPersistedManifest(appService);
+    if (persisted && !opts?.force) return persisted;
     try {
       const bytes = await download(`${WORDLENS_CDN_BASE}/${MANIFEST_FILE}`);
       const text = new TextDecoder().decode(bytes);
@@ -156,7 +166,7 @@ export const fetchManifest = async (
       return manifest;
     } catch (err) {
       console.warn('[wordlens] manifest fetch failed; trying persisted copy', err);
-      return readPersistedManifest(appService);
+      return persisted;
     }
   })();
   return manifestPromise;
@@ -209,6 +219,7 @@ const ensurePackUncached = async (
   // "[object ArrayBuffer]". Re-encoding valid UTF-8 JSON is byte-identical.
   await appService.writeFile(dst, 'Data', new TextDecoder().decode(bytes));
   await appService.writeFile(sidecar, 'Data', pack.sha256);
+  failedAutomaticDownloads.delete(pack.file);
   return dst;
 };
 
@@ -217,6 +228,7 @@ export const ensurePack = async (
   pack: WordLensPack,
   opts?: { onProgress?: ProgressHandler; download?: BytesDownloader; allowDownload?: boolean },
 ): Promise<string | null> => {
+  if (opts?.allowDownload === false) return ensurePackUncached(appService, pack, opts);
   const existing = ensureFlights.get(pack.pair);
   if (existing) return existing;
   const flight = ensurePackUncached(appService, pack, opts).finally(() => {
@@ -267,7 +279,8 @@ export const deletePack = async (appService: AppService, pack: WordLensPack): Pr
       /* best-effort: ignore not-found */
     }
   }
-  indexCache.delete(`${pack.source}-${pack.target}`);
+  indexCache.delete(`${pack.source}-${pack.target}:local`);
+  indexCache.delete(`${pack.source}-${pack.target}:online`);
 };
 
 export const loadGlossIndex = async (
@@ -276,20 +289,27 @@ export const loadGlossIndex = async (
   hint: string,
   opts?: { onProgress?: ProgressHandler; download?: BytesDownloader; allowDownload?: boolean },
 ): Promise<GlossIndex | null> => {
-  const key = `${source}-${hint}`;
+  // Keep a local lookup independent of an in-flight automatic network download.
+  const key = `${source}-${hint}:${opts?.allowDownload === false ? 'local' : 'online'}`;
   const existing = indexCache.get(key);
   if (existing) return existing;
   const promise = (async () => {
     try {
-      const manifest = await fetchManifest(appService, { download: opts?.download });
+      const manifest = await fetchManifest(appService, {
+        download: opts?.download,
+        allowDownload: opts?.allowDownload,
+      });
       const pack = resolvePack(manifest, source, hint);
       if (!pack) return null;
       const path = await ensurePack(appService, pack, {
         onProgress: opts?.onProgress,
         download: opts?.download,
-        allowDownload: opts?.allowDownload,
+        allowDownload: opts?.allowDownload !== false && !failedAutomaticDownloads.has(pack.file),
       });
-      if (!path) return null;
+      if (!path) {
+        if (opts?.allowDownload !== false) failedAutomaticDownloads.add(pack.file);
+        return null;
+      }
       // Tolerate a non-decoding 'text' read (web stores ArrayBuffer verbatim) so an
       // already-cached pack from before the write-as-text fix still loads.
       const raw = await appService.readFile(path, 'Data', 'text');
