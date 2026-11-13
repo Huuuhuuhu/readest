@@ -47,6 +47,39 @@ afterEach(() => {
 });
 
 describe('TV remote input ownership', () => {
+  it('focuses the current chapter when a virtual list mounts after its scope', async () => {
+    removeScope();
+    const root = document.querySelector('main')!;
+    removeScope = registerTVScope({
+      element: root,
+      initialFocus: () => root.querySelector('[aria-current="page"]'),
+    });
+    await Promise.resolve();
+    const chapter = document.createElement('button');
+    chapter.textContent = 'Current chapter';
+    chapter.setAttribute('aria-current', 'page');
+    root.append(chapter);
+    await Promise.resolve();
+    expect(document.activeElement).toBe(chapter);
+  });
+
+  it('does not steal focus when a delayed current chapter arrives after manual navigation', async () => {
+    removeScope();
+    const root = document.querySelector('main')!;
+    removeScope = registerTVScope({
+      element: root,
+      initialFocus: () => root.querySelector('[aria-current="page"]'),
+    });
+    await Promise.resolve();
+    press('ArrowDown');
+    const chosen = document.activeElement;
+    const chapter = document.createElement('button');
+    chapter.setAttribute('aria-current', 'page');
+    root.append(chapter);
+    await Promise.resolve();
+    expect(document.activeElement).toBe(chosen);
+  });
+
   it('moves down to the next setting row even when its input is right aligned', () => {
     const [contents, theme] = document.querySelectorAll('button');
     const input = document.querySelector('input')!;

@@ -103,11 +103,32 @@ export const registerTVScope = (scope: TVScope): (() => void) => {
   const previous = scope.element.ownerDocument.activeElement as HTMLElement | null;
   scopes.push(scope);
   revision++;
+  let observer: MutationObserver | undefined;
+  const stopInitialFocus = () => {
+    observer?.disconnect();
+    scope.element.removeEventListener('focusin', stopInitialFocus);
+    scope.element.removeEventListener('click', stopInitialFocus, true);
+  };
   // Layout effects may register before the new surface has its final geometry.
   queueMicrotask(() => {
-    if (getTVScope() === scope) focusScope(scope);
+    if (getTVScope() !== scope) return;
+    focusScope(scope);
+    if (!scope.initialFocus || scope.initialFocus()) return;
+    // Virtualized chapters can mount after their surrounding panel. Resolve
+    // the initial target once, unless the user already chose another control.
+    observer = new MutationObserver(() => {
+      if (getTVScope() !== scope) return stopInitialFocus();
+      const target = scope.initialFocus?.();
+      if (!target || !isTVVisible(target)) return;
+      stopInitialFocus();
+      focusTV(target);
+    });
+    observer.observe(scope.element, { childList: true, subtree: true, attributes: true });
+    scope.element.addEventListener('focusin', stopInitialFocus);
+    scope.element.addEventListener('click', stopInitialFocus, true);
   });
   return () => {
+    stopInitialFocus();
     const active = scope.element.ownerDocument.activeElement as HTMLElement | null;
     if (scope.id && active && scope.element.contains(active) && identity(active))
       rememberedFocus.set(scope.id, identity(active)!);

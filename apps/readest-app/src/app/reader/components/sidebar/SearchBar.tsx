@@ -347,6 +347,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ isVisible, bookKey, onHideSearchB
 
         <input
           ref={inputRef}
+          data-tv-search
           type='text'
           value={searchTerm}
           spellCheck={false}

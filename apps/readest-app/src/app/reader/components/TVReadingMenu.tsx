@@ -10,6 +10,8 @@ import { useBookDataStore } from '@/store/bookDataStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useThemeStore } from '@/store/themeStore';
 import { saveViewSettings } from '@/helpers/settings';
+import { getMaxInlineSize } from '@/utils/config';
+import { applyPageTurnAttributes } from '../hooks/useCapturedTurn';
 import { eventDispatcher } from '@/utils/event';
 import { FONT_SIZE_STEP, MAX_FONT_SIZE, MIN_FONT_SIZE } from '@/services/constants';
 import type { ViewSettings } from '@/types/book';
@@ -37,7 +39,30 @@ export default function TVReadingMenu({
     saveQueue.current = saveQueue.current
       .catch(() => {})
       .then(async () => {
+        const reader = useReaderStore.getState();
+        const targets =
+          reader.getViewSettings(bookKey)?.isGlobal === false ? [bookKey] : reader.bookKeys;
         await saveViewSettings(envConfig, bookKey, key, value);
+        // These renderer attributes are separate from the CSS applied by the
+        // shared persistence helper, just as in LayoutPanel and ControlPanel.
+        if (key === 'maxColumnCount' || key === 'scrolled') {
+          for (const target of targets) {
+            const view = reader.getView(target);
+            const fresh = reader.getViewSettings(target);
+            if (!view || !fresh) continue;
+            view.renderer.setAttribute('max-inline-size', `${getMaxInlineSize(fresh)}px`);
+            if (key === 'maxColumnCount') {
+              view.renderer.setAttribute('max-column-count', `${fresh.maxColumnCount}`);
+            } else {
+              view.renderer.setAttribute('flow', fresh.scrolled ? 'scrolled' : 'paginated');
+              applyPageTurnAttributes(
+                view,
+                fresh,
+                !!useBookDataStore.getState().getBookData(target)?.isFixedLayout,
+              );
+            }
+          }
+        }
         setError('');
       })
       .catch(() => setError(_('Could not save settings')));

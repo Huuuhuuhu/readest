@@ -124,7 +124,11 @@ const SideBar = ({}) => {
     onBack: handleClickOverlay,
     onMenu: handleClickOverlay,
     initialFocus: () =>
-      sidebarRef.current?.querySelector<HTMLElement>('[aria-current="page"]') ?? null,
+      sidebarRef.current?.querySelector<HTMLElement>(
+        isSearchBarVisible
+          ? '[data-tv-search]'
+          : '[aria-current="page"], [aria-current="true"], [data-tv-empty-toc]',
+      ) ?? null,
   });
 
   const handleToggleSearchBar = () => {

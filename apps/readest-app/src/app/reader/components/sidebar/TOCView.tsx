@@ -78,7 +78,6 @@ const TOCView: React.FC<{
   const [jumpError, setJumpError] = useState('');
   const pendingTVIndex = useRef<number | null>(null);
   const pendingTVChapter = useRef<TOCItem | null>(null);
-  const tvInitialFocusDone = useRef(false);
   const { getView, getViewSettings, getProgress } = useReaderStore();
   const { sideBarBookKey, isSideBarVisible } = useSidebarStore();
   const progress = getProgress(bookKey);
@@ -288,18 +287,15 @@ const TOCView: React.FC<{
   useEffect(() => {
     if (!isTVMode()) return;
     if (!isSideBarVisible || sideBarBookKey !== bookKey) {
-      tvInitialFocusDone.current = false;
       pendingTVIndex.current = null;
       pendingTVChapter.current = null;
       return;
     }
     const pending = pendingTVChapter.current;
-    const index = pending
-      ? displayItems.findIndex((row) => 'item' in row && row.item === pending)
-      : findActiveRowIndex(displayItems, activeHref, currentPage);
-    if (index >= 0 && (pending || !tvInitialFocusDone.current)) {
+    if (!pending) return;
+    const index = displayItems.findIndex((row) => 'item' in row && row.item === pending);
+    if (index >= 0) {
       pendingTVChapter.current = null;
-      tvInitialFocusDone.current = true;
       focusTVIndex(index);
     }
   }, [
@@ -329,7 +325,6 @@ const TOCView: React.FC<{
     });
     observer.observe(root, { childList: true, subtree: true });
     const navigate = (event: Event) => {
-      tvInitialFocusDone.current = true;
       const source = (event.target as HTMLElement)?.closest<HTMLElement>('[data-tv-toc-index]');
       if (!source) return;
       const index = Number(source.dataset['tvTocIndex']);
@@ -478,6 +473,7 @@ const TOCView: React.FC<{
             {_('Current Chapter')}
           </button>
           <input
+            data-tv-empty-toc={!chapters.length ? '' : undefined}
             aria-label={
               chapters.length
                 ? _('Chapter number')

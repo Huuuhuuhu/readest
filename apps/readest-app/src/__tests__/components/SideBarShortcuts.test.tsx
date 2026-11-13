@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
@@ -105,7 +105,9 @@ vi.mock('@/components/Overlay', () => ({ Overlay: () => null }));
 vi.mock('@/app/reader/components/sidebar/Header', () => ({ default: () => null }));
 vi.mock('@/app/reader/components/sidebar/Content', () => ({ default: () => null }));
 vi.mock('@/app/reader/components/sidebar/BookCard', () => ({ default: () => null }));
-vi.mock('@/app/reader/components/sidebar/SearchBar', () => ({ default: () => null }));
+vi.mock('@/app/reader/components/sidebar/SearchBar', () => ({
+  default: () => <input data-tv-search aria-label='Search book' />,
+}));
 vi.mock('@/app/reader/components/sidebar/SearchResults', () => ({ default: () => null }));
 
 import SideBar from '@/app/reader/components/sidebar/SideBar';
@@ -122,6 +124,17 @@ describe('SideBar Escape shortcut', () => {
 
   afterEach(() => {
     cleanup();
+    vi.unstubAllEnvs();
+  });
+
+  test('opens TV search at its input in navigation mode, not at the resize handle', async () => {
+    vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    render(<SideBar />);
+    await act(async () => {});
+    const input = screen.getByRole('textbox', { name: 'Search book' }) as HTMLInputElement;
+    expect(document.activeElement).toBe(input);
+    expect(input.readOnly).toBe(true);
   });
 
   test.each([false, true])('closes an empty search bar before a pinned=%s sidebar', (pinned) => {
