@@ -79,14 +79,14 @@ for (const [stage, fullRefresh] of [false, true].entries()) {
       expect(h.pull).toHaveBeenCalledWith(fullRefresh, true);
     });
 
-    it('prompts for sign-in when the only file backend is paused by the plan gate', async () => {
+    it('never prompts for sign-in when the only file backend is configured without an application account', async () => {
       const settings = useSettingsStore.getState().settings;
       useSettingsStore.setState({
         settings: { ...settings, webdav: { ...settings.webdav, enabled: true } },
       });
       await refresh();
-      expect(h.login).toHaveBeenCalledWith(h.router);
-      expect(h.pull).not.toHaveBeenCalled();
+      expect(h.login).not.toHaveBeenCalled();
+      expect(h.pull).toHaveBeenCalledWith(fullRefresh, true);
     });
 
     it('refreshes OPDS even when a configured file backend is paused', async () => {
@@ -114,10 +114,10 @@ for (const [stage, fullRefresh] of [false, true].entries()) {
       expect(h.abs).toHaveBeenCalledOnce();
     });
 
-    it('prompts for sign-in when no external sources are configured', async () => {
+    it('never prompts for sign-in when no external sources are configured', async () => {
       await refresh();
-      expect(h.login).toHaveBeenCalledWith(h.router);
-      expect(h.pull).not.toHaveBeenCalled();
+      expect(h.login).not.toHaveBeenCalled();
+      expect(h.pull).toHaveBeenCalledWith(fullRefresh, true);
       expect(h.opds).not.toHaveBeenCalled();
       expect(h.abs).not.toHaveBeenCalled();
     });
@@ -132,7 +132,7 @@ for (const [stage, fullRefresh] of [false, true].entries()) {
         { id: 'gone', name: 'Gone', url: 'https://audio.example', deletedAt: 1 },
       ];
       await refresh();
-      expect(h.login).toHaveBeenCalledOnce();
+      expect(h.login).not.toHaveBeenCalled();
     });
 
     it('keeps signed-in cloud refresh and waits for source checks to finish', async () => {

@@ -115,7 +115,7 @@ describe('BookOrbitClient', () => {
     expect((err as BookOrbitRequestError).status).toBe(500);
   });
 
-  it('routes public servers through the web proxy with the payload envelope', async () => {
+  it('contacts the configured server directly without an official proxy', async () => {
     const fetchMock = setFetch(async () =>
       jsonResponse(200, { pluginVersion: '1', serverVersion: '2', capabilities: ['bookmarkSync'] }),
     );
@@ -125,10 +125,8 @@ describe('BookOrbitClient', () => {
     expect(version.capabilities).toEqual(['bookmarkSync']);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://books.example.com/api/v1/koreader/plugin/version');
-    const payload = JSON.parse(init.body as string) as Record<string, unknown>;
-    expect(payload['serverUrl']).toBe('https://books.example.com');
-    expect(payload['endpoint']).toBe('/plugin/version');
-    expect(payload['method']).toBe('GET');
+    expect(init.method).toBe('GET');
+    expect(init.body).toBeUndefined();
   });
 
   it('caches getVersion per client instance', async () => {

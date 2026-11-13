@@ -139,6 +139,15 @@ export default function TVReadingMenu({
           >
             {_('Read Aloud')}
           </button>
+          <button
+            className={actionClass}
+            onClick={() => {
+              onClose();
+              eventDispatcher.dispatch('toggle-paragraph-mode', { bookKey });
+            }}
+          >
+            选文与段落阅读
+          </button>
           <button className={actionClass} onClick={() => openSidebar(true)}>
             {_('Search in Book')}
           </button>

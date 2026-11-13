@@ -33,6 +33,14 @@ fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "start_server",
+            "tv_portal_start",
+            "tv_portal_status",
+            "tv_portal_stop",
+            "tv_portal_control",
+            "tv_portal_respond",
+            "tv_portal_request_valid",
+            "tv_portal_take_upload",
+            "tv_portal_finish_upload",
             "download_file",
             "upload_file",
             "get_environment_variable",
@@ -56,7 +64,6 @@ fn main() {
             "parse_pdf_metadata",
             "render_pdf_cover",
             "auth_with_safari",
-            "start_apple_sign_in",
             "set_traffic_lights",
             "set_window_title",
             "show_lookup_popover",

@@ -666,28 +666,26 @@ describe('TTSPlayerSheet', () => {
     expect(routerPush).not.toHaveBeenCalled();
   });
 
-  test('offline audio row: a free user sees a Premium badge and is routed to upgrade', () => {
+  test('offline audio opens chapter downloads without a membership', () => {
     mockQuota.userProfilePlan = 'free';
     const props = makeProps({ downloads: makeDownloads() });
     render(<TTSPlayerSheet {...props} />);
-    expect(screen.getByText('Premium')).toBeTruthy();
-    expect(screen.getByText('Download chapters for offline playback')).toBeTruthy();
+    expect(screen.queryByText('Premium')).toBeNull();
     fireEvent.click(screen.getByLabelText('Offline Audio'));
-    expect(routerPush).toHaveBeenCalledWith(expect.stringMatching(/^\/user\?redirect=/));
-    expect(props.onClose).toHaveBeenCalled();
-    // The premium chapters view must not open for a free user.
-    expect(screen.queryByText('chapters-view')).toBeNull();
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(props.onClose).not.toHaveBeenCalled();
+    expect(screen.getByText('chapters-view')).toBeTruthy();
   });
 
-  test('offline audio row: a signed-out user is routed to sign-in', () => {
+  test('offline audio is available without signing in', () => {
     mockAuth.user = null;
     mockQuota.userProfilePlan = undefined;
     const props = makeProps({ downloads: makeDownloads() });
     render(<TTSPlayerSheet {...props} />);
-    expect(screen.getByText('Premium')).toBeTruthy();
+    expect(screen.queryByText('Premium')).toBeNull();
     fireEvent.click(screen.getByLabelText('Offline Audio'));
-    expect(routerPush).toHaveBeenCalledWith(expect.stringContaining('/auth?redirect='));
-    expect(screen.queryByText('chapters-view')).toBeNull();
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(screen.getByText('chapters-view')).toBeTruthy();
   });
 
   // Books with recorded narration (EPUB 3 Media Overlays) surface the narrator
@@ -743,12 +741,12 @@ describe('TTSPlayerSheet', () => {
     expect(viewSettings['ttsUseNarration']).toBeUndefined();
   });
 
-  test('a voice row names its gender and language, and premium voices the plan', async () => {
+  test('a voice row names its gender and language without membership badges', async () => {
     const groups = [
       {
-        id: 'readest-tts',
-        name: 'Readest Voice',
-        engine: 'readest-tts',
+        id: 'custom-tts',
+        name: 'Custom Voice',
+        engine: 'custom-tts',
         voices: [
           {
             id: 'omnivoice:xiaoyu',
@@ -780,12 +778,12 @@ describe('TTSPlayerSheet', () => {
     const xiaoyu = await waitFor(() => row('Xiaoyu'));
     // A locked voice is greyed and badged with the plan that unlocks it.
     expect(xiaoyu.innerHTML).toContain('text-base-content/60');
-    expect(xiaoyu.textContent).toContain('Pro');
+    expect(xiaoyu.textContent).not.toContain('Pro');
     const ava = row('Ava');
     expect(ava.textContent).toContain('Female');
     expect(ava.textContent).toMatch(/English \(United States\) · Multilingual/);
     // Every engine is listed under its own heading, none folded away.
-    expect(screen.getByRole('heading', { name: 'Readest Voice' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Custom Voice' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Edge TTS' })).toBeTruthy();
   });
 

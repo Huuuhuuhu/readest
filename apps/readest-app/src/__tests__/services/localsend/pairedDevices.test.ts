@@ -77,8 +77,8 @@ describe('canAutoAccept', () => {
     expect(canAutoAccept({ fingerprint: 'F2', certVerified: true })).toBe(false);
   });
 
-  it('never auto-accepts without the plan entitlement (records persist)', () => {
-    expect(canAutoAccept({ fingerprint: 'F1', certVerified: true })).toBe(false);
+  it('accepts a verified paired certificate without application entitlement', () => {
+    expect(canAutoAccept({ fingerprint: 'F1', certVerified: true })).toBe(true);
     expect(isPairedDevice('F1')).toBe(true);
   });
 });

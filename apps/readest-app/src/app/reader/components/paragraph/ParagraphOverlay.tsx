@@ -1,6 +1,9 @@
 'use client';
 
 import clsx from 'clsx';
+import { useTVScope } from '@/hooks/useTVScope';
+import { isTVMode } from '@/utils/tvInput';
+import NumberInput from '@/components/settings/NumberInput';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { ViewSettings } from '@/types/book';
 import { Insets } from '@/types/misc';
@@ -198,6 +201,19 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
   const paragraphIdCounter = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [tvPrecise, setTVPrecise] = useState(false);
+  const [tvStart, setTVStart] = useState(1);
+  const [tvEnd, setTVEnd] = useState(1);
+  const [tvLength, setTVLength] = useState(1);
+  useTVScope(containerRef, isVisible && isTVMode(), {
+    id: 'paragraph',
+    priority: 60,
+    onBack: () => {
+      if (tvPrecise) setTVPrecise(false);
+      else onClose?.();
+    },
+    onMenu: () => onClose?.(),
+  });
   const lastScrollTime = useRef(0);
   const onCloseRef = useRef(onClose);
   // The focused paragraph's live range in the book document, so a selection
@@ -405,6 +421,11 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
         setIsOverlayMounted(true);
         setFocusIndex(typeof event.detail?.index === 'number' ? event.detail.index : -1);
         sourceRangeRef.current = range;
+        const count = Array.from(rangeTextExcludingInert(range)).length;
+        setTVLength(Math.max(1, count));
+        setTVStart(1);
+        setTVEnd(Math.max(1, count));
+        setTVPrecise(false);
         clearReportedSelection();
         addParagraph(range, presentation);
       }
@@ -479,6 +500,7 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
   // toggle therefore fires exactly once.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (isTVMode()) return;
       e.stopPropagation();
 
       if (e.key === 'Escape' || e.key === 'Backspace') {
@@ -912,6 +934,26 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
     [appService?.isMobile],
   );
 
+  const selectForTV = (precise: boolean) => {
+    const root = getCloneRoot();
+    if (!root) return;
+    const full = document.createRange();
+    full.selectNodeContents(root);
+    const chars = Array.from(rangeTextExcludingInert(full));
+    const start = precise ? Math.max(0, Math.min(tvStart - 1, chars.length - 1)) : 0;
+    const end = precise ? Math.max(start + 1, Math.min(tvEnd, chars.length)) : chars.length;
+    const range = getTextSubRange(
+      full,
+      chars.slice(0, start).join('').length,
+      chars.slice(0, end).join('').length,
+    );
+    if (!range) return;
+    const selection = document.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    reportSelection();
+  };
+
   if (!isVisible) return null;
 
   return (
@@ -944,6 +986,68 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
       onTouchStart={handleTouchStart}
       onKeyDown={handleKeyDown}
     >
+      {isTVMode() && (
+        <div
+          className='bg-base-100 absolute inset-x-4 top-3 z-30 rounded border p-3'
+          onClick={(event) => event.stopPropagation()}
+        >
+          <p>段落选择：方向键选择，确认操作。可选整段，再高亮、批注、翻译或复制。</p>
+          <div className='flex flex-wrap gap-2'>
+            <button
+              className='btn eink-bordered'
+              onClick={() => eventDispatcher.dispatch('paragraph-prev', { bookKey })}
+            >
+              上一段
+            </button>
+            <button
+              className='btn eink-bordered'
+              onClick={() => eventDispatcher.dispatch('paragraph-next', { bookKey })}
+            >
+              下一段
+            </button>
+            <button className='btn btn-contrast' onClick={() => selectForTV(false)}>
+              选择整段
+            </button>
+            <button className='btn eink-bordered' onClick={() => setTVPrecise((value) => !value)}>
+              精确选字
+            </button>
+            <button
+              className='btn eink-bordered'
+              onClick={() => eventDispatcher.dispatch('tts-toggle-play', { bookKey })}
+            >
+              朗读／暂停
+            </button>
+            <button className='btn eink-bordered' onClick={() => onClose?.()}>
+              退出段落模式
+            </button>
+          </div>
+          {tvPrecise && (
+            <div className='mt-2 flex items-center gap-4'>
+              <NumberInput
+                label='起始字'
+                value={tvStart}
+                min={1}
+                max={tvLength}
+                onChange={(value) => {
+                  setTVStart(value);
+                  if (value > tvEnd) setTVEnd(value);
+                }}
+              />
+              <NumberInput
+                label='结束字'
+                value={tvEnd}
+                min={tvStart}
+                max={tvLength}
+                onChange={setTVEnd}
+              />
+              <button className='btn btn-contrast' onClick={() => selectForTV(true)}>
+                确认选区
+              </button>
+              <p>左右调整字位，上下切换起点、终点和确认；返回回到整段操作。</p>
+            </div>
+          )}
+        </div>
+      )}
       {/* TTS "following audio" indicator, pinned top-center. Anchored below the
           top safe-area inset the overlay already accounts for; idle/unsupported
           render nothing so it stays out of the way when TTS isn't driving. */}

@@ -232,7 +232,8 @@ describe('TransferManager', () => {
       ]);
       transferManager.queueDownload(book);
       await vi.advanceTimersByTimeAsync(500);
-      expect(first['downloadBook']).toHaveBeenCalledTimes(1);
+      expect(runFileBookDownload).toHaveBeenCalledTimes(1);
+      expect((transferManager as unknown as { appService: unknown }).appService).toBe(first);
       expect(second['downloadBook']).not.toHaveBeenCalled();
     });
 
@@ -695,7 +696,7 @@ describe('TransferManager', () => {
       expect(transfer!.status).toBe('completed');
     });
 
-    test('successful download calls appService.downloadBook and updates book', async () => {
+    test('successful download uses the configured file provider and updates the book', async () => {
       const book = makeBook({ hash: 'h1', title: 'Test Download' });
       const appService = makeAppService();
       const updateBook = vi.fn().mockResolvedValue(undefined);
@@ -711,7 +712,8 @@ describe('TransferManager', () => {
 
       await vi.advanceTimersByTimeAsync(500);
 
-      expect(appService['downloadBook']).toHaveBeenCalled();
+      expect(runFileBookDownload).toHaveBeenCalled();
+      expect(appService['downloadBook']).not.toHaveBeenCalled();
       expect(updateBook).toHaveBeenCalled();
 
       const transfer = useTransferStore.getState().transfers[id];
@@ -761,7 +763,7 @@ describe('TransferManager', () => {
     test.each([
       true,
       false,
-    ])('falls back to Readest Cloud only when enabled (%s) after a file-provider miss', async (readestEnabled) => {
+    ])('never falls back to Readest Cloud after a file-provider miss (legacy enabled: %s)', async (readestEnabled) => {
       const book = makeBook({ uploadedAt: 1000 });
       const appService = makeAppService();
       const updateBook = vi.fn();
@@ -785,16 +787,12 @@ describe('TransferManager', () => {
       await vi.advanceTimersByTimeAsync(500);
 
       expect(runFileBookDownload).toHaveBeenCalled();
-      expect(appService['downloadBook']).toHaveBeenCalledTimes(readestEnabled ? 1 : 0);
-      expect(updateBook).toHaveBeenCalledTimes(readestEnabled ? 1 : 0);
-      expect(!!book.downloadedAt).toBe(readestEnabled);
+      expect(appService['downloadBook']).not.toHaveBeenCalled();
+      expect(updateBook).not.toHaveBeenCalled();
+      expect(!!book.downloadedAt).toBe(false);
       const transfer = useTransferStore.getState().transfers[id]!;
-      if (readestEnabled) {
-        expect(transfer.status).toBe('completed');
-      } else {
-        expect(transfer.status).not.toBe('completed');
-        expect(transfer.retryCount).toBeGreaterThan(0);
-      }
+      expect(transfer.status).not.toBe('completed');
+      expect(transfer.retryCount).toBeGreaterThan(0);
     });
 
     test('provider-owned file activity persists without occupying queue slots or being retried', async () => {

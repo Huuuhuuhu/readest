@@ -65,102 +65,33 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('Discord cover URL cache', () => {
-  it('names the uploaded file by cover hash so the public URL is content-addressed', async () => {
+describe('Discord presence without official cover hosting', () => {
+  it('uses an existing public cover supplied by metadata', async () => {
     const { updateDiscordPresence } = await loadDiscord();
     const appService = makeAppService();
-    appService.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
-
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-
-    expect(appService.uploadFileToCloud).toHaveBeenCalledWith(
-      'drp_coverhashabcd.jpg',
-      'drp_coverhashabcd.jpg',
-      'Cache',
-      expect.any(Function),
-      BOOK.hash,
-      true,
+    await updateDiscordPresence(
+      { ...BOOK, coverImageUrl: 'https://example.com/cover.jpg' },
+      123,
+      appService,
     );
+    expect(lastPresence()?.presence.coverUrl).toBe('https://example.com/cover.jpg');
+    expect(appService.uploadFileToCloud).not.toHaveBeenCalled();
   });
-
-  it('falls back to the book hash when the cover hash is unknown', async () => {
+  it('keeps local covers private on every presence tick', async () => {
     const { updateDiscordPresence } = await loadDiscord();
     const appService = makeAppService();
-    appService.exists.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
-
-    await updateDiscordPresence({ ...BOOK, coverHash: null } as Book, Date.now(), appService);
-
-    expect(appService.uploadFileToCloud).toHaveBeenCalledWith(
-      'drp_bookhash1234.jpg',
-      expect.anything(),
-      'Cache',
-      expect.any(Function),
-      BOOK.hash,
-      true,
-    );
-  });
-
-  it('reuses a successful URL without re-uploading', async () => {
-    const { updateDiscordPresence } = await loadDiscord();
-    const appService = makeAppService();
-
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-
-    expect(appService.uploadFileToCloud).toHaveBeenCalledTimes(1);
-    expect(lastPresence()?.presence.coverUrl).toBe('https://storage.readest.com/temp/img/u/c.jpg');
-  });
-
-  it('retries soon after a transient upload failure instead of waiting an hour', async () => {
-    const { updateDiscordPresence } = await loadDiscord();
-    const appService = makeAppService();
-    appService.uploadFileToCloud.mockRejectedValueOnce(new Error('network down'));
-
-    await updateDiscordPresence(BOOK, Date.now(), appService);
+    for (const offset of [0, 60_000, 3600_000]) {
+      await updateDiscordPresence(BOOK, offset, appService);
+    }
     expect(lastPresence()?.presence.coverUrl).toBeNull();
-
-    // The 15s presence tick must not hammer the upload endpoint.
-    vi.setSystemTime(new Date('2026-07-28T12:00:15Z'));
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-    expect(appService.uploadFileToCloud).toHaveBeenCalledTimes(1);
-
-    // ...but the cover comes back well within the old one-hour window.
-    vi.setSystemTime(new Date('2026-07-28T12:01:00Z'));
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-    expect(appService.uploadFileToCloud).toHaveBeenCalledTimes(2);
-    expect(lastPresence()?.presence.coverUrl).toBe('https://storage.readest.com/temp/img/u/c.jpg');
+    expect(appService.uploadFileToCloud).not.toHaveBeenCalled();
+    expect(processDiscordCoverMock).not.toHaveBeenCalled();
   });
-
-  it('backs off when transient failures keep repeating', async () => {
+  it('does not contact Discord on Android', async () => {
     const { updateDiscordPresence } = await loadDiscord();
     const appService = makeAppService();
-    appService.uploadFileToCloud.mockRejectedValue(new Error('network down'));
-
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-    vi.setSystemTime(new Date('2026-07-28T12:01:00Z'));
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-    expect(appService.uploadFileToCloud).toHaveBeenCalledTimes(2);
-
-    // Second failure doubles the window, so the next minute is a no-op.
-    vi.setSystemTime(new Date('2026-07-28T12:02:00Z'));
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-    expect(appService.uploadFileToCloud).toHaveBeenCalledTimes(2);
-
-    vi.setSystemTime(new Date('2026-07-28T12:03:00Z'));
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-    expect(appService.uploadFileToCloud).toHaveBeenCalledTimes(3);
-  });
-
-  it('does not re-check a missing cover on every tick', async () => {
-    const { updateDiscordPresence } = await loadDiscord();
-    const appService = makeAppService();
-    appService.exists.mockResolvedValue(false);
-
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-    vi.setSystemTime(new Date('2026-07-28T12:05:00Z'));
-    await updateDiscordPresence(BOOK, Date.now(), appService);
-
-    expect(appService.exists).toHaveBeenCalledTimes(1);
-    expect(lastPresence()?.presence.coverUrl).toBeNull();
+    appService.isDesktopApp = false;
+    await updateDiscordPresence(BOOK, 123, appService);
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });

@@ -41,7 +41,6 @@ import { isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
 import { useCustomOPDSStore } from '@/store/customOPDSStore';
 
 import { OPDSCatalog } from '@/types/opds';
-import { isLanAddress } from '@/utils/network';
 
 import { allowsSelfSignedCert } from '@/utils/tls';
 import { eventDispatcher } from '@/utils/event';
@@ -459,15 +458,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
     const urlLower = newCatalog.url.trim().toLowerCase();
     if (!urlLower.startsWith('http://') && !urlLower.startsWith('https://')) {
       setUrlError(_('URL must start with http:// or https://'));
-      return;
-    }
-
-    if (
-      process.env['NODE_ENV'] === 'production' &&
-      isWebAppPlatform() &&
-      isLanAddress(newCatalog.url)
-    ) {
-      setUrlError(_('Adding LAN addresses is not supported in the web app version.'));
       return;
     }
 

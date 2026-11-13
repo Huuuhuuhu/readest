@@ -130,7 +130,7 @@ describe('useOPDSSubscriptions', () => {
     );
   });
 
-  test('queues a cloud upload for a new book when Books sync is on', async () => {
+  test('imports a subscribed book locally without publishing to an official cloud', async () => {
     vi.useFakeTimers();
     try {
       useLibraryStore.getState().setLibrary([]);
@@ -147,7 +147,10 @@ describe('useOPDSSubscriptions', () => {
         vi.advanceTimersByTime(3000);
       });
 
-      expect(mockedQueueUpload).toHaveBeenCalledWith(book);
+      expect(mockedQueueUpload).not.toHaveBeenCalled();
+      expect(useLibraryStore.getState().visibleLibrary.some((b) => b.hash === book.hash)).toBe(
+        true,
+      );
     } finally {
       vi.useRealTimers();
     }

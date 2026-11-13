@@ -272,16 +272,16 @@ describe('BookDetailView offline Audiobookshelf download (#6256)', () => {
       ...overrides,
     });
 
-  it('offers the download with a Premium badge for users who need to upgrade', () => {
+  it('offers independent offline downloads without a membership badge', () => {
     const onDownloadOffline = vi.fn();
-    const { getByRole, getByText } = renderView({
+    const { getByRole, queryByText } = renderView({
       book: absBook(),
       onDownloadOffline,
     });
 
     fireEvent.click(getByRole('button', { name: /Download for Offline/ }));
     expect(onDownloadOffline).toHaveBeenCalledTimes(1);
-    expect(getByText('Premium')).toBeTruthy();
+    expect(queryByText('Premium')).toBeNull();
   });
 
   it('swaps the download for Remove from Device Only once the book is on the device', () => {

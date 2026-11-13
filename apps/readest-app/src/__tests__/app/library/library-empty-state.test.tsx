@@ -42,7 +42,7 @@ describe('LibraryEmptyState', () => {
     expect(screen.getByRole('heading', { name: 'Start your library' })).toBeTruthy();
     expect(screen.getByText(/drop a book anywhere on this window/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Import Books' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sign in to sync your library' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '下载免费示例书籍' })).toBeTruthy();
   });
 
   it('renders mobile description (no drag-drop language) when appService.isMobile', () => {

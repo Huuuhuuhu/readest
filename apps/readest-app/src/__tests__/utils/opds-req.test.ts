@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { deserializeCustomHeaders } from '@/utils/customHeaders';
 
 // Mock environment for web platform
 vi.mock('@/services/environment', () => ({
@@ -101,47 +100,20 @@ describe('opdsReq', () => {
     });
   });
 
-  describe('getProxiedURL', () => {
-    it('should generate proxy URL for image requests without auth', () => {
-      const imageUrl = 'http://my-opds-server.local/covers/book.jpg';
-      const proxied = getProxiedURL(imageUrl, true);
-      expect(proxied).toContain('/api/opds/proxy');
-      expect(proxied).toContain('url=' + encodeURIComponent(imageUrl));
-      expect(proxied).toContain('stream=true');
+  describe('direct catalog URLs', () => {
+    it.each([
+      'http://my-opds-server.local/covers/book.jpg',
+      'https://standardebooks.org/opds/all',
+      '/local/path/image.jpg',
+    ])('keeps %s direct', (url) => {
+      expect(getProxiedURL(url, true)).toBe(url);
     });
-
-    it('should include serialized custom headers in the proxy URL', () => {
-      const imageUrl = 'http://my-opds-server.local/covers/book.jpg';
-      const proxied = getProxiedURL(imageUrl, true, {
-        'CF-Access-Client-Id': 'client-id',
-        'CF-Access-Client-Secret': 'secret',
-      });
-      const params = new URL(proxied, 'https://web.readest.com').searchParams;
-
-      expect(deserializeCustomHeaders(params.get('headers'))).toEqual({
-        'CF-Access-Client-Id': 'client-id',
-        'CF-Access-Client-Secret': 'secret',
-      });
-    });
-
-    it('should strip credentials from URL before proxying', () => {
-      const imageUrl = 'http://user:pass@my-opds-server.local/covers/book.jpg';
-      const proxied = getProxiedURL(imageUrl);
-      expect(proxied).not.toContain('user:pass');
-      expect(proxied).toContain(
-        'url=' + encodeURIComponent('http://my-opds-server.local/covers/book.jpg'),
-      );
-    });
-
-    it('should return non-HTTP URLs unchanged', () => {
-      const localPath = '/local/path/image.jpg';
-      expect(getProxiedURL(localPath)).toBe(localPath);
-    });
-
-    it('should use node proxy for standardebooks domain', () => {
-      const url = 'https://standardebooks.org/opds/all';
-      const proxied = getProxiedURL(url);
-      expect(proxied).toContain('/node-api/opds/proxy');
+    it('never serializes connection headers or credentials into a URL', () => {
+      expect(
+        getProxiedURL('http://user:pass@my-opds-server.local/c.jpg', true, {
+          'CF-Access-Client-Secret': 'secret',
+        }),
+      ).toBe('http://my-opds-server.local/c.jpg');
     });
   });
 

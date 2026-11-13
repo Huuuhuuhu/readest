@@ -150,7 +150,7 @@ describe('ViewMenu sync row (issue #5910)', () => {
     expect(mockNavigateToLogin).not.toHaveBeenCalled();
   });
 
-  it('still routes to login when Readest Cloud is the only provider', () => {
+  it('does not open account flows for stale official provider data', () => {
     mockSyncStatus = {
       providers: [
         { kind: 'readest', name: 'Readest Cloud', lastSyncedAt: 0, syncing: false, failed: false },
@@ -165,8 +165,8 @@ describe('ViewMenu sync row (issue #5910)', () => {
     render(<ViewMenu bookKey='book-1' />);
     fireEvent.click(screen.getByText('Never synced'));
 
-    expect(mockNavigateToLogin).toHaveBeenCalled();
-    expect(mockDispatch.mock.calls.map((call) => call[0])).not.toContain('push-file-sync');
+    expect(mockNavigateToLogin).not.toHaveBeenCalled();
+    expect(mockDispatch.mock.calls.map((call) => call[0])).toContain('push-file-sync');
     // A lone Readest Cloud provider is not worth naming — the row means what it
     // always meant.
     expect(screen.queryByText('Synced via {{provider}}')).toBeNull();

@@ -4,7 +4,7 @@ use http_body_util::{BodyExt, Full, Limited};
 use hyper::{
     body::Incoming, server::conn::http1, service::service_fn, Method, Request, Response, StatusCode,
 };
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioIo, TokioTimer};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -185,6 +185,9 @@ fn snapshot(session: &Session, expose_token: bool) -> Result<PortalStatus, Strin
         uploads: d.uploads.clone(),
     })
 }
+fn active_capability(session: &Session, data: &Data, token: &str) -> bool {
+    !session.stop.is_cancelled() && now() < data.expires_at && data.token == token
+}
 fn response(code: StatusCode, data: impl Into<Bytes>, content_type: &str) -> Reply {
     Response::builder().status(code).header("Content-Type", content_type).header("Cache-Control", "no-store").header("X-Content-Type-Options", "nosniff").header("Referrer-Policy", "no-referrer").header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; media-src blob:; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'").body(Full::new(data.into())).unwrap()
 }
@@ -207,7 +210,7 @@ fn same_host(host: &str, data: &Data) -> bool {
         .iter()
         .any(|ip| host == format!("{ip}:{}", data.port))
 }
-fn authorized(req: &Request<Incoming>, data: &Data) -> bool {
+fn authorized<B>(req: &Request<B>, data: &Data) -> bool {
     let supplied = req
         .headers()
         .get("authorization")
@@ -234,14 +237,14 @@ async fn json_body(body: Incoming) -> Result<Value, ()> {
     .to_bytes();
     serde_json::from_slice(&bytes).map_err(|_| ())
 }
-async fn route<R: Runtime>(
+async fn route(
     req: Request<Incoming>,
     session: Arc<Session>,
-    app: AppHandle<R>,
+    emit: impl Fn(Value) + Send,
 ) -> Result<Reply, Infallible> {
     let path = req.uri().path().to_string();
     let method = req.method().clone();
-    {
+    let capability = {
         let Ok(data) = session.data.lock() else {
             return Ok(error(StatusCode::SERVICE_UNAVAILABLE, LOCK_ERROR));
         };
@@ -256,13 +259,14 @@ async fn route<R: Runtime>(
         {
             return Ok(error(StatusCode::FORBIDDEN, "地址或来源不匹配，请重新扫码"));
         }
-        if path.starts_with("/api/") && !authorized(&req, &data) {
+        if path.starts_with("/api/") && (session.stop.is_cancelled() || !authorized(&req, &data)) {
             return Ok(error(
                 StatusCode::UNAUTHORIZED,
                 "授权已过期或关闭，请在电视上重新开启并扫码",
             ));
         }
-    }
+        data.token.clone()
+    };
     if method == Method::GET {
         return Ok(match path.as_str() {
             "/" => response(StatusCode::OK, PAGE, "text/html; charset=utf-8"),
@@ -281,6 +285,9 @@ async fn route<R: Runtime>(
             let Ok(mut data) = session.data.lock() else {
                 return Ok(error(StatusCode::SERVICE_UNAVAILABLE, LOCK_ERROR));
             };
+            if !active_capability(&session, &data, &capability) {
+                return Ok(error(StatusCode::UNAUTHORIZED, "授权已失效，请重新扫码"));
+            }
             match data
                 .uploads
                 .iter_mut()
@@ -331,11 +338,18 @@ async fn route<R: Runtime>(
             }
             file.sync_all().await.map_err(|_| ())
         };
-        let success = tokio::select! { result = tokio::time::timeout(Duration::from_secs(15 * 60), transfer) => matches!(result, Ok(Ok(()))), _ = upload.cancel.cancelled() => false, _ = session.stop.cancelled() => false };
+        let mut success = tokio::select! { result = tokio::time::timeout(Duration::from_secs(15 * 60), transfer) => matches!(result, Ok(Ok(()))), _ = upload.cancel.cancelled() => false, _ = session.stop.cancelled() => false };
         if let Ok(mut data) = session.data.lock() {
+            success = success
+                && active_capability(&session, &data, &capability)
+                && !upload.cancel.is_cancelled();
             if let Some(u) = data.uploads.iter_mut().find(|u| u.id == upload.id) {
-                u.status = if success { "complete" } else { "failed" }.into();
+                if u.status == "receiving" {
+                    u.status = if success { "complete" } else { "failed" }.into();
+                }
             }
+        } else {
+            success = false;
         }
         if !success {
             let _ = tokio::fs::remove_file(path).await;
@@ -366,6 +380,9 @@ async fn route<R: Runtime>(
         let Ok(mut data) = session.data.lock() else {
             return Ok(error(StatusCode::SERVICE_UNAVAILABLE, LOCK_ERROR));
         };
+        if !active_capability(&session, &data, &capability) {
+            return Ok(error(StatusCode::UNAUTHORIZED, "授权已失效，请重新扫码"));
+        }
         if !data.accepting
             || data.uploads.iter().any(|u| {
                 ["pending", "ready", "receiving", "complete", "importing"]
@@ -393,6 +410,24 @@ async fn route<R: Runtime>(
             .collect();
         return Ok(result(json!({ "batch": batch, "files": data.uploads })));
     }
+    if path == "/api/cancel-batch" {
+        let Ok(mut data) = session.data.lock() else {
+            return Ok(error(StatusCode::SERVICE_UNAVAILABLE, LOCK_ERROR));
+        };
+        if !active_capability(&session, &data, &capability) {
+            return Ok(error(StatusCode::UNAUTHORIZED, "授权已失效，请重新扫码"));
+        }
+        let batch = body.get("batch").and_then(Value::as_str).unwrap_or("");
+        for upload in &mut data.uploads {
+            if upload.batch == batch
+                && ["pending", "ready", "receiving"].contains(&upload.status.as_str())
+            {
+                upload.cancel.cancel();
+                upload.status = "cancelled".into();
+            }
+        }
+        return Ok(result(json!({"ok": true})));
+    }
     if path == "/api/rpc" {
         let op = body.get("op").and_then(Value::as_str).unwrap_or("");
         if !["getConfig", "saveTTS", "deleteTTS", "testTTS"].contains(&op) {
@@ -404,15 +439,15 @@ async fn route<R: Runtime>(
             let Ok(mut data) = session.data.lock() else {
                 return Ok(error(StatusCode::SERVICE_UNAVAILABLE, LOCK_ERROR));
             };
+            if !active_capability(&session, &data, &capability) {
+                return Ok(error(StatusCode::UNAUTHORIZED, "授权已失效，请重新扫码"));
+            }
             if data.pending.len() >= 4 {
                 return Ok(error(StatusCode::TOO_MANY_REQUESTS, "请等待上一项操作完成"));
             }
             data.pending.insert(id.clone(), send);
         }
-        let _ = app.emit(
-            "tv-portal-request",
-            json!({"id": id, "op": op, "data": body.get("data")}),
-        );
+        emit(json!({"id": id, "op": op, "data": body.get("data")}));
         let answer = tokio::time::timeout(Duration::from_secs(45), receive).await;
         if let Ok(mut data) = session.data.lock() {
             data.pending.remove(&id);
@@ -494,7 +529,10 @@ pub async fn tv_portal_start<R: Runtime>(
                     let s = server.clone(); let handle = app.clone();
                     tauri::async_runtime::spawn(async move {
                         let _permit = permit; let stop = s.stop.clone();
-                        let connection = http1::Builder::new().serve_connection(TokioIo::new(stream), service_fn(move |req| route(req, s.clone(), handle.clone())));
+                        let connection = http1::Builder::new().timer(TokioTimer::new()).header_read_timeout(Duration::from_secs(10)).max_buf_size(32768).serve_connection(TokioIo::new(stream), service_fn(move |req| {
+                            let app = handle.clone();
+                            route(req, s.clone(), move |value| { let _ = app.emit("tv-portal-request", value); })
+                        }));
                         tokio::select! { _ = tokio::time::timeout(Duration::from_secs(16 * 60), connection) => {}, _ = stop.cancelled() => {} }
                     });
                 }
@@ -655,9 +693,269 @@ pub async fn tv_portal_finish_upload(
     let _ = tokio::fs::remove_dir_all(path).await;
     Ok(())
 }
+#[tauri::command]
+pub async fn tv_portal_request_valid(
+    state: State<'_, PortalState>,
+    id: String,
+) -> Result<bool, String> {
+    let stored = state.0.lock().await;
+    let Some(session) = stored.as_ref() else {
+        return Ok(false);
+    };
+    let data = session.data.lock().map_err(|_| LOCK_ERROR)?;
+    Ok(!session.stop.is_cancelled() && now() < data.expires_at && data.pending.contains_key(&id))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    async fn test_server() -> (Arc<Session>, String, tokio::task::JoinHandle<()>) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let session = Arc::new(Session {
+            data: Mutex::new(Data {
+                port,
+                addresses: vec!["127.0.0.1".into()],
+                network: "test".into(),
+                token: secret(),
+                expires_at: now() + TTL,
+                accepting: true,
+                uploads: vec![],
+                pending: HashMap::new(),
+            }),
+            stop: CancellationToken::new(),
+            dir: std::env::temp_dir().join(format!("readest-tv-portal-test-{}", Uuid::new_v4())),
+        });
+        tokio::fs::create_dir_all(&session.dir).await.unwrap();
+        let server = session.clone();
+        let task = tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = server.stop.cancelled() => break,
+                    connection = listener.accept() => {
+                        let (socket, _) = connection.unwrap();
+                        let session = server.clone();
+                        tokio::spawn(async move {
+                            let _ = http1::Builder::new().serve_connection(TokioIo::new(socket), service_fn(move |request| route(request, session.clone(), |_| {}))).await;
+                        });
+                    }
+                }
+            }
+        });
+        (session, format!("http://127.0.0.1:{port}"), task)
+    }
+    async fn stop_test(session: Arc<Session>, task: tokio::task::JoinHandle<()>) {
+        session.stop.cancel();
+        task.await.unwrap();
+        tokio::fs::remove_dir_all(&session.dir).await.unwrap();
+    }
+    #[tokio::test]
+    async fn http_authorization_batch_approval_upload_and_revocation() {
+        let (session, url, task) = test_server().await;
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .unwrap();
+        let token = session.data.lock().unwrap().token.clone();
+        let page = client.get(&url).send().await.unwrap();
+        assert_eq!(page.status(), 200);
+        assert_eq!(page.headers()["x-content-type-options"], "nosniff");
+        assert!(page.headers()["content-security-policy"]
+            .to_str()
+            .unwrap()
+            .contains("default-src 'none'"));
+        assert_eq!(
+            client
+                .get(format!("{url}/api/status"))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            401
+        );
+        assert_eq!(
+            client
+                .get(format!("{url}/api/status"))
+                .bearer_auth(&token)
+                .header("Origin", "https://unrelated.example")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            403
+        );
+        assert_eq!(
+            client
+                .get(format!("{url}/api/status"))
+                .bearer_auth(&token)
+                .header("Host", "rebinding.example")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            403
+        );
+        let status: Value = client
+            .get(format!("{url}/api/status"))
+            .bearer_auth(&token)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(status["token"], "");
+        assert_eq!(
+            client
+                .post(format!("{url}/api/batch"))
+                .bearer_auth(&token)
+                .json(&json!([{"name":"../bad.txt","size":3}]))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            400
+        );
+        let text = "第一章：电视阅读";
+        let batch: Value = client
+            .post(format!("{url}/api/batch"))
+            .bearer_auth(&token)
+            .json(&json!([{"name":"小说.txt","size":text.len()}]))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let id = batch["files"][0]["id"].as_str().unwrap();
+        let upload_url = format!("{url}/api/upload/{id}");
+        assert_eq!(
+            client
+                .put(&upload_url)
+                .bearer_auth(&token)
+                .body(text)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            409
+        );
+        session.data.lock().unwrap().uploads[0].status = "ready".into();
+        assert_eq!(
+            client
+                .put(&upload_url)
+                .bearer_auth(&token)
+                .body(text)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            200
+        );
+        assert_eq!(session.data.lock().unwrap().uploads[0].status, "complete");
+        assert_eq!(
+            tokio::fs::read_to_string(session.dir.join(id).join("小说.txt"))
+                .await
+                .unwrap(),
+            text
+        );
+        rotate(
+            &mut session.data.lock().unwrap(),
+            vec!["127.0.0.1".into()],
+            "new-interface-same-ip".into(),
+        );
+        assert_eq!(
+            client
+                .get(format!("{url}/api/status"))
+                .bearer_auth(&token)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            401
+        );
+        stop_test(session, task).await;
+    }
+    #[tokio::test]
+    async fn phone_cancellation_releases_pending_batch_and_size_mismatch_fails() {
+        let (session, url, task) = test_server().await;
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let token = session.data.lock().unwrap().token.clone();
+        let files = json!([{"name":"book.txt","size":3}]);
+        let batch: Value = client
+            .post(format!("{url}/api/batch"))
+            .bearer_auth(&token)
+            .json(&files)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(
+            client
+                .post(format!("{url}/api/cancel-batch"))
+                .bearer_auth(&token)
+                .json(&json!({"batch":batch["batch"]}))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            200
+        );
+        assert_eq!(session.data.lock().unwrap().uploads[0].status, "cancelled");
+        let next: Value = client
+            .post(format!("{url}/api/batch"))
+            .bearer_auth(&token)
+            .json(&files)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let id = next["files"][0]["id"].as_str().unwrap();
+        session.data.lock().unwrap().uploads[0].status = "ready".into();
+        assert_eq!(
+            client
+                .put(format!("{url}/api/upload/{id}"))
+                .bearer_auth(&token)
+                .body("too long")
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            400
+        );
+        assert_eq!(session.data.lock().unwrap().uploads[0].status, "failed");
+        assert!(!session.dir.join(id).join("book.txt").exists());
+        stop_test(session, task).await;
+    }
+    #[tokio::test]
+    async fn request_started_before_rotation_cannot_commit_after_rotation() {
+        use tokio::io::AsyncReadExt;
+        let (session, url, task) = test_server().await;
+        let token = session.data.lock().unwrap().token.clone();
+        let authority = url.trim_start_matches("http://");
+        let mut socket = tokio::net::TcpStream::connect(authority).await.unwrap();
+        let body = r#"[{"name":"book.txt","size":3}]"#;
+        let headers = format!("POST /api/batch HTTP/1.1\r\nHost: {authority}\r\nAuthorization: Bearer {token}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
+        socket.write_all(headers.as_bytes()).await.unwrap();
+        socket.write_all(&body.as_bytes()[..1]).await.unwrap();
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        rotate(
+            &mut session.data.lock().unwrap(),
+            vec!["127.0.0.1".into()],
+            "new-network".into(),
+        );
+        socket.write_all(&body.as_bytes()[1..]).await.unwrap();
+        let mut response = String::new();
+        socket.read_to_string(&mut response).await.unwrap();
+        assert!(response.starts_with("HTTP/1.1 401"));
+        assert!(session.data.lock().unwrap().uploads.is_empty());
+        stop_test(session, task).await;
+    }
     #[test]
     fn accepts_books_but_never_paths_or_executables() {
         for name in ["小说.txt", "book.EPUB", "manual.pdf"] {
@@ -733,17 +1031,4 @@ mod tests {
         assert_eq!(data.uploads[0].status, "cancelled");
         assert!(data.uploads[0].cancel.is_cancelled());
     }
-}
-
-#[tauri::command]
-pub async fn tv_portal_request_valid(
-    state: State<'_, PortalState>,
-    id: String,
-) -> Result<bool, String> {
-    let stored = state.0.lock().await;
-    let Some(session) = stored.as_ref() else {
-        return Ok(false);
-    };
-    let data = session.data.lock().map_err(|_| LOCK_ERROR)?;
-    Ok(!session.stop.is_cancelled() && now() < data.expires_at && data.pending.contains_key(&id))
 }

@@ -140,7 +140,7 @@ describe('ReadingStatsDialog', () => {
     expect(screen.getByText('1.234')).toBeTruthy();
   });
 
-  it("pulls the account's stats from other devices, then shows them", async () => {
+  it('shows local stats without an official account fetch', async () => {
     let pulled = false;
     sync.user = { id: 'u' };
     sync.pullStats.mockImplementation(async () => {
@@ -151,8 +151,8 @@ describe('ReadingStatsDialog', () => {
       getReadingTotals: async () => ({ seconds: 0, books: pulled ? 40 : 3, pages: 0 }),
     });
     await openDialog();
-    expect(sync.pullStats).toHaveBeenCalled();
-    expect(await screen.findByText('40')).toBeTruthy();
+    expect(sync.pullStats).not.toHaveBeenCalled();
+    expect(await screen.findByText('3')).toBeTruthy();
     sync.user = null;
   });
 

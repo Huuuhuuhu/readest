@@ -79,11 +79,14 @@ $('upload').onclick = async () => {
   $('upload').disabled = true;
   $('cancel-upload').hidden = false;
   uploadController = new AbortController();
+  let batchId,
+    completed = false;
   try {
     const batch = await api(
       '/api/batch',
       files.map(({ name, size }) => ({ name, size })),
     );
+    batchId = batch.batch;
     message('请用遥控器在电视的手机助手页面批准这批文件。');
     let state;
     while (!uploadController.signal.aborted) {
@@ -104,11 +107,13 @@ $('upload').onclick = async () => {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/octet-stream' },
       });
     }
+    completed = true;
     message('传输完成，电视正在加入书库。');
     $('files').value = '';
   } catch (error) {
     fail(error);
   } finally {
+    if (batchId && !completed) await api('/api/cancel-batch', { batch: batchId }).catch(() => {});
     $('upload').disabled = false;
     $('cancel-upload').hidden = true;
   }

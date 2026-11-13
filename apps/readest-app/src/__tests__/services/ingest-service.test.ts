@@ -140,21 +140,23 @@ describe('ingestFile', () => {
     expect(book?.updatedAt).toBe(2000);
   });
 
-  test('forceUpload queues an upload even when book sync is turned off', async () => {
+  test('legacy forceUpload does not publish a local import', async () => {
     const { appService, settings } = makeDeps({
       bookSyncEnabled: false,
       ...{},
     });
     await ingestFile({ file: 'book.epub', books: [], forceUpload: true }, { appService, settings });
-    expect(transferManager.queueUpload).toHaveBeenCalledTimes(1);
+    expect(transferManager.queueUpload).not.toHaveBeenCalled();
+    expect(appService.importBook).toHaveBeenCalled();
   });
 
-  test('queues an upload by default without forceUpload', async () => {
+  test('imports locally without an implicit official upload', async () => {
     const { appService, settings } = makeDeps({
       ...{},
     });
     await ingestFile({ file: 'book.epub', books: [] }, { appService, settings });
-    expect(transferManager.queueUpload).toHaveBeenCalledTimes(1);
+    expect(transferManager.queueUpload).not.toHaveBeenCalled();
+    expect(appService.importBook).toHaveBeenCalled();
   });
 
   test('does not queue an upload when book sync is turned off in manage sync', async () => {
@@ -598,7 +600,7 @@ describe('ingestFile', () => {
   // shape is identical to a hash-copy book; uploadBook reads from book.filePath
   // when set, which is asserted in cloud-service.test.ts.
 
-  test('queues an in-place book by default (book.filePath set)', async () => {
+  test('keeps an in-place book local by default', async () => {
     const { appService, settings } = makeDeps({
       ...{},
       externalLibraryFolders: ['/Users/me/Library'],
@@ -608,10 +610,11 @@ describe('ingestFile', () => {
       { file: '/Users/me/Library/sample.epub', books: [] },
       { appService, settings },
     );
-    expect(transferManager.queueUpload).toHaveBeenCalledTimes(1);
+    expect(transferManager.queueUpload).not.toHaveBeenCalled();
+    expect(appService.importBook).toHaveBeenCalled();
   });
 
-  test('forceUpload still queues an in-place book even when book sync is off', async () => {
+  test('legacy forceUpload keeps an in-place import local', async () => {
     const { appService, settings } = makeDeps({
       bookSyncEnabled: false,
       ...{},
@@ -622,7 +625,8 @@ describe('ingestFile', () => {
       { file: '/Users/me/Library/sample.epub', books: [], forceUpload: true },
       { appService, settings },
     );
-    expect(transferManager.queueUpload).toHaveBeenCalledTimes(1);
+    expect(transferManager.queueUpload).not.toHaveBeenCalled();
+    expect(appService.importBook).toHaveBeenCalled();
   });
 
   test('transient still trumps in-place — no upload even with forceUpload', async () => {

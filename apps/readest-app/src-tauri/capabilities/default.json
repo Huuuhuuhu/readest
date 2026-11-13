@@ -216,7 +216,6 @@
     "allow-get-environment-variable",
     "allow-get-executable-dir",
     "allow-reveal-item-in-dir",
-    "allow-set-webview-info",
     "allow-get-webview-version",
     "allow-is-updater-disabled",
     "allow-allow-paths-in-scopes",
@@ -235,7 +234,6 @@
     "allow-parse-pdf-metadata",
     "allow-render-pdf-cover",
     "allow-auth-with-safari",
-    "allow-start-apple-sign-in",
     "allow-set-traffic-lights",
     "allow-set-window-title",
     "allow-show-lookup-popover",
@@ -261,6 +259,14 @@
     "allow-localsend-respond",
     "allow-localsend-cancel-receive",
     "allow-localsend-send-files",
-    "allow-localsend-cancel-send"
+    "allow-localsend-cancel-send",
+    "allow-tv-portal-start",
+    "allow-tv-portal-status",
+    "allow-tv-portal-stop",
+    "allow-tv-portal-control",
+    "allow-tv-portal-respond",
+    "allow-tv-portal-request-valid",
+    "allow-tv-portal-take-upload",
+    "allow-tv-portal-finish-upload"
   ]
 }
