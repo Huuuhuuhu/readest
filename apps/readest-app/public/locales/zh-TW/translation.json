@@ -2764,5 +2764,9 @@
   "Enter a valid number": "請輸入有效數字",
   "Enter a value from 0 to 100": "請輸入 0 到 100 之間的進度",
   "Chapter number is out of range": "章節序號超出範圍",
-  "Page number is out of range": "頁碼超出範圍"
+  "Page number is out of range": "頁碼超出範圍",
+  "Go": "前往",
+  "Light": "淺色",
+  "Dark": "深色",
+  "Reading progress (%)": "閱讀進度（%）"
 }

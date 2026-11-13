@@ -3,6 +3,7 @@ import { useEnv } from '@/context/EnvContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { saveSysSettings } from '@/helpers/settings';
+import { isTVMode } from '@/utils/tvInput';
 
 const useSidebar = (initialWidth: string, isPinned: boolean) => {
   const { envConfig } = useEnv();
@@ -22,7 +23,7 @@ const useSidebar = (initialWidth: string, isPinned: boolean) => {
   useEffect(() => {
     setSideBarWidth(initialWidth);
     setSideBarPin(isPinned);
-    setSideBarVisible(isPinned);
+    setSideBarVisible(isPinned && !isTVMode());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

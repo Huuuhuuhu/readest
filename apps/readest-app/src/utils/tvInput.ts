@@ -213,7 +213,11 @@ export const installTVInput = (doc: Document = document): (() => void) => {
       const dx = rect.left + rect.width / 2 - origin.left - origin.width / 2;
       const dy = rect.top + rect.height / 2 - origin.top - origin.height / 2;
       const forward = (horizontal ? dx : dy) * sign;
-      const sideways = Math.abs(horizontal ? dy : dx);
+      // Use the gap between edges, not centers. A full-width action shares a
+      // vertical lane with the right-aligned input in the very next row.
+      const sideways = horizontal
+        ? Math.max(0, rect.top - origin.bottom, origin.top - rect.bottom)
+        : Math.max(0, rect.left - origin.right, origin.left - rect.right);
       if (forward <= 2) continue;
       const candidateScore = forward + sideways * 4;
       if (candidateScore < score) {

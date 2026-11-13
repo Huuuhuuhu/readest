@@ -47,6 +47,23 @@ afterEach(() => {
 });
 
 describe('TV remote input ownership', () => {
+  it('moves down to the next setting row even when its input is right aligned', () => {
+    const [contents, theme] = document.querySelectorAll('button');
+    const input = document.querySelector('input')!;
+    vi.mocked(HTMLElement.prototype.getBoundingClientRect).mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this === contents) return new DOMRect(0, 0, 600, 50);
+      if (this === input) return new DOMRect(450, 60, 60, 50);
+      if (this === theme) return new DOMRect(0, 180, 600, 50);
+      return new DOMRect(0, 0, 600, 240);
+    });
+    contents!.focus();
+    press('ArrowDown');
+    expect(document.activeElement).toBe(input);
+    expect(input.readOnly).toBe(true);
+  });
+
   it('focuses fields without editing; one OK edits and one Back returns to navigation with the draft', () => {
     const input = document.querySelector('input')!;
     input.focus();
