@@ -14,11 +14,7 @@ import clsx from 'clsx';
 
 const MAX_LISTED_FILES = 8;
 
-/** Row chassis for the pairing opt-in; `items-start` keeps the box and the
- *  Premium badge on the first line when the label wraps. `pe-0` is load
- *  bearing: the badge is `ms-auto`, so any end padding here would inset it
- *  from the dialog's content edge and break its alignment with the Accept
- *  button below. */
+/** Keep the pairing checkbox aligned with the first line of a wrapping label. */
 const PAIR_ROW =
   'flex cursor-pointer items-start gap-2 rounded-md ps-1 pe-0 py-2 text-start text-sm';
 
@@ -36,8 +32,7 @@ interface ReceiveRequestDialogProps {
  * Cert-verified senders can be paired via "Always accept from <device>":
  * ticking it makes future drops from that device skip this dialog. The opt-in
  * is hidden entirely for cert-less senders (their fingerprint is spoofable, so
- * they can never be trusted); users without the pairing entitlement see it
- * inert behind a Premium badge that routes to the upgrade page.
+ * they can never be trusted). Pairing has no application-account requirement.
  */
 const ReceiveRequestDialog: React.FC<ReceiveRequestDialogProps> = ({
   request,

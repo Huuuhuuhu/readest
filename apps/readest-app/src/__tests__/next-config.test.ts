@@ -64,3 +64,28 @@ describe('Browser-only database WASM', () => {
     expect(web.turbopack?.resolveAlias?.['@readest/turso-database-wasm/webpack']).toBeUndefined();
   });
 });
+
+describe('TV release source maps', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  test('does not embed unused browser debugging maps in the release binary', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_APP_PLATFORM', 'tauri');
+    vi.stubEnv('KEEP_SOURCEMAPS', '');
+    vi.resetModules();
+    const config = (await import('../../next.config.mjs')).default;
+    expect(config.productionBrowserSourceMaps).toBe(false);
+  });
+
+  test('keeps the explicit developer debugging opt-in', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_APP_PLATFORM', 'tauri');
+    vi.stubEnv('KEEP_SOURCEMAPS', '1');
+    vi.resetModules();
+    const config = (await import('../../next.config.mjs')).default;
+    expect(config.productionBrowserSourceMaps).toBe(true);
+  });
+});
