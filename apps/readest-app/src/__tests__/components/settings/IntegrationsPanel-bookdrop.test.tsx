@@ -12,14 +12,12 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {}, appService: { isDesktopApp: true } }),
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (s: string, o?: Record<string, unknown>) =>
     s.replace(/\{\{(\w+)\}\}/g, (_m, k) => String(o?.[k] ?? '')),
 }));
-vi.mock('@/hooks/useQuotaStats', () => ({
-  useQuotaStats: () => ({ userProfilePlan: 'free', customizationPurchased: false }),
-}));
+
 vi.mock('@/store/settingsStore', () => ({
   useSettingsStore: () => ({
     settings: {},

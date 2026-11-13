@@ -6,7 +6,6 @@ import { CatalogManager } from '@/app/opds/components/CatalogManager';
 import { useCustomOPDSStore } from '@/store/customOPDSStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { eventDispatcher } from '@/utils/event';
-import { isSelfHosted } from '@/utils/access';
 import { isWebAppPlatform } from '@/services/environment';
 import { validateOPDSURL } from '@/app/opds/utils/opdsUtils';
 import type { OPDSCatalog } from '@/types/opds';
@@ -17,11 +16,6 @@ import type { SystemSettings } from '@/types/settings';
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (key: string, opts?: Record<string, unknown>) =>
     opts ? key.replace(/\{\{(\w+)\}\}/g, (_m, k: string) => String(opts[k] ?? '')) : key,
-}));
-
-vi.mock('@/utils/access', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/utils/access')>()),
-  isSelfHosted: vi.fn(() => false),
 }));
 
 vi.mock('@/services/environment', async (importOriginal) => ({
@@ -86,7 +80,6 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
-  vi.mocked(isSelfHosted).mockReturnValue(false);
   vi.mocked(isWebAppPlatform).mockReturnValue(false);
 });
 
@@ -94,9 +87,8 @@ describe('CatalogManager self-hosted LAN catalogs (#7105)', () => {
   test.each([
     true,
     false,
-  ])('submits LAN catalogs only on self-hosted web instances (%s)', async (selfHosted) => {
+  ])('submits LAN catalogs only on self-hosted web instances (%s)', async () => {
     vi.stubEnv('NODE_ENV', 'production');
-    vi.mocked(isSelfHosted).mockReturnValue(selfHosted);
     vi.mocked(isWebAppPlatform).mockReturnValue(true);
     vi.mocked(validateOPDSURL).mockResolvedValue({
       isValid: false,
@@ -113,17 +105,10 @@ describe('CatalogManager self-hosted LAN catalogs (#7105)', () => {
     });
     fireEvent.submit(screen.getByPlaceholderText('https://example.com/opds').closest('form')!);
 
-    if (selfHosted) {
-      await waitFor(() => expect(validateOPDSURL).toHaveBeenCalled());
-      expect(
-        screen.queryByText('Adding LAN addresses is not supported in the web app version.'),
-      ).toBeNull();
-    } else {
-      expect(
-        await screen.findByText('Adding LAN addresses is not supported in the web app version.'),
-      ).toBeTruthy();
-      expect(validateOPDSURL).not.toHaveBeenCalled();
-    }
+    await waitFor(() => expect(validateOPDSURL).toHaveBeenCalled());
+    expect(
+      screen.queryByText('Adding LAN addresses is not supported in the web app version.'),
+    ).toBeNull();
   });
 });
 

@@ -181,3 +181,37 @@ describe('TV remote input ownership', () => {
     expect(document.activeElement).toBe(cancel);
   });
 });
+
+describe('special TV mode controls', () => {
+  it('owns arrows and releases OK once, while an overlay still takes precedence', async () => {
+    removeScope();
+    const root = document.querySelector('main')!;
+    root.tabIndex = -1;
+    const adjust = vi.fn(() => true),
+      toggle = vi.fn(() => true);
+    removeScope = registerTVScope({
+      element: root,
+      reading: true,
+      onArrow: adjust,
+      onActivate: toggle,
+    });
+    await Promise.resolve();
+    expect(key('keydown', 'ArrowRight').defaultPrevented).toBe(true);
+    expect(adjust).toHaveBeenCalledWith('ArrowRight', false);
+    key('keydown', 'Enter');
+    key('keydown', 'Enter', true);
+    key('keyup', 'Enter');
+    expect(toggle).toHaveBeenCalledTimes(1);
+    const overlay = document.createElement('aside');
+    overlay.innerHTML = '<button>Cancel</button>';
+    document.body.append(overlay);
+    const removeOverlay = registerTVScope({ element: overlay, priority: 100 });
+    await Promise.resolve();
+    press('ArrowLeft');
+    press('Enter');
+    expect(toggle).toHaveBeenCalledTimes(1);
+    expect(adjust).toHaveBeenCalledTimes(1);
+    removeOverlay();
+    overlay.remove();
+  });
+});

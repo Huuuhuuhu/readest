@@ -152,7 +152,6 @@
     "process:allow-restart",
     "oauth:allow-start",
     "oauth:allow-cancel",
-    "sign-in-with-apple:default",
     "opener:default",
     {
       "identifier": "opener:allow-open-url",
@@ -211,7 +210,6 @@
     "turso:default",
     "native-tts:default",
     "native-bridge:default",
-    "sentry:default",
     "allow-start-server",
     "allow-download-file",
     "allow-upload-file",

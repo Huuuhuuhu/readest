@@ -16,7 +16,7 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('@/context/EnvContext', () => ({ useEnv: () => ({ envConfig: {}, appService: null }) }));
 vi.mock('@/hooks/useTranslation', () => ({ useTranslation: () => (s: string) => s }));
-vi.mock('@/utils/access', () => ({ getUserID: async () => null }));
+
 vi.mock('@/services/sync/replicaSync', () => ({ getReplicaSync: () => null }));
 vi.mock('@/helpers/settings', () => ({
   saveSysSettings: async (_env: unknown, key: string, value: unknown) => {

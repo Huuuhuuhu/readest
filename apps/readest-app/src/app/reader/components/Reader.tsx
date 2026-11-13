@@ -20,7 +20,7 @@ import { useDeviceControlStore } from '@/store/deviceStore';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { useScreenBrightness } from '@/app/reader/hooks/useScreenBrightness';
 import { useTransferQueue } from '@/hooks/useTransferQueue';
-import { useReplicaPull } from '@/hooks/useReplicaPull';
+
 import { eventDispatcher } from '@/utils/event';
 import { interceptWindowOpen } from '@/utils/open';
 import { mountAdditionalFonts } from '@/styles/fonts';
@@ -30,7 +30,7 @@ import { AboutWindow } from '@/components/AboutWindow';
 import ReadingStatsDialog from '@/components/stats/ReadingStatsDialog';
 import { VocabularyDialog } from '@/components/vocabulary/VocabularyDialog';
 import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp';
-import { UpdaterWindow } from '@/components/UpdaterWindow';
+
 import { ProofreadRulesManager } from './ProofreadRules';
 import { Toast } from '@/components/Toast';
 import { getLocale } from '@/utils/misc';
@@ -88,7 +88,6 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
   // router page wrapper) so the web pages-router entry at
   // `pages/reader/[ids].tsx` also gets the pull. Module-scoped dedup
   // means navigating between library and reader doesn't re-pull.
-  useReplicaPull({ kinds: ['dictionary', 'font', 'texture'] });
 
   useEffect(() => {
     mountAdditionalFonts(document);
@@ -200,7 +199,7 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
         <ReadingStatsDialog />
         <VocabularyDialog />
         <KeyboardShortcutsHelp />
-        <UpdaterWindow />
+
         <ProofreadRulesManager />
         <Toast />
       </Suspense>

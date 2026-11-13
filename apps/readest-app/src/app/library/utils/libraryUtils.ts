@@ -1061,7 +1061,6 @@ export type BookContextMenuItemId =
   | 'searchGoodreads'
   | 'download'
   | 'upload'
-  | 'share'
   | 'sendNearby'
   | 'offlineDownload'
   | 'offlineRemove'
@@ -1199,7 +1198,6 @@ export const getBookContextMenuItemIds = (
     if (!book.uploadedAt && book.downloadedAt) ids.push('upload');
     // Share is offered for any local-or-uploaded book; the dialog uploads first
     // if the book hasn't been pushed yet.
-    if (book.downloadedAt || book.uploadedAt) ids.push('share');
     // LocalSend needs the file on this device; cloud-only books are excluded.
     if (opts?.localSend && (book.downloadedAt || book.filePath)) ids.push('sendNearby');
   }

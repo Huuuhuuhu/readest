@@ -10,10 +10,7 @@ const appService = { saveLibraryBooks };
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ appService }),
 }));
-let currentUser: { id: string } | null = null;
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: currentUser }),
-}));
+
 const translate = (key: string) => key;
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => translate,
@@ -72,7 +69,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  currentUser = null;
   useLibraryStore.setState({ library: [], libraryLoaded: false, visibleLibrary: [] });
 });
 
@@ -137,7 +133,6 @@ describe('useOPDSSubscriptions', () => {
   test('queues a cloud upload for a new book when Books sync is on', async () => {
     vi.useFakeTimers();
     try {
-      currentUser = { id: 'user-1' };
       useLibraryStore.getState().setLibrary([]);
       const book = makeBook('sub-book');
       mockedSync.mockResolvedValue({ newBooks: [], totalNewBooks: 0, errors: [] });
@@ -161,7 +156,6 @@ describe('useOPDSSubscriptions', () => {
   test('does NOT queue a cloud upload when the Books sync category is off', async () => {
     vi.useFakeTimers();
     try {
-      currentUser = { id: 'user-1' };
       useSettingsStore.setState({
         settings: {
           opdsCatalogs: [catalog],

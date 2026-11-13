@@ -48,7 +48,7 @@ const newImportArgs = (appService: ReturnType<typeof makeAppService>) => ({
 
 beforeEach(() => {
   isTauri = false;
-  getShareMock.mockReset();
+  getShareMock.mockReset().mockResolvedValue({ title: 'Book', format: 'EPUB', size: 3 });
   tauriFetchMock.mockReset();
   libraryState = {
     libraryLoaded: false,
@@ -61,7 +61,7 @@ beforeEach(() => {
 describe('ensureSharedBookLocal (new import)', () => {
   it('on web, fetches the /download endpoint and follows the 302 with the renderer fetch', async () => {
     const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'application/epub+zip' });
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => blob });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(blob));
     vi.stubGlobal('fetch', fetchMock);
 
     const importedBook = { hash: 'hash', title: 'Book' };
@@ -85,7 +85,7 @@ describe('ensureSharedBookLocal (new import)', () => {
   it('on the app, downloads via native HTTP (which ignores CORS) on the same /download endpoint', async () => {
     isTauri = true;
     const blob = new Blob([new Uint8Array([4, 5, 6])], { type: 'application/epub+zip' });
-    tauriFetchMock.mockResolvedValue({ ok: true, blob: async () => blob });
+    tauriFetchMock.mockResolvedValue(new Response(blob));
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
@@ -109,22 +109,12 @@ describe('ensureSharedBookLocal (new import)', () => {
     globalThis.fetch = vi.fn(async () => new Response('bytes')) as typeof fetch;
 
     await ensureSharedBookLocal(newImportArgs(appService));
-    expect(readFlowState().entries[0]).toMatchObject({
-      connector: 'readest-cloud',
-      direction: 'pull',
-      kind: 'books',
-      count: 1,
-      bookTitle: 'Book',
-    });
+    expect(readFlowState().entries).toEqual([]);
 
     globalThis.fetch = vi.fn(
       async () => new Response('gone', { status: 410, statusText: 'Gone' }),
     ) as typeof fetch;
     await expect(ensureSharedBookLocal(newImportArgs(appService))).rejects.toThrow();
-    expect(readFlowState().entries[0]).toMatchObject({
-      connector: 'readest-cloud',
-      direction: 'pull',
-      error: 'Gone',
-    });
+    expect(readFlowState().entries).toEqual([]);
   });
 });

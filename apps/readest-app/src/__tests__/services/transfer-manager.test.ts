@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach, afterEach, vi, type Mock } from 'vi
 import { useTransferStore, TransferItem } from '@/store/transferStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { SystemSettings } from '@/types/settings';
-import { setCachedUserPlan } from '@/services/sync/cloudSyncProvider';
+
 import { runFileBookDownload } from '@/services/sync/file/runLibrarySync';
 
 vi.mock('@/services/sync/file/runLibrarySync', () => ({
@@ -22,7 +22,7 @@ vi.mock('@/utils/event', () => ({
 // After the module-level mock declarations, import the SUT
 import { transferManager } from '@/services/transferManager';
 import { eventDispatcher } from '@/utils/event';
-import { readFlowState } from '@/services/sync/dataFlow/log';
+
 import type { Book } from '@/types/book';
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -121,16 +121,15 @@ beforeEach(() => {
   useSettingsStore.setState({
     settings: {
       version: 1,
-      webdav: { enabled: false },
+      webdav: { enabled: true, url: 'https://dav.example', username: 'test', password: 'test' },
       googleDrive: { enabled: false },
-    } as SystemSettings,
+    } as unknown as SystemSettings,
   });
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {
-  setCachedUserPlan('free');
   vi.restoreAllMocks();
 });
 
@@ -672,95 +671,6 @@ describe('TransferManager', () => {
 
   // ── Queue processing (integration-style) ─────────────────────────
   describe('queue processing', () => {
-    describe('data flow', () => {
-      const setup = async (appService: ReturnType<typeof makeAppService>, book: Book) => {
-        localStorage.clear();
-        await transferManager.initialize(
-          appService as never,
-          () => [book],
-          vi.fn().mockResolvedValue(undefined),
-          translationFn,
-        );
-      };
-
-      test('counts an uploaded book file under Readest Cloud', async () => {
-        const book = makeBook({ hash: 'h1', title: 'Dune' });
-        await setup(makeAppService(), book);
-
-        transferManager.queueUpload(book);
-        await vi.advanceTimersByTimeAsync(500);
-
-        expect(readFlowState().entries[0]).toMatchObject({
-          connector: 'readest-cloud',
-          direction: 'push',
-          kind: 'books',
-          count: 1,
-          bookTitle: 'Dune',
-        });
-      });
-
-      test('leaves a file backend download to the backend that served it', async () => {
-        const book = makeBook({ hash: 'h1', title: 'Dune' });
-        await setup(makeAppService(), book);
-
-        const id = transferManager.queueDownload(book)!;
-        useTransferStore.getState().setTransferProvider(id, 'webdav');
-        await vi.advanceTimersByTimeAsync(500);
-
-        expect(readFlowState().entries).toEqual([]);
-      });
-
-      test('records a transfer only after its last retry fails', async () => {
-        const book = makeBook({ hash: 'h1', title: 'Dune' });
-        const appService = makeAppService();
-        appService['uploadBook'] = vi
-          .fn()
-          .mockRejectedValue(new Error('Insufficient storage quota'));
-        await setup(appService, book);
-
-        transferManager.queueUpload(book);
-        await vi.advanceTimersByTimeAsync(500);
-
-        expect(readFlowState().entries[0]).toMatchObject({
-          direction: 'push',
-          error: 'Insufficient storage quota',
-        });
-      });
-
-      test('flags the file backend when it does not hold a book and there is no cloud copy', async () => {
-        setCachedUserPlan('plus');
-        useSettingsStore.setState({
-          settings: {
-            version: 1,
-            readestCloud: { enabled: false },
-            webdav: { enabled: true, serverUrl: 'http://dav', username: 'u', password: 'p' },
-            googleDrive: { enabled: false },
-          } as unknown as SystemSettings,
-        });
-        vi.mocked(runFileBookDownload).mockResolvedValue(false);
-        const book = makeBook({ hash: 'h1', title: 'Dune' });
-        await setup(makeAppService(), book);
-
-        transferManager.queueDownload(book);
-        await vi.advanceTimersByTimeAsync(30000);
-
-        const { entries } = readFlowState();
-        expect(entries[0]).toMatchObject({ connector: 'webdav', direction: 'pull', kind: 'books' });
-        expect(entries[0]?.error).toBeTruthy();
-        expect(entries.some((entry) => entry.connector === 'readest-cloud')).toBe(false);
-      });
-
-      test('leaves cloud deletes out of the counts', async () => {
-        const book = makeBook({ hash: 'h1', title: 'Dune' });
-        await setup(makeAppService(), book);
-
-        transferManager.queueDelete(book);
-        await vi.advanceTimersByTimeAsync(500);
-
-        expect(readFlowState().entries).toEqual([]);
-      });
-    });
-
     test('successful upload calls appService.uploadBook and updates book', async () => {
       const book = makeBook({ hash: 'h1', title: 'Test Upload' });
       const appService = makeAppService();
@@ -818,13 +728,13 @@ describe('TransferManager', () => {
       const book = makeBook({ uploadedAt: 1000 });
       const appService = makeAppService();
       const updateBook = vi.fn();
-      setCachedUserPlan('plus');
+
       useSettingsStore.setState({
         settings: {
           ...useSettingsStore.getState().settings,
           readestCloud: { enabled: false },
           [provider]: { enabled: true },
-        } as SystemSettings,
+        } as unknown as SystemSettings,
       });
       await transferManager.initialize(
         appService as never,
@@ -855,13 +765,13 @@ describe('TransferManager', () => {
       const book = makeBook({ uploadedAt: 1000 });
       const appService = makeAppService();
       const updateBook = vi.fn();
-      setCachedUserPlan('plus');
+
       useSettingsStore.setState({
         settings: {
           version: 1,
           readestCloud: { enabled: readestEnabled },
           s3: { enabled: true },
-        } as SystemSettings,
+        } as unknown as SystemSettings,
       });
       vi.mocked(runFileBookDownload).mockResolvedValue(false);
       await transferManager.initialize(
@@ -1076,245 +986,10 @@ describe('TransferManager', () => {
   });
 
   // ── queueReplicaUpload / queueReplicaDownload / queueReplicaDelete ──
-  describe('replica transfer queueing', () => {
-    const dictFiles = [
-      { logical: 'webster.mdx', lfp: 'd1/webster.mdx', byteSize: 1000 },
-      { logical: 'webster.mdd', lfp: 'd1/webster.mdd', byteSize: 4000 },
-    ];
-
-    test('queueReplicaUpload returns null when not initialized', () => {
-      const id = transferManager.queueReplicaUpload(
-        'dictionary',
-        'd1',
-        'Webster',
-        dictFiles,
-        'Dictionaries',
-      );
-      expect(id).toBeNull();
-    });
-
-    test('queueReplicaUpload creates a kind="replica" transfer with files + base', async () => {
-      const appService = makeAppService();
-      appService['uploadReplicaFile'] = vi.fn().mockResolvedValue(undefined);
-      await transferManager.initialize(appService as never, () => [], vi.fn(), translationFn);
-
-      const id = transferManager.queueReplicaUpload(
-        'dictionary',
-        'd1',
-        'Webster',
-        dictFiles,
-        'Dictionaries',
-        { reincarnation: 'epoch-1' },
-      );
-      expect(id).toBeTruthy();
-      const t = useTransferStore.getState().transfers[id!]!;
-      expect(t.kind).toBe('replica');
-      expect(t.replicaKind).toBe('dictionary');
-      expect(t.replicaId).toBe('d1');
-      expect(t.replicaFiles).toEqual(dictFiles);
-      expect(t.replicaBase).toBe('Dictionaries');
-      expect(t.replicaReincarnation).toBe('epoch-1');
-      expect(t.totalBytes).toBe(5000);
-    });
-
-    test('queueReplicaUpload returns existing id if same (kind, id) is already queued', async () => {
-      const appService = makeAppService();
-      appService['uploadReplicaFile'] = vi.fn().mockResolvedValue(undefined);
-      await transferManager.initialize(appService as never, () => [], vi.fn(), translationFn);
-
-      const id1 = transferManager.queueReplicaUpload(
-        'dictionary',
-        'd1',
-        'Webster',
-        dictFiles,
-        'Dictionaries',
-      );
-      const id2 = transferManager.queueReplicaUpload(
-        'dictionary',
-        'd1',
-        'Webster',
-        dictFiles,
-        'Dictionaries',
-      );
-      expect(id1).toBe(id2);
-    });
-
-    test('different replicaKinds with same id are distinct queue entries', async () => {
-      const appService = makeAppService();
-      appService['uploadReplicaFile'] = vi.fn().mockResolvedValue(undefined);
-      await transferManager.initialize(appService as never, () => [], vi.fn(), translationFn);
-
-      const dictId = transferManager.queueReplicaUpload(
-        'dictionary',
-        'shared-hash',
-        'D',
-        dictFiles,
-        'Dictionaries',
-      );
-      const fontId = transferManager.queueReplicaUpload(
-        'font',
-        'shared-hash',
-        'F',
-        [{ logical: 'roboto.ttf', lfp: 'f/roboto.ttf', byteSize: 200000 }],
-        'Fonts',
-      );
-      expect(dictId).not.toBe(fontId);
-    });
-
-    test('queueReplicaDownload creates a download-typed transfer', async () => {
-      const appService = makeAppService();
-      appService['downloadReplicaFile'] = vi.fn().mockResolvedValue(undefined);
-      await transferManager.initialize(appService as never, () => [], vi.fn(), translationFn);
-
-      const id = transferManager.queueReplicaDownload(
-        'dictionary',
-        'd1',
-        'Webster',
-        dictFiles,
-        'Dictionaries',
-      );
-      const t = useTransferStore.getState().transfers[id!]!;
-      expect(t.type).toBe('download');
-      expect(t.replicaFiles).toEqual(dictFiles);
-    });
-
-    test('executing a replica download passes the transfer base to downloadReplicaFile', async () => {
-      const appService = makeAppService();
-      const downloadSpy = vi.fn().mockResolvedValue(undefined);
-      appService['downloadReplicaFile'] = downloadSpy;
-      await transferManager.initialize(appService as never, () => [], vi.fn(), translationFn);
-
-      transferManager.queueReplicaDownload(
-        'dictionary',
-        'content-hash-abc',
-        'Webster',
-        [{ logical: 'webster.mdx', lfp: 'bundle-1/webster.mdx', byteSize: 1000 }],
-        'Dictionaries',
-      );
-
-      // Drain the queue.
-      await vi.runAllTimersAsync();
-      await Promise.resolve();
-      await Promise.resolve();
-
-      expect(downloadSpy).toHaveBeenCalledOnce();
-      // Args: (kind, replicaId, filename, lfp, base, onProgress)
-      const call = downloadSpy.mock.calls[0]!;
-      expect(call[0]).toBe('dictionary');
-      expect(call[1]).toBe('content-hash-abc');
-      expect(call[2]).toBe('webster.mdx');
-      expect(call[3]).toBe('bundle-1/webster.mdx');
-      expect(call[4]).toBe('Dictionaries');
-    });
-
-    test('queueReplicaDelete creates a delete-typed transfer with filename list', async () => {
-      const appService = makeAppService();
-      appService['deleteReplicaBundle'] = vi.fn().mockResolvedValue(undefined);
-      await transferManager.initialize(appService as never, () => [], vi.fn(), translationFn);
-
-      const id = transferManager.queueReplicaDelete('dictionary', 'd1', 'Webster', [
-        'webster.mdx',
-        'webster.mdd',
-      ]);
-      const t = useTransferStore.getState().transfers[id!]!;
-      expect(t.type).toBe('delete');
-      expect(t.replicaFiles?.map((f) => f.logical)).toEqual(['webster.mdx', 'webster.mdd']);
-    });
-  });
 
   // Replica transfers are background sync (fonts / textures / dictionaries /
   // OPDS catalogs pull and push on their own). They must never toast — a
   // library with a dozen synced fonts otherwise fires a dozen success toasts
   // on a fresh device, and a dozen "Failed to download file" toasts when the
   // download breaks (issue #5675).
-  describe('replica transfers are silent background work', () => {
-    const makeReplicaAppService = () =>
-      ({
-        uploadBook: vi.fn().mockResolvedValue(undefined),
-        downloadBook: vi.fn().mockResolvedValue(undefined),
-        deleteBook: vi.fn().mockResolvedValue(undefined),
-        uploadReplicaFile: vi.fn().mockResolvedValue(undefined),
-        downloadReplicaFile: vi.fn().mockResolvedValue(undefined),
-        isMacOSApp: false,
-      }) as Record<string, unknown>;
-
-    const replicaFiles = [{ logical: 'Georgia.ttf', lfp: 'b1/Georgia.ttf', byteSize: 10 }];
-
-    const toastsOfType = (type: string) =>
-      (eventDispatcher.dispatch as Mock).mock.calls.filter(
-        (c) => c[0] === 'toast' && (c[1] as Record<string, unknown>)?.['type'] === type,
-      );
-
-    test('queueReplicaDownload marks the transfer as background', async () => {
-      const appService = makeReplicaAppService();
-      await transferManager.initialize(appService as never, () => [], vi.fn(), translationFn);
-
-      const id = transferManager.queueReplicaDownload(
-        'font',
-        'c1',
-        'Georgia Regular',
-        replicaFiles,
-        'Fonts',
-      );
-      expect(useTransferStore.getState().transfers[id!]!.isBackground).toBe(true);
-    });
-
-    test('queueReplicaUpload marks the transfer as background', async () => {
-      const appService = makeReplicaAppService();
-      await transferManager.initialize(appService as never, () => [], vi.fn(), translationFn);
-
-      const id = transferManager.queueReplicaUpload(
-        'font',
-        'c1',
-        'Georgia Regular',
-        replicaFiles,
-        'Fonts',
-      );
-      expect(useTransferStore.getState().transfers[id!]!.isBackground).toBe(true);
-    });
-
-    test('a successful replica download dispatches no toast', async () => {
-      const appService = makeReplicaAppService();
-      await transferManager.initialize(appService as never, () => [], vi.fn(), translationFn);
-
-      transferManager.queueReplicaDownload('font', 'c1', 'Georgia Regular', replicaFiles, 'Fonts');
-      await vi.advanceTimersByTimeAsync(500);
-
-      expect(toastsOfType('info')).toHaveLength(0);
-    });
-
-    test('a failing replica download dispatches no error toast once retries are exhausted', async () => {
-      const appService = makeReplicaAppService();
-      // Native Tauri rejections arrive as plain strings, which is what the
-      // real os-error-2 failure looks like.
-      appService['downloadReplicaFile'] = vi
-        .fn()
-        .mockRejectedValue('No such file or directory (os error 2)');
-      await transferManager.initialize(appService as never, () => [], vi.fn(), translationFn);
-
-      const id = transferManager.queueReplicaDownload(
-        'font',
-        'c1',
-        'Georgia Regular',
-        replicaFiles,
-        'Fonts',
-      );
-      await vi.advanceTimersByTimeAsync(60000);
-
-      expect(useTransferStore.getState().transfers[id!]!.status).toBe('failed');
-      expect(toastsOfType('error')).toHaveLength(0);
-    });
-
-    test('a failing foreground book upload still toasts', async () => {
-      const book = makeBook({ hash: 'h1', title: 'Loud Book' });
-      const appService = makeReplicaAppService();
-      (appService['uploadBook'] as Mock).mockRejectedValue(new Error('Network fail'));
-      await transferManager.initialize(appService as never, () => [book], vi.fn(), translationFn);
-
-      transferManager.queueUpload(book);
-      await vi.advanceTimersByTimeAsync(60000);
-
-      expect(toastsOfType('error').length).toBeGreaterThan(0);
-    });
-  });
 });

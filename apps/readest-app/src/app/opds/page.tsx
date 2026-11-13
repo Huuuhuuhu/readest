@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { isOPDSCatalog, getPublication, getFeed, getOpenSearch } from 'foliate-js/opds.js';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useEnv } from '@/context/EnvContext';
-import { useAuth } from '@/context/AuthContext';
+
 import { isWebAppPlatform } from '@/services/environment';
 import { recordFlow } from '@/services/sync/dataFlow/log';
 import { downloadFile } from '@/libs/storage';
@@ -17,7 +17,7 @@ import { useKeyDownActions } from '@/hooks/useKeyDownActions';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useCustomOPDSStore } from '@/store/customOPDSStore';
-import { queueOPDSBookUploads } from '@/services/opds/cloudUpload';
+
 import { useTransferQueue } from '@/hooks/useTransferQueue';
 import { useTheme } from '@/hooks/useTheme';
 import { useLibrary } from '@/hooks/useLibrary';
@@ -101,7 +101,7 @@ export default function BrowserPage() {
   const _ = useTranslation();
   const router = useRouter();
   const { appService, envConfig } = useEnv();
-  const { user } = useAuth();
+
   const { libraryLoaded } = useLibrary();
   // Subscribe to library so the publication detail page can detect copies
   // already imported (shown as "Open & Read" instead of "Download"), and
@@ -742,7 +742,6 @@ export default function BrowserPage() {
               }
             }
             if (book) {
-              queueOPDSBookUploads(!!user, useSettingsStore.getState().settings, [book]);
             }
             setLibrary(library);
             appService.saveLibraryBooks(library);
@@ -763,15 +762,7 @@ export default function BrowserPage() {
         throw e;
       }
     },
-    [
-      user,
-      state.baseURL,
-      appService,
-      libraryLoaded,
-      catalogSourceId,
-      publication,
-      publicationCoverHref,
-    ],
+    [state.baseURL, appService, libraryLoaded, catalogSourceId, publication, publicationCoverHref],
   );
 
   const handleStream = useCallback(

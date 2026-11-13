@@ -10,10 +10,6 @@ vi.mock('@/context/EnvContext', () => ({
   }),
 }));
 
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: null }),
-}));
-
 vi.mock('@/store/themeStore', () => ({
   useThemeStore: () => ({ isDarkMode: false }),
 }));
@@ -1265,7 +1261,7 @@ describe('useTTSControl handleHighlightMark cross-section navigation', () => {
 
     it('does not move the view to the next section the voice starts', async () => {
       await setupAndCaptureHighlightHandler();
-      const onSectionChange = vi.mocked(TTSController).mock.calls.at(-1)![4] as (
+      const onSectionChange = vi.mocked(TTSController).mock.calls.at(-1)![3] as (
         index: number,
       ) => Promise<void>;
       mockView.renderer.goTo.mockClear();
@@ -1655,7 +1651,7 @@ describe('useTTSControl quota toast', () => {
     });
   };
 
-  it('shows a toast when the premium TTS quota is exceeded', async () => {
+  it('does not subscribe to official quota or login events', async () => {
     await startSession();
     const controller = ttsControllerInstances[0] as {
       addEventListener: ReturnType<typeof vi.fn>;
@@ -1663,10 +1659,9 @@ describe('useTTSControl quota toast', () => {
     const call = controller.addEventListener.mock.calls.find(
       (args: unknown[]) => args[0] === 'tts-quota-exceeded',
     );
-    expect(call).toBeDefined();
-    const dispatchSpy = vi.spyOn(eventDispatcher, 'dispatch');
-    (call![1] as () => void)();
-    expect(dispatchSpy).toHaveBeenCalledWith('toast', expect.objectContaining({ type: 'error' }));
-    dispatchSpy.mockRestore();
+    expect(call).toBeUndefined();
+    expect(controller.addEventListener.mock.calls.some(([name]) => name === 'tts-need-auth')).toBe(
+      false,
+    );
   });
 });

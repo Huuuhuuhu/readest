@@ -5,7 +5,7 @@ import BookItem from '@/app/library/components/BookItem';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/context/EnvContext', () => ({ useEnv: () => ({ appService: null }) }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (text: string, values?: Record<string, unknown>) =>
     text.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(values?.[key] ?? '')),

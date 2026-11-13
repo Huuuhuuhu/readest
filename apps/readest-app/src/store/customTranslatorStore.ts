@@ -3,11 +3,7 @@ import type { EnvConfigType } from '@/services/environment';
 import type { CustomTranslator, TranslationPrompt } from '@/types/translation';
 import { useSettingsStore } from './settingsStore';
 import { getReplicaPersistEnv } from '@/services/sync/replicaPersist';
-import { publishReplicaDelete, publishReplicaUpsert } from '@/services/sync/replicaPublish';
-import {
-  CUSTOM_TRANSLATOR_KIND,
-  TRANSLATION_PROMPT_KIND,
-} from '@/services/sync/adapters/customTranslator';
+
 import {
   DEFAULT_PROMPT_ID,
   DEFAULT_TRANSLATION_PROMPT,
@@ -81,12 +77,7 @@ export const useCustomTranslatorStore = create<CustomTranslatorState>((set, get)
       reincarnation: newReincarnation(),
     };
     set((state) => ({ translators: [...state.translators, translator] }));
-    void publishReplicaUpsert(
-      CUSTOM_TRANSLATOR_KIND,
-      translator,
-      translator.id,
-      translator.reincarnation,
-    );
+
     return translator;
   },
 
@@ -95,12 +86,10 @@ export const useCustomTranslatorStore = create<CustomTranslatorState>((set, get)
     if (!old) return;
     const translator = { ...old, ...patch, updatedAt: Date.now() };
     set((state) => ({ translators: replace(state.translators, translator) }));
-    void publishReplicaUpsert(CUSTOM_TRANSLATOR_KIND, translator, id, translator.reincarnation);
   },
 
   removeTranslator: (id) => {
     set((state) => ({ translators: markDeleted(state.translators, id) }));
-    void publishReplicaDelete(CUSTOM_TRANSLATOR_KIND, id);
   },
 
   addPrompt: (input) => {
@@ -113,7 +102,7 @@ export const useCustomTranslatorStore = create<CustomTranslatorState>((set, get)
       reincarnation: newReincarnation(),
     };
     set((state) => ({ prompts: [...state.prompts, prompt] }));
-    void publishReplicaUpsert(TRANSLATION_PROMPT_KIND, prompt, prompt.id, prompt.reincarnation);
+
     return prompt;
   },
 
@@ -122,12 +111,10 @@ export const useCustomTranslatorStore = create<CustomTranslatorState>((set, get)
     if (!old) return;
     const prompt = { ...old, ...patch, updatedAt: Date.now() };
     set((state) => ({ prompts: replace(state.prompts, prompt) }));
-    void publishReplicaUpsert(TRANSLATION_PROMPT_KIND, prompt, id, prompt.reincarnation);
   },
 
   removePrompt: (id) => {
     set((state) => ({ prompts: markDeleted(state.prompts, id) }));
-    void publishReplicaDelete(TRANSLATION_PROMPT_KIND, id);
   },
 
   applyRemoteTranslator: (remote) => {

@@ -84,6 +84,15 @@ export default function TVReadingMenu({
       <div className='settings-content mx-auto w-full max-w-2xl space-y-3 p-4'>
         <p>{_('Up/Down: choose · Left/Right: adjust · Back: read')}</p>
         <BoxedList>
+          <button
+            className={actionClass}
+            onClick={() => {
+              onClose();
+              eventDispatcher.dispatch('open-tv-portal');
+            }}
+          >
+            手机助手 · 扫码上传与配置
+          </button>
           <button data-tv-initial-focus className={actionClass} onClick={() => openSidebar(false)}>
             {_('Table of Contents')}
           </button>

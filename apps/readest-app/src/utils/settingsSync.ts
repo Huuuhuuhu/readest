@@ -48,7 +48,6 @@ export interface CloudSyncProviderFlags {
    * "derive from the third-party flags") — coercing it to `false` would
    * silently switch Readest Cloud off on the receiver.
    */
-  readestCloud?: { enabled?: boolean; disabledAt?: number };
 }
 
 export interface SettingsSyncPayload {
@@ -96,12 +95,6 @@ export const mergeSyncedGlobalSettings = (
     if (payload.cloudSyncProviders.icloud) {
       merged.icloud = { ...local.icloud, ...payload.cloudSyncProviders.icloud };
     }
-    if (payload.cloudSyncProviders.readestCloud) {
-      merged.readestCloud = {
-        ...local.readestCloud,
-        ...payload.cloudSyncProviders.readestCloud,
-      };
-    }
   }
   return merged;
 };
@@ -146,12 +139,6 @@ export const broadcastGlobalSettings = async (
           providerSelectedAt: settings.icloud?.providerSelectedAt,
         },
       };
-      if (settings.readestCloud) {
-        payload.cloudSyncProviders.readestCloud = {
-          enabled: settings.readestCloud.enabled,
-          disabledAt: settings.readestCloud.disabledAt,
-        };
-      }
     }
     await emit(SETTINGS_SYNC_EVENT, payload);
   } catch (err) {

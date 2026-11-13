@@ -2,7 +2,7 @@ import type { DictionaryProvider } from '@/services/dictionaries/types';
 import { BUILTIN_PROVIDER_IDS } from '@/services/dictionaries/types';
 import { lookupInContext } from '@/services/dictionaries/contextDictionary';
 import { getContextTranslator } from '@/services/dictionaries/providers/contextProvider';
-import { getAccessToken, isCustomTranslatorAllowed } from '@/utils/access';
+
 import type { VocabularyOccurrence } from './types';
 
 // Where a Word Lens hint for a saved word can come from besides typing it
@@ -118,8 +118,7 @@ export const hintFromDictionary = async (
 };
 
 /** Whether the AI context dictionary can be asked (premium + an LLM translator). */
-export const canAskAIForHint = async (): Promise<boolean> =>
-  !!getContextTranslator() && isCustomTranslatorAllowed(await getAccessToken());
+export const canAskAIForHint = async (): Promise<boolean> => !!getContextTranslator();
 
 export const hintFromAI = async (
   word: string,

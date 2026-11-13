@@ -4,8 +4,7 @@ import type TauriWebSocketConnection from '@tauri-apps/plugin-websocket';
 import { randomMd5 } from '@/utils/misc';
 import { LRUCache } from '@/utils/lru';
 import { genSSML } from '@/utils/ssml';
-import { fetchWithAuth } from '@/utils/fetch';
-import { getAPIBaseUrl, isTauriAppPlatform } from '@/services/environment';
+import { isTauriAppPlatform } from '@/services/environment';
 import type { TTSVoice } from '@/services/tts/types';
 import { EDGE_VOICE_GENDERS } from './edgeTTSGenders';
 
@@ -402,7 +401,7 @@ export const hashTTSPayload = (payload: EdgeTTSPayload): string => {
   return md5(base);
 };
 
-export type EDGE_TTS_PROTOCOL = 'wss' | 'https';
+export type EDGE_TTS_PROTOCOL = 'wss';
 
 // Inactivity budget for the Tauri WebSocket transport. Synthesis frames
 // stream continuously once the request is sent; a socket silent this long is
@@ -436,36 +435,7 @@ export class EdgeSpeechTTS {
     string,
     Promise<{ blob: Blob; boundaries: TTSWordBoundary[] }>
   >();
-  private protocol: EDGE_TTS_PROTOCOL = 'wss';
-
-  constructor(protocol?: EDGE_TTS_PROTOCOL) {
-    if (protocol) {
-      this.protocol = protocol;
-    }
-  }
-
-  async #fetchEdgeSpeechHttp({ lang, text, voice, rate }: EdgeTTSPayload): Promise<Response> {
-    const url = getAPIBaseUrl() + '/tts/edge';
-
-    const response = await fetchWithAuth(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        input: text,
-        voice,
-        rate,
-        lang,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Edge TTS HTTP request failed: ${response.status} ${response.statusText}`);
-    }
-
-    return response;
-  }
+  constructor(_protocol?: EDGE_TTS_PROTOCOL) {}
 
   async #fetchEdgeSpeechWs({ lang, text, voice, rate }: EdgeTTSPayload): Promise<EdgeSpeechAudio> {
     const connectId = randomMd5();
@@ -862,25 +832,14 @@ export class EdgeSpeechTTS {
   }
 
   async #fetchEdgeSpeech(payload: EdgeTTSPayload): Promise<EdgeSpeechAudio> {
-    if (this.protocol === 'https') {
-      // The HTTPS proxy streams the audio body and carries word boundaries in
-      // the WORD_BOUNDARIES_HEADER response header (see /api/tts/edge route).
-      const response = await this.#fetchEdgeSpeechHttp(payload);
-      return {
-        response,
-        boundaries: parseWordBoundariesHeader(response.headers.get(WORD_BOUNDARIES_HEADER)),
-      };
-    } else {
-      return this.#fetchEdgeSpeechWs(payload);
-    }
+    return this.#fetchEdgeSpeechWs(payload);
   }
 
   async create(payload: EdgeTTSPayload): Promise<Response> {
     return (await this.#fetchEdgeSpeech(payload)).response;
   }
 
-  // Server-side helper for the /api/tts/edge route: returns the audio Response
-  // together with the captured word boundaries so the route can forward them.
+  // Direct transport result, before the per-payload audio cache.
   async createWithBoundaries(payload: EdgeTTSPayload): Promise<EdgeSpeechAudio> {
     return this.#fetchEdgeSpeech(payload);
   }
@@ -898,7 +857,7 @@ export class EdgeSpeechTTS {
     const pending = EdgeSpeechTTS.inflight.get(cacheKey);
     if (pending) return pending;
     const promise = (async () => {
-      const { response, boundaries } = await this.#fetchEdgeSpeech(payload);
+      const { response, boundaries } = await this.createWithBoundaries(payload);
       const arrayBuffer = await response.arrayBuffer();
       const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
       EdgeSpeechTTS.audioCache.set(cacheKey, blob);

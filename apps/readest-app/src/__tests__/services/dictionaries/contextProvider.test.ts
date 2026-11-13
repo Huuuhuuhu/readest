@@ -8,10 +8,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/services/dictionaries/contextDictionary', () => ({
   lookupInContext: mocks.lookupInContext,
 }));
-vi.mock('@/utils/access', () => ({
-  getAccessToken: async () => 'token',
-  isCustomTranslatorAllowed: () => mocks.premium,
-}));
 
 import { contextProvider } from '@/services/dictionaries/providers/contextProvider';
 import { useCustomTranslatorStore } from '@/store/customTranslatorStore';
@@ -71,10 +67,11 @@ describe('context dictionary provider', () => {
     expect(mocks.lookupInContext).not.toHaveBeenCalled();
   });
 
-  it('is unsupported without premium', async () => {
+  it('uses a configured translator without a Readest entitlement', async () => {
     mocks.premium = false;
     setTranslators([llm('a')]);
-    expect(await lookup()).toEqual({ ok: false, reason: 'unsupported' });
+    mocks.lookupInContext.mockResolvedValue(entry);
+    expect(await lookup()).toMatchObject({ ok: true });
   });
 
   it('asks the chosen translator with the selection context and renders the entry', async () => {

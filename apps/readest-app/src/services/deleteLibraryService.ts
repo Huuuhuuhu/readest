@@ -1,5 +1,4 @@
 import { AppService } from '@/types/system';
-import { deleteCloudLibrary } from '@/libs/user';
 
 /**
  * Wipe the user's whole library: the cloud `books` rows first, then every book
@@ -15,8 +14,6 @@ import { deleteCloudLibrary } from '@/libs/user';
  * deleted and clearing the library on every other signed-in device.
  */
 export const deleteAllBooks = async (appService: AppService): Promise<void> => {
-  await deleteCloudLibrary();
-
   const books = await appService.loadLibraryBooks();
   for (const book of books) {
     try {

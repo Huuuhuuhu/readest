@@ -39,12 +39,10 @@ import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
 import { useCustomOPDSStore } from '@/store/customOPDSStore';
-import { ensurePassphraseUnlocked } from '@/services/sync/passphraseGate';
-import { isCredentialsSyncEnabled } from '@/services/sync/syncCategories';
-import { isSyncError } from '@/libs/errors';
+
 import { OPDSCatalog } from '@/types/opds';
 import { isLanAddress } from '@/utils/network';
-import { isSelfHosted } from '@/utils/access';
+
 import { allowsSelfSignedCert } from '@/utils/tls';
 import { eventDispatcher } from '@/utils/event';
 import { SectionTitle } from '@/components/settings/primitives';
@@ -123,7 +121,6 @@ const EMPTY_NEW_CATALOG = {
   username: '',
   password: '',
   customHeadersInput: '',
-  proxyConsent: false,
   autoDownload: false,
   allowSelfSignedCert: true,
 };
@@ -383,7 +380,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
   const [showPassword, setShowPassword] = useState(false);
   const [urlError, setUrlError] = useState('');
   const [headerError, setHeaderError] = useState('');
-  const [proxyConsentError, setProxyConsentError] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   // Only surface popular catalogs the user hasn't already added; otherwise an
   // added entry would render in both sections and read as a duplicate (#4782).
@@ -429,11 +425,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
     eventDispatcher.on('opds-sync-complete', handler);
     return () => eventDispatcher.off('opds-sync-complete', handler);
   }, [reloadSubscriptionStates]);
-  const hasSensitiveWebOPDSInput =
-    newCatalog.username.trim().length > 0 ||
-    newCatalog.password.trim().length > 0 ||
-    newCatalog.customHeadersInput.trim().length > 0;
-  const isWebCatalogProxyWarningRequired = isWebAppPlatform() && hasSensitiveWebOPDSInput;
 
   // Hydrate from settings + persist when the store mutates. Loading
   // happens once per mount; the store handles backfilling contentId
@@ -474,26 +465,15 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
     if (
       process.env['NODE_ENV'] === 'production' &&
       isWebAppPlatform() &&
-      !isSelfHosted() &&
       isLanAddress(newCatalog.url)
     ) {
       setUrlError(_('Adding LAN addresses is not supported in the web app version.'));
       return;
     }
 
-    if (isWebCatalogProxyWarningRequired && !newCatalog.proxyConsent) {
-      setProxyConsentError(
-        _(
-          'Please confirm that this OPDS connection will be proxied through Readest servers on the web app before continuing.',
-        ),
-      );
-      return;
-    }
-
     setIsValidating(true);
     setUrlError('');
     setHeaderError('');
-    setProxyConsentError('');
 
     const validation = await validateOPDSCatalog(
       newCatalog.url,
@@ -524,20 +504,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
     // that mode the creds stay device-local by design and never need
     // the passphrase, so prompting would be both pointless and
     // confusing (Settings → Sync → Credentials toggle).
-    const hasCredentials = !!(newCatalog.username || newCatalog.password);
-    if (hasCredentials && isCredentialsSyncEnabled()) {
-      try {
-        await ensurePassphraseUnlocked();
-      } catch (err) {
-        if (!(isSyncError(err) && err.code === 'NO_PASSPHRASE')) {
-          // Surface unexpected errors; cancel-by-user is silent.
-          setUrlError(err instanceof Error ? err.message : String(err));
-          setIsValidating(false);
-          return;
-        }
-        // User cancelled the prompt — save locally without encrypted sync.
-      }
-    }
 
     if (editingCatalogId) {
       useCustomOPDSStore.getState().updateCatalog(editingCatalogId, {
@@ -568,7 +534,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
     setNewCatalog(EMPTY_NEW_CATALOG);
     setUrlError('');
     setHeaderError('');
-    setProxyConsentError('');
     setIsValidating(false);
     setEditingCatalogId(null);
     setShowAddDialog(false);
@@ -582,7 +547,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
       username: catalog.username || '',
       password: catalog.password || '',
       customHeadersInput: formatCustomHeadersInput(catalog.customHeaders),
-      proxyConsent: false,
       autoDownload: catalog.autoDownload || false,
       allowSelfSignedCert: allowsSelfSignedCert(catalog),
     });
@@ -679,7 +643,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
     setNewCatalog(EMPTY_NEW_CATALOG);
     setUrlError('');
     setHeaderError('');
-    setProxyConsentError('');
     setShowPassword(false);
     setEditingCatalogId(null);
   };
@@ -883,7 +846,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
                     value={newCatalog.username}
                     onChange={(e) => {
                       setNewCatalog({ ...newCatalog, username: e.target.value });
-                      setProxyConsentError('');
                     }}
                     placeholder={_('Username')}
                     className='input eink-bordered placeholder:text-sm'
@@ -902,7 +864,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
                       value={newCatalog.password}
                       onChange={(e) => {
                         setNewCatalog({ ...newCatalog, password: e.target.value });
-                        setProxyConsentError('');
                       }}
                       placeholder={_('Password')}
                       className='input eink-bordered w-full pr-10 placeholder:text-sm'
@@ -933,7 +894,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
                     onChange={(e) => {
                       setNewCatalog({ ...newCatalog, customHeadersInput: e.target.value });
                       setHeaderError('');
-                      setProxyConsentError('');
                     }}
                     placeholder={formatCustomHeadersInput({
                       'CF-Access-Client-Id': 'your-client-id',
@@ -955,33 +915,6 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
                     </div>
                   )}
                 </div>
-
-                {isWebCatalogProxyWarningRequired && (
-                  <div className='flex flex-col border-warning/30 bg-warning/10 rounded-lg border p-4'>
-                    <label className='flex cursor-pointer select-none items-start justify-start gap-3 p-0'>
-                      <input
-                        type='checkbox'
-                        className='checkbox checkbox-sm mt-0.5'
-                        checked={newCatalog.proxyConsent}
-                        onChange={(e) => {
-                          setNewCatalog({ ...newCatalog, proxyConsent: e.target.checked });
-                          setProxyConsentError('');
-                        }}
-                        disabled={isValidating}
-                      />
-                      <span className='text-sm text-sm leading-6'>
-                        {_(
-                          'I understand this OPDS connection will be proxied through Readest servers on the web app. If I do not trust Readest with these credentials or headers, I should use the native app instead.',
-                        )}
-                      </span>
-                    </label>
-                    {proxyConsentError && (
-                      <div className='flex select-none items-center justify-between px-0 pb-0 pt-2'>
-                        <span className='text-xs text-error'>{proxyConsentError}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 <div className='flex flex-col'>
                   <div className='flex select-none items-center justify-between px-1 py-2'>

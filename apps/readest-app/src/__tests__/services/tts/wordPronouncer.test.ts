@@ -188,14 +188,14 @@ describe('pronounceWord — platform speech path', () => {
     expect(h.webSpeak).not.toHaveBeenCalled();
   });
 
-  it('retries via the authenticated https proxy on the web when wss fails', async () => {
+  it('never falls back to an official HTTPS proxy when wss fails', async () => {
     h.createAudioData.mockRejectedValue(new Error('wss blocked'));
 
     await pronounceWord('hello', 'en', {}, vi.fn());
     await flush();
 
     // wss attempt + https proxy retry
-    expect(h.createAudioData).toHaveBeenCalledTimes(2);
+    expect(h.createAudioData).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry via the https proxy on Tauri when wss fails', async () => {

@@ -5,17 +5,8 @@ import type { Book } from '@/types/book';
 import { parseAbsFilePath } from '@/utils/audiobook';
 import { useSettingsStore } from './settingsStore';
 import { getReplicaPersistEnv } from '@/services/sync/replicaPersist';
-import { publishReplicaDelete, publishReplicaUpsert } from '@/services/sync/replicaPublish';
-import { computeAbsServerContentId, ABS_SERVER_KIND } from '@/services/sync/adapters/absServer';
 
-const publishAbsUpsert = (server: ABSServer): void => {
-  if (!server.contentId) return;
-  void publishReplicaUpsert(ABS_SERVER_KIND, server, server.contentId, server.reincarnation);
-};
-
-const publishAbsDelete = (contentId: string): void => {
-  void publishReplicaDelete(ABS_SERVER_KIND, contentId);
-};
+import { computeAbsServerContentId } from '@/services/sync/adapters/absServer';
 
 /**
  * Backfill `contentId` (and `addedAt`) on legacy servers that predate
@@ -133,7 +124,7 @@ export const useABSServerStore = create<ABSServerStoreState>((set, get) => ({
           : [...state.servers, server];
       return { servers };
     });
-    publishAbsUpsert(server);
+
     return server;
   },
 
@@ -154,7 +145,7 @@ export const useABSServerStore = create<ABSServerStoreState>((set, get) => ({
         servers: state.servers.map((s, i) => (i === idx ? updated! : s)),
       };
     });
-    if (updated) publishAbsUpsert(updated);
+
     return updated;
   },
 
@@ -164,7 +155,7 @@ export const useABSServerStore = create<ABSServerStoreState>((set, get) => ({
     set((state) => ({
       servers: state.servers.map((s) => (s.id === id ? { ...s, deletedAt: Date.now() } : s)),
     }));
-    if (server.contentId) publishAbsDelete(server.contentId);
+
     return true;
   },
 
@@ -231,9 +222,6 @@ export const useABSServerStore = create<ABSServerStoreState>((set, get) => ({
       // contentIds so existing servers start syncing on next push.
       if (backfilled !== persisted) {
         await get().saveABSServers(_envConfig);
-        for (const s of backfilled) {
-          if (s.contentId && !s.deletedAt) publishAbsUpsert(s);
-        }
       }
     } catch (error) {
       console.error('Failed to load ABS servers:', error);

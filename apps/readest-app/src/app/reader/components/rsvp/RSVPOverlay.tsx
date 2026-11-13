@@ -2,6 +2,8 @@
 
 import React, { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import clsx from 'clsx';
+import { useTVScope } from '@/hooks/useTVScope';
+import { isTVMode } from '@/utils/tvInput';
 import { Insets } from '@/types/misc';
 import { RsvpState, RSVPController } from '@/services/rsvp';
 import { containsCJK, isRTLText, splitAtFocus } from '@/services/rsvp/utils';
@@ -249,6 +251,30 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
     else controller.togglePlayPause();
   };
   const transportPlaying = ttsActive ? ttsPlaying : state.playing;
+  const tvRef = useRef<HTMLDivElement>(null);
+  const [tvControls, setTVControls] = useState(false);
+  useTVScope(tvRef, state.active && isTVMode(), {
+    id: 'rsvp',
+    priority: 80,
+    reading: !tvControls,
+    onBack: () => {
+      if (tvControls) setTVControls(false);
+      else onClose();
+    },
+    onMenu: () => setTVControls((value) => !value),
+    onActivate: () => {
+      if (tvControls) return false;
+      transportToggleRef.current();
+      return true;
+    },
+    onArrow: (key) => {
+      if (tvControls) return false;
+      if (key === 'ArrowUp') setTVControls(true);
+      else if (key === 'ArrowLeft') controller.decreaseSpeed();
+      else if (key === 'ArrowRight') controller.increaseSpeed();
+      return true;
+    },
+  });
   const [countdown, setCountdown] = useState<number | null>(controller.currentCountdown);
   const [showChapterDropdown, setShowChapterDropdown] = useState(false);
   const chapterDropdownRef = useRef<HTMLDivElement>(null);
@@ -363,6 +389,7 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
   // Keyboard shortcuts - use capture phase to intercept before native elements
   useEffect(() => {
     const handleKeyboard = (event: KeyboardEvent) => {
+      if (isTVMode()) return;
       if (!state.active) return;
       // While the dictionary is open it owns the keyboard (e.g. Escape closes
       // the dictionary, not the whole RSVP session).
@@ -795,6 +822,8 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
 
   return (
     <div
+      ref={tvRef}
+      tabIndex={-1}
       data-testid='rsvp-overlay'
       data-capture-blocking-overlay='true'
       aria-label={_('Speed Reading')}

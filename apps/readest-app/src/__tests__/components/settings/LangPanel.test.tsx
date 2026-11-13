@@ -31,10 +31,6 @@ vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (s: string) => s,
 }));
 
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ token: state.token, user: state.user }),
-}));
-
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: state.push }),
 }));
@@ -203,23 +199,23 @@ describe('LangPanel — Custom Translators premium gate', () => {
     cleanup();
   });
 
-  it('sends a signed-out reader to sign in', () => {
+  it('opens the service editor without an account', () => {
     render(<LangPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
 
-    expect(getCustomTranslatorsRow().textContent).toContain('Premium');
+    expect(getCustomTranslatorsRow().textContent).not.toContain('Premium');
     fireEvent.click(getCustomTranslatorsRow());
-    expect(state.push).toHaveBeenCalledWith(expect.stringMatching(/^\/auth\?redirect=/));
+    expect(state.push).not.toHaveBeenCalled();
   });
 
-  it('sends a free user to the plans page', () => {
+  it('opens the service editor without a paid plan', () => {
     state.token = sessionToken({ plan: 'free' });
     state.user = { id: 'u' };
 
     render(<LangPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
 
     fireEvent.click(getCustomTranslatorsRow());
-    expect(state.push).toHaveBeenCalledWith(expect.stringMatching(/^\/user\?redirect=/));
-    expect(screen.queryByText('Add Translator')).toBeNull();
+    expect(state.push).not.toHaveBeenCalled();
+    expect(screen.getByText('Add Translator')).toBeTruthy();
   });
 
   it('opens the sub-page for a subscriber', () => {
@@ -228,7 +224,7 @@ describe('LangPanel — Custom Translators premium gate', () => {
 
     render(<LangPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
 
-    expect(getCustomTranslatorsRow().textContent).not.toContain('Premium');
+    expect(getCustomTranslatorsRow().textContent).not.not.toContain('Premium');
     fireEvent.click(getCustomTranslatorsRow());
     expect(state.push).not.toHaveBeenCalled();
     expect(screen.getByText('Add Translator')).toBeTruthy();

@@ -182,15 +182,6 @@ class SetLookupAppArgs {
     var className: String? = null
 }
 
-@InvokeArg
-class FetchProductsRequestArgs {
-    val productIds: List<String>? = null
-}
-
-@InvokeArg
-class PurchaseProductRequestArgs {
-    val productId: String? = null
-}
 
 // One grid tile. Gson can't deserialize a union, so this holds the fields of
 // both kinds: a "book" uses hash..coverPath, a "group" uses id..coverPaths.
@@ -259,25 +250,6 @@ class UpdateReadingWidgetRequestArgs {
     var tts: UpdateBookshelfWidgetTtsArgs? = null
 }
 
-data class ProductData(
-    val id: String,
-    val title: String,
-    val description: String,
-    val price: String,
-    val priceCurrencyCode: String?,
-    val priceAmountMicros: Long,
-    val productType: String
-)
-
-data class PurchaseData(
-    val productId: String,
-    val orderId: String,
-    val purchaseToken: String,
-    val purchaseDate: String,
-    val purchaseState: String,
-    val platform: String = "android"
-)
-
 interface KeyDownInterceptor {
     fun interceptVolumeKeys(enabled: Boolean)
     fun interceptBackKey(enabled: Boolean)
@@ -295,9 +267,7 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     private var nativePaper: NativePaperTurn? = null
     private val implementation = NativeBridge()
     private var webViewRef: WebView? = null
-    private val billingManager by lazy {
-        BillingManager(activity)
-    }
+
     // Scope for offloading blocking @Command I/O (file copy, package
     // install, font scan, dictionary lookup) off the plugin command thread.
     // Cancelled in onDestroy so in-flight work can't resolve into — or leak —
@@ -1118,6 +1088,30 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
         invoke.resolve(ret)
     }
 
+    // Network handles change even when two Wi-Fi networks reuse the same IP.
+    // This is read by the native LAN server, never sent to an external host.
+    @Command
+    fun get_lan_network(invoke: Invoke) {
+        val manager = activity.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val active = manager.activeNetwork
+        val candidates = manager.allNetworks.mapNotNull { network ->
+            val caps = manager.getNetworkCapabilities(network) ?: return@mapNotNull null
+            if (!caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) && !caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)) return@mapNotNull null
+            val link = manager.getLinkProperties(network) ?: return@mapNotNull null
+            val addresses = link.linkAddresses.mapNotNull { address ->
+                val ip = address.address
+                if (ip is java.net.Inet4Address && ip.isSiteLocalAddress && !ip.isLoopbackAddress) ip.hostAddress else null
+            }
+            Triple(network, link.interfaceName ?: "", addresses)
+        }.sortedWith(compareBy({ it.first != active }, { it.first.networkHandle }))
+        val result = JSObject()
+        val addresses = JSArray()
+        candidates.flatMap { it.third }.distinct().forEach { addresses.put(it) }
+        result.put("addresses", addresses)
+        result.put("fingerprint", candidates.joinToString("|") { "${it.first.networkHandle}:${it.second}:${it.third.joinToString(",")}" })
+        invoke.resolve(result)
+    }
+
     @Command
     fun get_screen_brightness(invoke: Invoke) {
         val ret = JSObject()
@@ -1236,110 +1230,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
         lastEmittedLux = Float.NaN
     }
 
-    @Command
-    fun iap_is_available(invoke: Invoke) {
-        val isAvailable = billingManager.isBillingAvailable()
-        val result = JSObject()
-        result.put("available", isAvailable)
-        invoke.resolve(result)
-    }
-
-    @Command
-    fun iap_initialize(invoke: Invoke) {
-        billingManager.initialize { success ->
-            val result = JSObject()
-            result.put("success", success)
-            invoke.resolve(result)
-        }
-    }
-
-    @Command
-    fun iap_fetch_products(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(FetchProductsRequestArgs::class.java)
-            val productIds = args.productIds ?: emptyList()
-            if (productIds.isEmpty()) {
-                invoke.reject("Product IDs list is empty")
-                return
-            }
-
-            billingManager.fetchProducts(productIds) { products ->
-                val result = JSObject()
-                val productsArray = JSArray()
-                for (product in products) {
-                    val productObject = JSObject().apply {
-                        put("id", product.id)
-                        put("title", product.title)
-                        put("description", product.description)
-                        put("price", product.price)
-                        put("priceCurrencyCode", product.priceCurrencyCode)
-                        put("priceAmountMicros", product.priceAmountMicros)
-                        put("productType", product.productType)
-                    }
-                    productsArray.put(productObject)
-                }
-                result.put("products", productsArray)
-                invoke.resolve(result)
-            }
-        } catch (e: Exception) {
-            invoke.reject("Failed to parse fetch products arguments: ${e.message}")
-        }
-    }
-
-    @Command
-    fun iap_purchase_product(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(PurchaseProductRequestArgs::class.java)
-            val productId = args.productId ?: ""
-            if (productId.isEmpty()) {
-                invoke.reject("Product ID is empty")
-                return
-            }
-
-            billingManager.purchaseProduct(productId) { purchase ->
-                if (purchase != null) {
-                    val result = JSObject()
-                    val purchaseData = JSObject().apply {
-                        put("platform", purchase.platform)
-                        put("packageName", activity.packageName)
-                        put("productId", purchase.productId)
-                        put("orderId", purchase.orderId)
-                        put("purchaseToken", purchase.purchaseToken)
-                        put("purchaseDate", purchase.purchaseDate)
-                        put("purchaseState", purchase.purchaseState)
-                    }
-                    result.put("purchase", purchaseData)
-                    invoke.resolve(result)
-                } else {
-                    invoke.reject("Purchase failed or was cancelled")
-                }
-            }
-        } catch (e: Exception) {
-            invoke.reject("Failed to parse purchase arguments: ${e.message}")
-        }
-    }
-
-    @Command
-    fun iap_restore_purchases(invoke: Invoke) {
-        billingManager.restorePurchases { purchases ->
-            val result = JSObject()
-            val purchasesArray = JSArray()
-            for (purchase in purchases) {
-                val purchaseObject = JSObject().apply {
-                    put("platform", purchase.platform)
-                    put("packageName", activity.packageName)
-                    put("productId", purchase.productId)
-                    put("orderId", purchase.orderId)
-                    put("purchaseToken", purchase.purchaseToken)
-                    put("purchaseDate", purchase.purchaseDate)
-                    put("purchaseState", purchase.purchaseState)
-                }
-                purchasesArray.put(purchaseObject)
-            }
-            result.put("purchases", purchasesArray)
-            invoke.resolve(result)
-        }
-    }
 
     @Command
     fun get_external_sdcard_path(invoke: Invoke) {

@@ -3,9 +3,9 @@ import { withOriginSuppressed } from '@/app/opds/utils/opdsReq';
 import type { GrimmorySettings } from '@/types/settings';
 import { normalizeCustomHeaders } from '@/utils/customHeaders';
 import { stubTranslation as _ } from '@/utils/misc';
-import { isLanAddress } from '@/utils/network';
+
 import { allowsSelfSignedCert, tlsFetch } from '@/utils/tls';
-import { getAPIBaseUrl, isTauriAppPlatform } from '../environment';
+import { isTauriAppPlatform } from '../environment';
 import type {
   GrimmoryAnnotation,
   GrimmoryAnnotationCreate,
@@ -16,7 +16,6 @@ import type {
   GrimmoryBookmarkUpdate,
   GrimmoryBookType,
   GrimmoryProgressUpdate,
-  GrimmoryProxyPayload,
   GrimmoryReadStatus,
   GrimmoryReadingSession,
   GrimmorySessionPage,
@@ -94,26 +93,13 @@ export class GrimmoryClient {
     // The web build can't reach a public server directly when its CORS policy
     // leaves Readest out, so it goes through the proxy; a LAN server is out of
     // the proxy's reach and is fetched directly.
-    if (isTauriAppPlatform() || isLanAddress(this.serverUrl)) {
-      return await tlsFetch(
-        isTauriAppPlatform() ? tauriFetch : window.fetch,
-        `${this.serverUrl}${path}`,
-        { method, headers: withOriginSuppressed(headers), body },
-        allowsSelfSignedCert(this.config),
-      );
-    }
-    const payload: GrimmoryProxyPayload = {
-      serverUrl: this.serverUrl,
-      path,
-      method,
-      headers,
-      body,
-    };
-    return await fetch(`${getAPIBaseUrl()}/grimmory`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+
+    return await tlsFetch(
+      isTauriAppPlatform() ? tauriFetch : window.fetch,
+      `${this.serverUrl}${path}`,
+      { method, headers: withOriginSuppressed(headers), body },
+      allowsSelfSignedCert(this.config),
+    );
   }
 
   private async login(): Promise<string> {

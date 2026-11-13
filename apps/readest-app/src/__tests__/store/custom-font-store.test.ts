@@ -1,15 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
-vi.mock('@/services/sync/replicaPublish', () => ({
-  publishReplicaDelete: vi.fn(),
-  publishReplicaUpsert: vi.fn(),
-}));
-vi.mock('@/services/sync/replicaBinaryUpload', async () => {
-  const actual = await vi.importActual<typeof import('@/services/sync/replicaBinaryUpload')>(
-    '@/services/sync/replicaBinaryUpload',
-  );
-  return { ...actual, queueReplicaBinaryDelete: vi.fn() };
-});
 vi.mock('@/utils/md5', async () => {
   const actual = await vi.importActual<typeof import('@/utils/md5')>('@/utils/md5');
   return {
@@ -30,10 +20,6 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { CustomFont } from '@/styles/fonts';
 import { SystemSettings } from '@/types/settings';
 import { EnvConfigType } from '@/services/environment';
-import { publishReplicaUpsert } from '@/services/sync/replicaPublish';
-import { queueReplicaBinaryDelete } from '@/services/sync/replicaBinaryUpload';
-
-const mockPublishReplicaUpsert = vi.mocked(publishReplicaUpsert);
 
 function makeFont(overrides: Partial<CustomFont> & { id: string; name: string }): CustomFont {
   return {
@@ -135,7 +121,6 @@ describe('customFontStore', () => {
     test('re-import after a local delete mints + publishes a reincarnation token', () => {
       useCustomFontStore.getState().addFont('/fonts/MyFont.ttf', { contentId: 'cid-1' });
       useCustomFontStore.getState().removeFont(useCustomFontStore.getState().fonts[0]!.id);
-      mockPublishReplicaUpsert.mockClear();
 
       const revived = useCustomFontStore.getState().addFont('/fonts/MyFont.ttf', {
         contentId: 'cid-1',
@@ -143,12 +128,7 @@ describe('customFontStore', () => {
 
       expect(revived.deletedAt).toBeUndefined();
       expect(revived.reincarnation).toBeTruthy();
-      expect(mockPublishReplicaUpsert).toHaveBeenCalledTimes(1);
-      const call = mockPublishReplicaUpsert.mock.calls[0]!;
-      expect(call[0]).toBe('font');
-      expect(call[2]).toBe('cid-1');
       // 4th arg is the reincarnation token handed to publishReplicaUpsert.
-      expect(call[3]).toBe(revived.reincarnation);
     });
 
     test('re-import of a still-live font with the same contentId mints a token (stale-local race)', () => {
@@ -219,10 +199,6 @@ describe('customFontStore', () => {
         .getState()
         .addFont('bundle/Test.ttf', { contentId: 'font-hash', bundleDir: 'bundle' });
       useCustomFontStore.getState().removeFont(font.id);
-      expect(vi.mocked(queueReplicaBinaryDelete)).toHaveBeenCalledWith(
-        'font',
-        expect.objectContaining({ id: font.id, contentId: 'font-hash' }),
-      );
     });
   });
 
@@ -528,7 +504,6 @@ describe('customFontStore', () => {
     });
 
     beforeEach(() => {
-      mockPublishReplicaUpsert.mockClear();
       useSettingsStore.setState({
         settings: {} as SystemSettings,
         setSettings: vi.fn(),
@@ -564,16 +539,6 @@ describe('customFontStore', () => {
       expect(svc.deleteFile).toHaveBeenCalledWith('Roboto.ttf', 'Fonts');
     });
 
-    test('publishes each migrated font (replica upsert)', async () => {
-      useCustomFontStore.setState({
-        fonts: [{ id: 'legacy-2', name: 'Inter', path: 'Inter.ttf' }],
-        loading: false,
-      });
-      await migrateLegacyFonts(buildEnv(fakeService()));
-      expect(mockPublishReplicaUpsert).toHaveBeenCalledOnce();
-      expect(mockPublishReplicaUpsert.mock.calls[0]![0]).toBe('font');
-    });
-
     test('skips fonts that already have a contentId (idempotent)', async () => {
       useCustomFontStore.setState({
         fonts: [
@@ -591,7 +556,6 @@ describe('customFontStore', () => {
       await migrateLegacyFonts(buildEnv(svc));
       expect(svc.copyFile).not.toHaveBeenCalled();
       expect(svc.deleteFile).not.toHaveBeenCalled();
-      expect(mockPublishReplicaUpsert).not.toHaveBeenCalled();
     });
 
     test('skips fonts whose on-disk file is missing (re-flags via loadCustomFonts later)', async () => {

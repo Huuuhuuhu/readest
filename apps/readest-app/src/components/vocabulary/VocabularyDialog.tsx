@@ -3,7 +3,7 @@ import Dialog from '@/components/Dialog';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useVocabularyStore } from '@/store/vocabularyStore';
-import { initVocabularySync } from '@/services/vocabulary/vocabularySync';
+
 import VocabularyView from './VocabularyView';
 
 const DIALOG_ID = 'vocabulary_window';
@@ -30,10 +30,7 @@ export const VocabularyDialog: React.FC = () => {
 
   useEffect(() => {
     if (!isOpen || !appService) return;
-    void useVocabularyStore
-      .getState()
-      .load(appService)
-      .then(() => initVocabularySync());
+    void useVocabularyStore.getState().load(appService);
   }, [isOpen, appService]);
 
   return (

@@ -1,3 +1,4 @@
+import { setImmediate as nextTurn } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { TTSController } from '@/services/tts/TTSController';
@@ -29,7 +30,9 @@ vi.spyOn(console, 'log').mockImplementation(() => {});
 const DECODE_SEC = 0.5;
 const GAP_SEC = 0.2;
 const flush = async () => {
-  for (let i = 0; i < 20; i++) await new Promise((r) => setTimeout(r, 0));
+  // Yield asynchronous work without advancing a wall clock: the fake audio clock
+  // owns elapsed playback time, including on Windows with its coarser timers.
+  for (let i = 0; i < 20; i++) await nextTurn();
 };
 
 // The audio carries its sentence's text, so the fake decoder can record which
@@ -69,7 +72,10 @@ describe('first sentences prepared ahead', () => {
     vi.stubGlobal('cancelAnimationFrame', () => {});
   });
 
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(async () => {
+    await client?.shutdown();
+    vi.unstubAllGlobals();
+  });
 
   // A windowed provider (Readest Voice) takes preloads as prefetch hints and
   // hands the audio back through onDelivered.

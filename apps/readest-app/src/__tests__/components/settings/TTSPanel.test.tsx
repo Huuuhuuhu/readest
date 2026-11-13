@@ -16,10 +16,6 @@ const state = vi.hoisted(() => ({
   push: vi.fn(),
 }));
 
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ token: state.token, user: state.user }),
-}));
-
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: state.push }),
 }));
@@ -185,27 +181,27 @@ describe('TTSPanel custom TTS services premium gate', () => {
 
   afterEach(cleanup);
 
-  it('sends a signed-out reader to sign in', () => {
+  it('opens the service editor without an account', () => {
     render(<TTSPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
-    expect(getCustomServicesRow().textContent).toContain('Premium');
+    expect(getCustomServicesRow().textContent).not.toContain('Premium');
     fireEvent.click(getCustomServicesRow());
-    expect(state.push).toHaveBeenCalledWith(expect.stringMatching(/^\/auth\?redirect=/));
+    expect(state.push).not.toHaveBeenCalled();
   });
 
-  it('sends a free user to the plans page', () => {
+  it('opens the service editor without a paid plan', () => {
     state.token = sessionToken({ plan: 'free' });
     state.user = { id: 'u' };
     render(<TTSPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
     fireEvent.click(getCustomServicesRow());
-    expect(state.push).toHaveBeenCalledWith(expect.stringMatching(/^\/user\?redirect=/));
-    expect(screen.queryByText('Add TTS Service')).toBeNull();
+    expect(state.push).not.toHaveBeenCalled();
+    expect(screen.getByText('Add TTS Service')).toBeTruthy();
   });
 
   it('opens the services page for Full Customization', () => {
     state.token = sessionToken({ plan: 'free', customization_purchased: true });
     state.user = { id: 'u' };
     render(<TTSPanel bookKey='book-1' onRegisterReset={vi.fn()} />);
-    expect(getCustomServicesRow().textContent).not.toContain('Premium');
+    expect(getCustomServicesRow().textContent).not.not.toContain('Premium');
     fireEvent.click(getCustomServicesRow());
     expect(state.push).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Add TTS Service'));

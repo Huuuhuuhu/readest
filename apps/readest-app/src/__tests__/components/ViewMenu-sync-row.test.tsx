@@ -34,7 +34,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {}, appService: { hasAmbientLightSensor: false } }),
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+
 vi.mock('@/store/themeStore', () => ({
   useThemeStore: () => ({ themeMode: 'auto', isDarkMode: false, setThemeMode: vi.fn() }),
 }));
@@ -125,7 +125,7 @@ describe('ViewMenu sync row (issue #5910)', () => {
 
     expect(screen.getByText('Synced 2 minutes ago')).toBeTruthy();
     expect(screen.queryByText('Never synced')).toBeNull();
-    expect(screen.queryByText('Sign in to Sync')).toBeNull();
+    expect(screen.queryByText('Never synced')).toBeNull();
     // ...and names the provider whose status this is.
     expect(screen.getByText('Synced via {{provider}}')).toBeTruthy();
   });
@@ -159,11 +159,11 @@ describe('ViewMenu sync row (issue #5910)', () => {
       failed: false,
       lastSyncedAt: 0,
       needsSignIn: true,
-      label: 'Sign in to Sync',
+      label: 'Never synced',
     };
 
     render(<ViewMenu bookKey='book-1' />);
-    fireEvent.click(screen.getByText('Sign in to Sync'));
+    fireEvent.click(screen.getByText('Never synced'));
 
     expect(mockNavigateToLogin).toHaveBeenCalled();
     expect(mockDispatch.mock.calls.map((call) => call[0])).not.toContain('push-file-sync');

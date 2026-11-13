@@ -7,7 +7,6 @@ export type FlowKind = 'progress' | 'notes' | 'books';
 export type FlowDirection = 'pull' | 'push';
 
 export type ConnectorId =
-  | 'readest-cloud'
   | 'kosync'
   | 'bookorbit'
   | 'grimmory'
@@ -19,7 +18,6 @@ export type ConnectorId =
   | 'audiobookshelf'
   | 'opds'
   | 'localsend'
-  | 'send'
   | FileSyncBackendKind;
 
 export interface ConnectionCheck {

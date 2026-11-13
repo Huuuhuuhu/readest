@@ -7,7 +7,6 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { transferManager } from '@/services/transferManager';
 import { useTransferStore } from '@/store/transferStore';
-import { setCachedUserPlan } from '@/services/sync/cloudSyncProvider';
 
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (text: string) => text,
@@ -40,7 +39,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  setCachedUserPlan('free');
 });
 
 describe('generic provider transfer history', () => {
@@ -63,7 +61,7 @@ describe('generic provider transfer history', () => {
 
 describe('TransferQueuePanel Upload All', () => {
   it('is offered while Readest Cloud and Books sync are on', () => {
-    withSettings();
+    withSettings({ webdav: { enabled: true } } as Partial<SystemSettings>);
     render(<TransferQueuePanel />);
     expect(screen.queryByLabelText('Upload All')).not.toBeNull();
   });
@@ -71,7 +69,7 @@ describe('TransferQueuePanel Upload All', () => {
   // Uploads made with Books sync off never get a `books` row, so no other
   // device could list them.
   it('is hidden while Books sync is off', () => {
-    withSettings({ syncCategories: { book: false } } as Partial<SystemSettings>);
+    withSettings({ syncCategories: { book: false } } as unknown as Partial<SystemSettings>);
     render(<TransferQueuePanel />);
     expect(screen.queryByLabelText('Upload All')).toBeNull();
   });
@@ -92,8 +90,9 @@ describe('TransferQueuePanel Download All', () => {
     'onedrive',
     'icloud',
   ] as const)('queues cloud-only books with %s enabled and Readest Cloud off', (provider) => {
-    setCachedUserPlan('plus');
-    withSettings({ readestCloud: { enabled: false }, [provider]: { enabled: true } });
+    withSettings({
+      [provider]: { enabled: true },
+    } as unknown as unknown as Partial<SystemSettings>);
     useLibraryStore.setState({
       getVisibleLibrary: () => [
         cloudOnlyBook,
@@ -108,30 +107,29 @@ describe('TransferQueuePanel Download All', () => {
     fireEvent.click(screen.getByLabelText('Download All'));
 
     expect(queueDownload).toHaveBeenCalledExactlyOnceWith(cloudOnlyBook, undefined, true);
-    expect(screen.queryByLabelText('Upload All')).toBeNull();
+    expect(screen.queryByLabelText('Upload All')).not.toBeNull();
   });
 
   it('is hidden when all providers are disabled', () => {
-    withSettings({ readestCloud: { enabled: false } });
+    withSettings();
     useLibraryStore.setState({ getVisibleLibrary: () => [cloudOnlyBook] });
     render(<TransferQueuePanel />);
     expect(screen.queryByLabelText('Download All')).toBeNull();
   });
 
-  it('is hidden when the only file provider is paused', () => {
+  it('stays available without plan state', () => {
     withSettings({
-      readestCloud: { enabled: false },
       s3: { enabled: true },
-    } as Partial<SystemSettings>);
+    } as unknown as Partial<SystemSettings>);
     useLibraryStore.setState({ getVisibleLibrary: () => [cloudOnlyBook] });
     render(<TransferQueuePanel />);
-    expect(screen.queryByLabelText('Download All')).toBeNull();
+    expect(screen.queryByLabelText('Download All')).not.toBeNull();
   });
 
   // A library-wide download would otherwise toast "Book downloaded" once per
   // book for the whole run (#6418); the panel itself shows the progress.
   it('queues the downloads in the background', () => {
-    withSettings();
+    withSettings({ webdav: { enabled: true } } as Partial<SystemSettings>);
     useLibraryStore.setState({ getVisibleLibrary: () => [cloudOnlyBook] });
     const queueDownload = vi.spyOn(transferManager, 'queueDownload').mockReturnValue('t-1');
 

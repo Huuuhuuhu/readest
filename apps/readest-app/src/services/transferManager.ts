@@ -1,15 +1,12 @@
 import { Book } from '@/types/book';
-import { AppService, BaseDir } from '@/types/system';
-import { useTransferStore, TransferItem, ReplicaTransferFile } from '@/store/transferStore';
+import { AppService } from '@/types/system';
+import { useTransferStore, TransferItem } from '@/store/transferStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import {
-  getActiveFileSyncBackends,
-  isReadestCloudStorageActive,
-} from '@/services/sync/cloudSyncProvider';
+import { getActiveFileSyncBackends } from '@/services/sync/cloudSyncProvider';
 import { recordFlow } from '@/services/sync/dataFlow/log';
 import { isSyncCategoryEnabled } from '@/services/sync/syncCategories';
 import { TranslationFunc } from '@/hooks/useTranslation';
-import { createProgressThrottle, ProgressHandler, ProgressPayload } from '@/utils/transfer';
+import { createProgressThrottle, ProgressPayload } from '@/utils/transfer';
 import { eventDispatcher } from '@/utils/event';
 import { isAbsOfflineCapable, isAudiobook } from '@/utils/audiobook';
 import { getTransferMessages } from './transferMessages';
@@ -75,7 +72,7 @@ class TransferManager {
    */
   isBookUploadAllowed(): boolean {
     return (
-      isReadestCloudStorageActive(useSettingsStore.getState().settings) &&
+      getActiveFileSyncBackends(useSettingsStore.getState().settings).length > 0 &&
       isSyncCategoryEnabled('book')
     );
   }
@@ -280,94 +277,6 @@ class TransferManager {
       .filter((id): id is string => id !== null);
   }
 
-  queueReplicaUpload(
-    replicaKind: string,
-    replicaId: string,
-    displayTitle: string,
-    files: ReplicaTransferFile[],
-    base: BaseDir,
-    opts: { priority?: number; isBackground?: boolean; reincarnation?: string } = {},
-  ): string | null {
-    if (!this.isReady()) {
-      console.warn('TransferManager not initialized');
-      return null;
-    }
-    const store = useTransferStore.getState();
-    const existing = store.getReplicaTransfer(replicaKind, replicaId, 'upload');
-    if (existing) return existing.id;
-
-    const id = store.addReplicaTransfer(replicaKind, replicaId, displayTitle, 'upload', {
-      priority: opts.priority,
-      // Replica transfers are background sync by default — see the note on
-      // queueReplicaDownload.
-      isBackground: opts.isBackground ?? true,
-      files,
-      base,
-      reincarnation: opts.reincarnation,
-    });
-    this.persistQueue();
-    this.processQueue();
-    return id;
-  }
-
-  queueReplicaDownload(
-    replicaKind: string,
-    replicaId: string,
-    displayTitle: string,
-    files: ReplicaTransferFile[],
-    base: BaseDir,
-    opts: { priority?: number; isBackground?: boolean } = {},
-  ): string | null {
-    if (!this.isReady()) {
-      console.warn('TransferManager not initialized');
-      return null;
-    }
-    const store = useTransferStore.getState();
-    const existing = store.getReplicaTransfer(replicaKind, replicaId, 'download');
-    if (existing) return existing.id;
-
-    const id = store.addReplicaTransfer(replicaKind, replicaId, displayTitle, 'download', {
-      priority: opts.priority,
-      // Replica bundles (fonts, textures, dictionaries, OPDS catalogs) sync on
-      // their own schedule, not because the user asked for this file right
-      // now. Toasting each one turns a fresh device into a wall of
-      // notifications, so they are background — and therefore silent — unless
-      // a caller explicitly opts into the foreground.
-      isBackground: opts.isBackground ?? true,
-      files,
-      base,
-    });
-    this.persistQueue();
-    this.processQueue();
-    return id;
-  }
-
-  queueReplicaDelete(
-    replicaKind: string,
-    replicaId: string,
-    displayTitle: string,
-    filenames: string[],
-    opts: { priority?: number; isBackground?: boolean } = {},
-  ): string | null {
-    if (!this.isReady()) {
-      console.warn('TransferManager not initialized');
-      return null;
-    }
-    const store = useTransferStore.getState();
-    const existing = store.getReplicaTransfer(replicaKind, replicaId, 'delete');
-    if (existing) return existing.id;
-
-    const id = store.addReplicaTransfer(replicaKind, replicaId, displayTitle, 'delete', {
-      priority: opts.priority,
-      // Background by default — see the note on queueReplicaDownload.
-      isBackground: opts.isBackground ?? true,
-      files: filenames.map((logical) => ({ logical, lfp: '', byteSize: 0 })),
-    });
-    this.persistQueue();
-    this.processQueue();
-    return id;
-  }
-
   cancelTransfer(transferId: string): void {
     if (useTransferStore.getState().transfers[transferId]?.kind === 'file') return;
     const controller = this.abortControllers.get(transferId);
@@ -508,7 +417,7 @@ class TransferManager {
 
     try {
       if (transfer.kind === 'replica') {
-        await this.executeReplicaTransfer(transfer, progressHandler, abortController);
+        throw new Error('Legacy official-service transfer is unsupported');
       } else {
         await this.executeBookTransfer(transfer, progressHandler, abortController);
       }
@@ -567,12 +476,7 @@ class TransferManager {
         // file" toasts for sixteen fonts). The failure is still recorded on
         // the transfer, which is what the Transfer Queue panel reads.
         if (!transfer.isBackground) {
-          if (errorMessage.includes('Not authenticated')) {
-            eventDispatcher.dispatch('toast', {
-              type: 'error',
-              message: _('Please log in to continue'),
-            });
-          } else if (isQuotaError) {
+          if (isQuotaError) {
             this.recordQuotaFailure();
           } else {
             const errorMessages = getTransferMessages(transfer, _).failure;
@@ -628,36 +532,14 @@ class TransferManager {
   private recordBookFile(transfer: TransferItem, error?: string): void {
     if (transfer.kind !== 'book' || transfer.type === 'delete') return;
     const book = this.getLibrary!().find((b) => b.hash === transfer.bookHash);
-    const provider = useTransferStore.getState().transfers[transfer.id]?.provider;
-    const settings = useSettingsStore.getState().settings;
-    const isAudiobook = book?.format === 'ABS';
-    // With no cloud copy to fall back on, this download was the file backends' alone.
-    if (
-      error &&
-      transfer.type === 'download' &&
-      !isAudiobook &&
-      !isReadestCloudStorageActive(settings)
-    ) {
-      for (const connector of getActiveFileSyncBackends(settings)) {
-        recordFlow({
-          connector,
-          direction: 'pull',
-          kind: 'books',
-          bookTitle: transfer.bookTitle,
-          error,
-        });
-      }
-      return;
-    }
-    // runFileBookDownload knows which backend served the file and records it.
-    if (provider && provider !== 'readest') return;
-    recordFlow({
-      connector: isAudiobook ? 'audiobookshelf' : 'readest-cloud',
-      direction: transfer.type === 'upload' ? 'push' : 'pull',
-      kind: 'books',
-      bookTitle: transfer.bookTitle,
-      error,
-    });
+    if (book?.format === 'ABS')
+      recordFlow({
+        connector: 'audiobookshelf',
+        direction: 'pull',
+        kind: 'books',
+        bookTitle: transfer.bookTitle,
+        error,
+      });
   }
 
   private async executeBookTransfer(
@@ -699,105 +581,13 @@ class TransferManager {
         );
       }
       if (!downloaded) {
-        if (!isReadestCloudStorageActive(settings)) {
-          throw new Error(_('Failed to download book: {{title}}', { title: book.title }));
-        }
-        useTransferStore.getState().setTransferProvider(transfer.id, 'readest');
-        await this.appService!.downloadBook(book, false, false, progressHandler);
+        throw new Error(_('Failed to download book: {{title}}', { title: book.title }));
       }
       book.downloadedAt = Date.now();
       await this.updateBook!(book);
     } else if (transfer.type === 'delete') {
       await this.appService!.deleteBook(book, 'cloud');
       await this.updateBook!(book);
-    }
-  }
-
-  private async executeReplicaTransfer(
-    transfer: TransferItem,
-    progressHandler: (p: ProgressPayload) => void,
-    _abortController: AbortController,
-  ): Promise<void> {
-    const kind = transfer.replicaKind!;
-    const replicaId = transfer.replicaId!;
-    const files = transfer.replicaFiles ?? [];
-
-    if (transfer.type === 'delete') {
-      await this.appService!.deleteReplicaBundle(
-        kind,
-        replicaId,
-        files.map((f) => f.logical),
-      );
-      eventDispatcher.dispatch('replica-transfer-complete', {
-        kind,
-        replicaId,
-        type: 'delete',
-        filenames: files.map((f) => f.logical),
-      });
-      return;
-    }
-
-    if (files.length === 0) {
-      throw new Error(`replica ${transfer.type} requires replicaFiles on the transfer`);
-    }
-
-    const totalBytes = files.reduce((sum, f) => sum + f.byteSize, 0) || 1;
-    let bytesAlreadyDone = 0;
-    const fileProgressHandler =
-      (filenameSize: number): ProgressHandler =>
-      (p: ProgressPayload) => {
-        const fileFraction = p.total > 0 ? p.progress / p.total : 0;
-        const overallTransferred = bytesAlreadyDone + filenameSize * fileFraction;
-        progressHandler({
-          progress: overallTransferred,
-          total: totalBytes,
-          transferSpeed: p.transferSpeed,
-        });
-      };
-
-    if (transfer.type === 'upload') {
-      const base = transfer.replicaBase!;
-      for (const file of files) {
-        await this.appService!.uploadReplicaFile(
-          kind,
-          replicaId,
-          file.logical,
-          file.lfp,
-          base,
-          fileProgressHandler(file.byteSize),
-        );
-        bytesAlreadyDone += file.byteSize;
-      }
-      eventDispatcher.dispatch('replica-transfer-complete', {
-        kind,
-        replicaId,
-        reincarnation: transfer.replicaReincarnation,
-        type: 'upload',
-        files,
-      });
-      return;
-    }
-
-    if (transfer.type === 'download') {
-      const base = transfer.replicaBase!;
-      for (const file of files) {
-        await this.appService!.downloadReplicaFile(
-          kind,
-          replicaId,
-          file.logical,
-          file.lfp,
-          base,
-          fileProgressHandler(file.byteSize),
-        );
-        bytesAlreadyDone += file.byteSize;
-      }
-      eventDispatcher.dispatch('replica-transfer-complete', {
-        kind,
-        replicaId,
-        type: 'download',
-        files,
-      });
-      return;
     }
   }
 
@@ -814,7 +604,15 @@ class TransferManager {
       // Restore all transfers using the store's restore method
       // This preserves the original IDs and handles in_progress -> pending conversion
       const current = store.transfers;
-      store.restoreTransfers(data.transfers, data.isQueuePaused);
+      store.restoreTransfers(
+        Object.fromEntries(
+          Object.entries(data.transfers).filter(
+            ([, transfer]) =>
+              transfer.kind !== 'replica' && String(transfer.provider) !== 'readest',
+          ),
+        ),
+        data.isQueuePaused,
+      );
       useTransferStore.setState((state) => ({ transfers: { ...state.transfers, ...current } }));
     } catch (error) {
       console.error('Failed to load transfer queue:', error);

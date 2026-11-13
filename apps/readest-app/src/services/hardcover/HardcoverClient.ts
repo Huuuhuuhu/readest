@@ -1,6 +1,6 @@
 import { Book, BookConfig, BookNote, HardcoverBookLink } from '@/types/book';
 import { getContentMd5 } from '@/utils/misc';
-import { isTauriAppPlatform } from '@/services/environment';
+
 import { TokenEndpointError, type TokenSet } from '@/services/sync/providers/oauth/tokenEndpoint';
 import { HardcoverSyncMapStore } from './HardcoverSyncMapStore';
 import { getRateLimitGate, MAX_WAIT_MS, parseRetryAfterMs, RateLimitGate } from './rateLimit';
@@ -139,7 +139,6 @@ export class HardcoverAuthError extends Error {}
 
 export class HardcoverClient {
   private directEndpoint = 'https://api.hardcover.app/v1/graphql';
-  private proxyEndpoint = '/api/hardcover/graphql';
   private token: string;
   private oauth: TokenSet | null;
   // The tokens last known to be in the store; stays behind `oauth` until a save succeeds.
@@ -216,7 +215,7 @@ export class HardcoverClient {
   }
 
   private get endpoint() {
-    return isTauriAppPlatform() ? this.directEndpoint : this.proxyEndpoint;
+    return this.directEndpoint;
   }
 
   private formatDate(date: Date): string {

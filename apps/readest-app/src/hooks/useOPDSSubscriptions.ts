@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Book } from '@/types/book';
-import { useAuth } from '@/context/AuthContext';
+
 import { useEnv } from '@/context/EnvContext';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { syncSubscribedCatalogs } from '@/services/opds';
-import { queueOPDSBookUploads } from '@/services/opds/cloudUpload';
+
 import { AUTO_CHECK_INTERVAL_MS } from '@/services/opds/types';
 import { eventDispatcher } from '@/utils/event';
 
 export function useOPDSSubscriptions() {
   const _ = useTranslation();
   const { appService } = useEnv();
-  const { user } = useAuth();
+
   const { libraryLoaded } = useLibraryStore();
   const isSyncingRef = useRef(false);
 
@@ -53,7 +53,7 @@ export function useOPDSSubscriptions() {
           await appService.saveLibraryBooks(merged);
         };
 
-        const { newBooks, totalNewBooks, errors } = await syncSubscribedCatalogs(
+        const { totalNewBooks, errors } = await syncSubscribedCatalogs(
           catalogs,
           appService,
           librarySnapshot,
@@ -61,7 +61,6 @@ export function useOPDSSubscriptions() {
         );
 
         if (totalNewBooks > 0) {
-          queueOPDSBookUploads(!!user, useSettingsStore.getState().settings, newBooks);
         }
 
         if (verbose && totalNewBooks > 0) {
@@ -86,7 +85,7 @@ export function useOPDSSubscriptions() {
         eventDispatcher.dispatch('opds-sync-complete');
       }
     },
-    [_, appService, libraryLoaded, user],
+    [_, appService, libraryLoaded],
   );
 
   // Auto-trigger on startup after library is loaded

@@ -10,7 +10,6 @@ import {
   RiBookShelfLine,
   RiBookmark3Line,
   RiCheckLine,
-  RiCloudFill,
   RiCloudLine,
   RiDatabase2Line,
   RiFileList3Line,
@@ -20,7 +19,6 @@ import {
   RiMicrosoftLine,
   RiPlanetLine,
   RiRssLine,
-  RiSendPlaneLine,
   RiSubtractLine,
   RiWifiLine,
 } from 'react-icons/ri';
@@ -54,7 +52,6 @@ const NODE_GAP = 8;
 const LINES_WIDTH = 72;
 
 const ICONS: Record<ConnectorId, React.ElementType> = {
-  'readest-cloud': RiCloudFill,
   kosync: RiBookOpenLine,
   bookorbit: RiPlanetLine,
   grimmory: RiBookShelfLine,
@@ -66,7 +63,6 @@ const ICONS: Record<ConnectorId, React.ElementType> = {
   audiobookshelf: RiHeadphoneLine,
   opds: RiRssLine,
   localsend: RiWifiLine,
-  send: RiSendPlaneLine,
   webdav: RiCloudLine,
   gdrive: RiGoogleLine,
   s3: RiDatabase2Line,

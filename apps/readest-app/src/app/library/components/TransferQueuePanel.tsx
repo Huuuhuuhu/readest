@@ -20,7 +20,6 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import {
   getActiveFileSyncBackends,
-  isReadestCloudStorageActive,
   cloudProviderDisplayName,
 } from '@/services/sync/cloudSyncProvider';
 import { isSyncCategoryEnabled } from '@/services/sync/syncCategories';
@@ -113,7 +112,9 @@ const TransferItemRow: React.FC<{
         <div className='text-base-content/60 text-xs'>
           {(transfer.provider || transfer.kind === 'replica' || transfer.type !== 'download') && (
             <>
-              {cloudProviderDisplayName(transfer.provider ?? 'readest')}
+              {transfer.provider && String(transfer.provider) !== 'readest'
+                ? cloudProviderDisplayName(transfer.provider)
+                : _('Configured service')}
               {' · '}
             </>
           )}
@@ -209,7 +210,7 @@ const TransferQueuePanel: React.FC = () => {
   // Queued downloads try every active file provider before Readest Cloud;
   // queued uploads still target Readest Cloud storage.
   const settings = useSettingsStore((s) => s.settings);
-  const readestStorageActive = isReadestCloudStorageActive(settings);
+  const readestStorageActive = getActiveFileSyncBackends(settings).length > 0;
   // Uploads made with Books sync off never get a `books` row, so no other
   // device could list them; the queue refuses them too.
   const uploadAllowed = readestStorageActive && isSyncCategoryEnabled('book');

@@ -6,29 +6,6 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { broadcastGlobalSettings } from '@/utils/settingsSync';
 
 /**
- * Write Readest Cloud's own switch, including the third state a plain boolean
- * cannot express: `undefined`, which restores the derived fallback
- * (`enabled ?? !hasAnyThirdPartyEnabled`, see `isReadestCloudEnabled`).
- *
- * Clearing rather than pinning `true` matters — a pinned `true` retires the
- * derivation, so enabling WebDAV later would leave Readest Cloud on and the
- * library would upload to both. `disabledAt` is stamped only for an explicit
- * opt-out: it anchors the mixed-fleet probe ("when did this device stop
- * writing native rows"), which a device back on the derived default never did.
- */
-export const withReadestCloudChoice = (
-  settings: SystemSettings,
-  enabled: boolean | undefined,
-): SystemSettings => ({
-  ...settings,
-  readestCloud: {
-    ...settings.readestCloud,
-    enabled,
-    disabledAt: enabled === false ? Date.now() : undefined,
-  },
-});
-
-/**
  * Turn ONE cloud sync provider on or off, leaving every other provider exactly
  * as it was (#5062). Providers are an independent set: any subset may sync
  * the library at once.
@@ -54,9 +31,6 @@ export const withCloudProviderEnabled = (
   kind: CloudSyncProviderKind,
   enabled: boolean,
 ): SystemSettings => {
-  if (kind === 'readest') {
-    return withReadestCloudChoice(settings, enabled);
-  }
   const key = settingsKeyForBackend(kind);
   const slice = settings[key];
   const activating = enabled && !slice?.enabled;
@@ -115,15 +89,3 @@ export const persistCloudProviderEnabled = async (
   persistCloudSyncSelection(envConfig, (current) =>
     withCloudProviderEnabled(mutate(current), kind, enabled),
   );
-
-/**
- * Readest Cloud's switch, for callers that need to clear it back to the
- * derived default as well as set it. The sign-in page's opt-in (#6010) is the
- * one such caller; the Integrations checkbox goes through
- * `persistCloudProviderEnabled` like every other provider.
- */
-export const persistReadestCloudChoice = async (
-  envConfig: EnvConfigType,
-  enabled: boolean | undefined,
-): Promise<SystemSettings> =>
-  persistCloudSyncSelection(envConfig, (current) => withReadestCloudChoice(current, enabled));

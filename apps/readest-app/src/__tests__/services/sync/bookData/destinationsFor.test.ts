@@ -3,17 +3,13 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 const gateMock = vi.fn();
 vi.mock('@/services/sync/cloudSyncProvider', async (orig) => ({
   ...(await orig<typeof import('@/services/sync/cloudSyncProvider')>()),
-  resolveCloudSyncGate: (...a: unknown[]) => gateMock(...a),
+  getActiveFileSyncBackends: (...a: unknown[]) => gateMock(...a).backends,
 }));
 const createProviderMock = vi.fn();
 vi.mock('@/services/sync/file/providerRegistry', () => ({
   createFileSyncProvider: (...a: unknown[]) => createProviderMock(...a),
 }));
 const getUserIDMock = vi.fn();
-vi.mock('@/utils/access', async (orig) => ({
-  ...(await orig<typeof import('@/utils/access')>()),
-  getUserID: () => getUserIDMock(),
-}));
 
 import { getBookDataDestinations } from '@/services/sync/bookData/destinationsFor';
 import { useLibraryStore } from '@/store/libraryStore';
@@ -58,15 +54,15 @@ describe('getBookDataDestinations', () => {
     expect(await ids()).toEqual(['gdrive']);
   });
 
-  test('returns none while backends are paused', async () => {
+  test('does not consult obsolete plan pauses', async () => {
     gateMock.mockReturnValue({ readest: false, backends: ['webdav'], paused: true });
-    expect(await ids()).toEqual([]);
+    expect(await ids()).toEqual(['webdav']);
   });
 
   test('adds Readest Cloud for an uploaded book', async () => {
     gateMock.mockReturnValue({ readest: true, backends: ['webdav'], paused: false });
     setSettings({ readestCloud: { enabled: true } } as Partial<SystemSettings>);
-    expect(await ids()).toEqual(['readest', 'webdav']);
+    expect(await ids()).toEqual(['webdav']);
   });
 
   test('skips Readest Cloud for a book that is not uploaded', async () => {

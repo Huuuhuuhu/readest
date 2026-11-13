@@ -6,39 +6,15 @@ vi.mock('@/utils/settingsSync', () => ({
 
 import {
   persistCloudProviderEnabled,
-  persistReadestCloudChoice,
   withCloudProviderEnabled,
 } from '@/services/sync/cloudSyncActivation';
 import { useSettingsStore } from '@/store/settingsStore';
 import { broadcastGlobalSettings } from '@/utils/settingsSync';
-import { CLOUD_SYNC_REQUIRES_PREMIUM, isCloudSyncAllowed, isCloudSyncInPlan } from '@/utils/access';
+
 import type { SystemSettings } from '@/types/settings';
 import type { EnvConfigType } from '@/services/environment';
 
 const mockBroadcastGlobalSettings = vi.mocked(broadcastGlobalSettings);
-
-describe('isCloudSyncInPlan', () => {
-  test('any paid plan can use cloud sync', () => {
-    expect(isCloudSyncInPlan('plus', false)).toBe(true);
-    expect(isCloudSyncInPlan('pro', false)).toBe(true);
-    // A storage-only buyer reports `purchase` without being entitled.
-    expect(isCloudSyncInPlan('purchase', false)).toBe(false);
-  });
-
-  test('free plan cannot', () => {
-    expect(isCloudSyncInPlan('free', false)).toBe(false);
-  });
-});
-
-describe('isCloudSyncAllowed (premium paywall)', () => {
-  test('third-party cloud sync requires a paid plan', () => {
-    expect(CLOUD_SYNC_REQUIRES_PREMIUM).toBe(true);
-    expect(isCloudSyncAllowed('free', false)).toBe(false);
-    expect(isCloudSyncAllowed('plus', false)).toBe(true);
-    expect(isCloudSyncAllowed('pro', false)).toBe(true);
-    expect(isCloudSyncAllowed('purchase', false)).toBe(false);
-  });
-});
 
 describe('withCloudProviderEnabled', () => {
   const both = {
@@ -103,27 +79,6 @@ describe('withCloudProviderEnabled', () => {
     expect(next.webdav.enabled).toBe(false);
     expect(next.webdav.serverUrl).toBe('https://dav');
     expect(next.webdav.password).toBe('p');
-  });
-
-  test('turning Readest Cloud off writes an explicit false and stamps disabledAt', () => {
-    const next = withCloudProviderEnabled(both, 'readest', false);
-    expect(next.readestCloud?.enabled).toBe(false);
-    expect(next.readestCloud?.disabledAt).toBeTruthy();
-    expect(next.webdav.enabled).toBe(true);
-  });
-
-  test('turning Readest Cloud on writes an explicit true and clears disabledAt', () => {
-    const off = withCloudProviderEnabled(both, 'readest', false);
-    const on = withCloudProviderEnabled(off, 'readest', true);
-    expect(on.readestCloud?.enabled).toBe(true);
-    expect(on.readestCloud?.disabledAt).toBeUndefined();
-  });
-
-  test('every provider can be off at once', () => {
-    let next = withCloudProviderEnabled(both, 'webdav', false);
-    next = withCloudProviderEnabled(next, 'readest', false);
-    expect(next.webdav.enabled).toBe(false);
-    expect(next.readestCloud?.enabled).toBe(false);
   });
 });
 
@@ -224,72 +179,5 @@ describe('persistCloudProviderEnabled', () => {
  * derives from it, which is what makes enabling WebDAV later switch Readest
  * Cloud off instead of uploading the library to both.
  */
-describe('persistReadestCloudChoice', () => {
-  beforeEach(() => {
-    useSettingsStore.setState({ settings: {} as SystemSettings });
-    mockBroadcastGlobalSettings.mockClear();
-  });
-
-  const makeEnvConfig = (
-    saveSettings: (settings: SystemSettings) => Promise<void>,
-  ): EnvConfigType =>
-    ({
-      getAppService: vi.fn().mockResolvedValue({ saveSettings }),
-    }) as unknown as EnvConfigType;
-
-  test('false writes an explicit opt-out and stamps disabledAt', async () => {
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    useSettingsStore.setState({ settings: { version: 1 } as unknown as SystemSettings });
-
-    const next = await persistReadestCloudChoice(makeEnvConfig(saveSettings), false);
-
-    expect(next.readestCloud?.enabled).toBe(false);
-    expect(next.readestCloud?.disabledAt).toBeTruthy();
-    expect(saveSettings).toHaveBeenCalledWith(next);
-    expect(mockBroadcastGlobalSettings).toHaveBeenCalledWith(next, {
-      includeCloudSyncProviders: true,
-    });
-  });
-
-  test('undefined clears the flag so the derived fallback applies again', async () => {
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const envConfig = makeEnvConfig(saveSettings);
-    useSettingsStore.setState({ settings: { version: 1 } as unknown as SystemSettings });
-
-    await persistReadestCloudChoice(envConfig, false);
-    const restored = await persistReadestCloudChoice(envConfig, undefined);
-
-    expect(restored.readestCloud?.enabled).toBeUndefined();
-    // disabledAt anchors the mixed-fleet probe for a device that stopped
-    // writing native rows; a device back on the derived default never did.
-    expect(restored.readestCloud?.disabledAt).toBeUndefined();
-    expect(useSettingsStore.getState().settings.readestCloud?.enabled).toBeUndefined();
-  });
-
-  test('true writes an explicit opt-in and clears disabledAt', async () => {
-    const saveSettings = vi.fn().mockResolvedValue(undefined);
-    const envConfig = makeEnvConfig(saveSettings);
-    useSettingsStore.setState({ settings: { version: 1 } as unknown as SystemSettings });
-
-    await persistReadestCloudChoice(envConfig, false);
-    const next = await persistReadestCloudChoice(envConfig, true);
-
-    expect(next.readestCloud?.enabled).toBe(true);
-    expect(next.readestCloud?.disabledAt).toBeUndefined();
-  });
-});
 
 // Premium is now the plan OR an outright Full Customization purchase.
-describe('isCloudSyncAllowed — customization unlock', () => {
-  test('entitles a free user who bought Full Customization', () => {
-    expect(isCloudSyncAllowed('free', true)).toBe(true);
-  });
-
-  test('entitles a grandfathered storage buyer, who carries the flag', () => {
-    expect(isCloudSyncAllowed('purchase', true)).toBe(true);
-  });
-
-  test('does not entitle a storage-only buyer after the grace period', () => {
-    expect(isCloudSyncAllowed('purchase', false)).toBe(false);
-  });
-});

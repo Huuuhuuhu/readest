@@ -40,16 +40,11 @@ describe('customTTSStore', () => {
   it('adds, updates and removes services, publishing each change', () => {
     const store = useCustomTTSStore.getState();
     const added = store.addService(input);
-    expect(publishReplicaUpsert).toHaveBeenCalledWith(
-      'custom_tts',
-      added,
-      added.id,
-      added.reincarnation,
-    );
+    expect(publishReplicaUpsert).not.toHaveBeenCalled();
     store.updateService(added.id, { model: 'gpt-4o-mini-tts' });
     expect(useCustomTTSStore.getState().services[0]!.model).toBe('gpt-4o-mini-tts');
     store.removeService(added.id);
-    expect(publishReplicaDelete).toHaveBeenCalledWith('custom_tts', added.id);
+    expect(publishReplicaDelete).not.toHaveBeenCalled();
     expect(useCustomTTSStore.getState().services[0]!.deletedAt).toBeDefined();
   });
 

@@ -3,8 +3,6 @@ import type { EnvConfigType } from '@/services/environment';
 import type { CustomTTSService } from '@/types/customTTS';
 import { useSettingsStore } from './settingsStore';
 import { getReplicaPersistEnv } from '@/services/sync/replicaPersist';
-import { publishReplicaDelete, publishReplicaUpsert } from '@/services/sync/replicaPublish';
-import { CUSTOM_TTS_KIND } from '@/services/sync/adapters/customTTS';
 
 type ServiceInput = Omit<CustomTTSService, 'id' | 'addedAt' | 'updatedAt'>;
 
@@ -51,7 +49,7 @@ export const useCustomTTSStore = create<CustomTTSState>((set, get) => ({
       reincarnation: Math.random().toString(36).slice(2),
     };
     set((state) => ({ services: [...state.services, service] }));
-    void publishReplicaUpsert(CUSTOM_TTS_KIND, service, service.id, service.reincarnation);
+
     return service;
   },
 
@@ -60,12 +58,10 @@ export const useCustomTTSStore = create<CustomTTSState>((set, get) => ({
     if (!old) return;
     const service = { ...old, ...patch, updatedAt: Date.now() };
     set((state) => ({ services: replace(state.services, service) }));
-    void publishReplicaUpsert(CUSTOM_TTS_KIND, service, id, service.reincarnation);
   },
 
   removeService: (id) => {
     set((state) => ({ services: markDeleted(state.services, id) }));
-    void publishReplicaDelete(CUSTOM_TTS_KIND, id);
   },
 
   applyRemoteService: (remote) => {

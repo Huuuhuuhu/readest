@@ -31,12 +31,7 @@ vi.mock('@/hooks/useTranslation', () => ({ useTranslation: () => (s: string) => 
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {}, appService }),
 }));
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: account.user, token: account.user ? 'token' : null }),
-}));
-vi.mock('@/hooks/useQuotaStats', () => ({
-  useQuotaStats: () => ({ userProfilePlan: account.plan, customizationPurchased: false }),
-}));
+
 // Android-only hooks (back-key interception) call the native bridge.
 vi.mock('@/utils/bridge', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/utils/bridge')>()),
@@ -624,18 +619,6 @@ describe('VocabularyView Anki link', () => {
     fireEvent.click(await syncButton());
     await waitFor(() => expect(anki.ankiReadDeck).toHaveBeenCalledTimes(2));
     expect(anki.ankiReadDeck).toHaveBeenLastCalledWith([7, 8], true);
-  });
-
-  it('lets an entitled account sync while its plan is still loading', async () => {
-    account.plan = undefined;
-    const quota = await import('@/hooks/useQuotaStats');
-    const spy = vi
-      .spyOn(quota, 'useQuotaStats')
-      .mockReturnValue({ userProfilePlan: undefined, customizationPurchased: true } as never);
-    renderWithMenu();
-    fireEvent.click(await syncButton());
-    await waitFor(() => expect(anki.ankiAddNotes).toHaveBeenCalled());
-    spy.mockRestore();
   });
 
   it('lets a signed-out reader on a self-hosted server use it', async () => {

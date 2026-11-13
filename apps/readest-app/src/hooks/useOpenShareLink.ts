@@ -5,9 +5,9 @@ import { useEnv } from '@/context/EnvContext';
 import { useLibraryStore } from '@/store/libraryStore';
 import { isTauriAppPlatform } from '@/services/environment';
 import { eventDispatcher } from '@/utils/event';
-import { useAuth } from '@/context/AuthContext';
+
 import { navigateToReader } from '@/utils/nav';
-import { ShareApiError, confirmDownload, importShare } from '@/libs/share';
+import { ShareApiError } from '@/libs/share';
 import { ensureSharedBookLocal } from '@/libs/shareImport';
 import { parseShareDeepLink, type ShareDeepLink } from '@/utils/share';
 import { isMainAppWindow } from '@/utils/window';
@@ -46,38 +46,20 @@ export function useOpenShareLink() {
   const _ = useTranslation();
   const router = useRouter();
   const { appService } = useEnv();
-  const { user } = useAuth();
+
   const libraryLoaded = useLibraryStore((s) => s.libraryLoaded);
   const pending = useRef<ShareDeepLink | null>(null);
 
   const handleShareLink = useCallback(
     async ({ token }: ShareDeepLink) => {
-      if (!user) {
-        eventDispatcher.dispatch('toast', {
-          type: 'info',
-          message: _('Sign in to import shared books'),
-          timeout: 2500,
-        });
-        return;
-      }
       if (!appService) return;
       try {
-        const result = await importShare(token);
-        // The /import endpoint only creates rows + R2 bytes server-side; the
-        // local library is unchanged. Make sure the local library has both the
-        // Book entry and the bytes on disk before navigating, otherwise
-        // `getBookByHash` returns undefined and the reader throws "Book not
-        // found". See src/libs/shareImport.ts for the three branches.
-        await ensureSharedBookLocal({ token, importResult: result, appService });
-        // Best-effort analytics ping; doesn't affect UX.
-        confirmDownload(token);
-
-        const queryParams = result.cfi ? `cfi=${encodeURIComponent(result.cfi)}` : undefined;
-        navigateToReader(router, [result.bookHash], queryParams);
+        const book = await ensureSharedBookLocal({ token, appService });
+        navigateToReader(router, [book.hash]);
 
         eventDispatcher.dispatch('toast', {
           type: 'success',
-          message: result.alreadyOwned ? _('Already in your library') : _('Added to your library'),
+          message: _('Added to your library'),
           timeout: 2500,
         });
       } catch (err) {
@@ -94,7 +76,7 @@ export function useOpenShareLink() {
         });
       }
     },
-    [_, router, user, appService],
+    [_, router, appService],
   );
 
   useEffect(() => {

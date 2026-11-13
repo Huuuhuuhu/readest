@@ -2,12 +2,11 @@ import { md5 } from 'js-md5';
 import { Book } from '@/types/book';
 import { KOSyncSettings } from '@/types/settings';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
-import { KoSyncProxyPayload } from '@/types/kosync';
-import { isLanAddress } from '@/utils/network';
+
 import { getUserLang, makeSafeFilename } from '@/utils/misc';
 import { normalizeCustomHeaders } from '@/utils/customHeaders';
 import { allowsSelfSignedCert, tlsFetch } from '@/utils/tls';
-import { getAPIBaseUrl, isTauriAppPlatform } from '../environment';
+import { isTauriAppPlatform } from '../environment';
 
 const getContributorName = (contributor: unknown): string => {
   if (typeof contributor === 'string') return contributor.trim();
@@ -49,7 +48,6 @@ export interface KoSyncProgress {
 
 export class KOSyncClient {
   private config: KOSyncSettings;
-  private isLanServer: boolean;
   private usesHttpAuth: boolean = false;
   /** Why the last progress read or write failed, or null when it didn't. */
   lastError: string | null = null;
@@ -57,7 +55,6 @@ export class KOSyncClient {
   constructor(config: KOSyncSettings) {
     this.config = config;
     this.config.serverUrl = config.serverUrl.replace(/\/$/, '');
-    this.isLanServer = isLanAddress(this.config.serverUrl);
   }
 
   private async request(
@@ -89,42 +86,23 @@ export class KOSyncClient {
     const attempt = async (): Promise<Response> => {
       const headers = buildHeaders();
 
-      if (this.isLanServer || isTauriAppPlatform()) {
-        const fetch = isTauriAppPlatform() ? tauriFetch : window.fetch;
-        const directUrl = `${this.config.serverUrl}${endpoint}`;
+      const fetch = isTauriAppPlatform() ? tauriFetch : window.fetch;
+      const directUrl = `${this.config.serverUrl}${endpoint}`;
 
-        return await tlsFetch(
-          fetch,
-          directUrl,
-          {
-            method,
-            headers: {
-              accept: 'application/vnd.koreader.v1+json',
-              ...(method === 'GET' ? {} : { 'Content-Type': 'application/json' }),
-              ...Object.fromEntries(headers.entries()),
-            },
-            body,
+      return await tlsFetch(
+        fetch,
+        directUrl,
+        {
+          method,
+          headers: {
+            accept: 'application/vnd.koreader.v1+json',
+            ...(method === 'GET' ? {} : { 'Content-Type': 'application/json' }),
+            ...Object.fromEntries(headers.entries()),
           },
-          allowsSelfSignedCert(this.config),
-        );
-      }
-
-      const proxyUrl = `${getAPIBaseUrl()}/kosync`;
-      const proxyBody: KoSyncProxyPayload = {
-        serverUrl: this.config.serverUrl,
-        endpoint,
-        method,
-        headers: Object.fromEntries(headers.entries()),
-        body: body ? JSON.parse(body as string) : undefined,
-      };
-
-      return await fetch(proxyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+          body,
         },
-        body: JSON.stringify(proxyBody),
-      });
+        allowsSelfSignedCert(this.config),
+      );
     };
 
     let response = await attempt();

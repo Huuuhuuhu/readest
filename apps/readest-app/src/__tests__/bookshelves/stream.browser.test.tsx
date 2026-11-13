@@ -13,7 +13,7 @@ import BookshelfStream, {
 } from '@/app/library/components/BookshelfStream';
 
 vi.mock('@/context/EnvContext', () => ({ useEnv: () => ({ appService: null }) }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/app/library/hooks/useOpenBook', () => ({
   useOpenBook: () => ({ openBook: vi.fn() }),

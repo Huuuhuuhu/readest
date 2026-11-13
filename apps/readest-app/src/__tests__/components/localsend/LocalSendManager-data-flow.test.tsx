@@ -11,10 +11,7 @@ vi.mock('@/services/environment', () => ({ isTauriAppPlatform: () => true }));
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {}, appService: { isDesktopApp: true, deleteFile: vi.fn() } }),
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
-vi.mock('@/hooks/useQuotaStats', () => ({
-  useQuotaStats: () => ({ userProfilePlan: 'free', customizationPurchased: false }),
-}));
+
 vi.mock('@/services/localsend/devicePrefs', () => ({
   getLocalSendAlias: () => 'Test',
   isLocalSendEnabled: () => true,

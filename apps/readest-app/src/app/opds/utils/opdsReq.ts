@@ -1,21 +1,10 @@
 import { md5 } from 'js-md5';
-import {
-  getAPIBaseUrl,
-  getNodeAPIBaseUrl,
-  isTauriAppPlatform,
-  isWebAppPlatform,
-} from '@/services/environment';
+import { isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { READEST_OPDS_USER_AGENT } from '@/services/constants';
-import {
-  CustomHeaders,
-  normalizeCustomHeaders,
-  serializeCustomHeaders,
-} from '@/utils/customHeaders';
+import { CustomHeaders, normalizeCustomHeaders } from '@/utils/customHeaders';
 import { tlsFetch } from '@/utils/tls';
 
-const OPDS_PROXY_URL = `${getAPIBaseUrl()}/opds/proxy`;
-const NODE_OPDS_PROXY_URL = `${getNodeAPIBaseUrl()}/opds/proxy`;
 /**
  * Extract username and password from URL credentials
  */
@@ -83,42 +72,12 @@ export const withOriginSuppressed = (headers: Record<string, string>): Record<st
     ? { Origin: '', ...headers }
     : headers;
 
-const PROXY_OVERRIDES: Record<string, string> = {
-  standardebooks: NODE_OPDS_PROXY_URL,
-};
-
-const getProxyBaseUrl = (url: string): string => {
-  for (const [domain, proxyUrl] of Object.entries(PROXY_OVERRIDES)) {
-    if (url.includes(domain)) {
-      return proxyUrl;
-    }
-  }
-  return OPDS_PROXY_URL;
-};
-
-/**
- * Generate proxied URL for OPDS requests
- */
+/** Compatibility helper: requests always go directly to the selected catalog. */
 export const getProxiedURL = (
   url: string,
-  stream = false,
-  customHeaders: CustomHeaders = {},
-): string => {
-  if (url.startsWith('http')) {
-    const { url: cleanUrl } = extractCredentialsFromURL(url);
-    const params = new URLSearchParams();
-    params.append('url', cleanUrl);
-    params.append('stream', `${stream}`);
-    const serializedHeaders = serializeCustomHeaders(customHeaders);
-    if (serializedHeaders) {
-      params.append('headers', serializedHeaders);
-    }
-    const baseUrl = getProxyBaseUrl(url);
-    const proxyUrl = `${baseUrl}?${params.toString()}`;
-    return proxyUrl;
-  }
-  return url;
-};
+  _stream = false,
+  _customHeaders: CustomHeaders = {},
+): string => extractCredentialsFromURL(url).url;
 
 /**
  * Parse Digest authentication challenge from WWW-Authenticate header
@@ -237,7 +196,7 @@ export const probeAuth = async (
   url: string,
   username?: string,
   password?: string,
-  useProxy = false,
+  _useProxy = false,
   customHeaders: CustomHeaders = {},
   allowSelfSignedCert = false,
 ): Promise<string | null> => {
@@ -256,11 +215,11 @@ export const probeAuth = async (
     return null;
   }
 
-  const fetchURL = useProxy ? getProxiedURL(cleanUrl, false, normalizedCustomHeaders) : cleanUrl;
+  const fetchURL = cleanUrl;
   const headers: Record<string, string> = withOriginSuppressed({
     'User-Agent': READEST_OPDS_USER_AGENT,
     Accept: 'application/atom+xml, application/xml, text/xml, */*',
-    ...(!useProxy ? normalizedCustomHeaders : {}),
+    ...normalizedCustomHeaders,
   });
 
   // Probe with HEAD request
@@ -345,7 +304,7 @@ export const fetchWithAuth = async (
   url: string,
   username?: string,
   password?: string,
-  useProxy = false,
+  _useProxy = false,
   options: RequestInit = {},
   customHeaders: CustomHeaders = {},
   allowSelfSignedCert = false,
@@ -368,11 +327,11 @@ export const fetchWithAuth = async (
   const preemptiveAuth =
     finalUsername && finalPassword ? createBasicAuth(finalUsername, finalPassword) : null;
 
-  const fetchURL = useProxy ? getProxiedURL(cleanUrl, false, normalizedCustomHeaders) : cleanUrl;
+  const fetchURL = cleanUrl;
   const baseHeaders: Record<string, string> = withOriginSuppressed({
     'User-Agent': READEST_OPDS_USER_AGENT,
     Accept: 'application/atom+xml, application/xml, text/xml, */*',
-    ...(!useProxy ? normalizedCustomHeaders : {}),
+    ...normalizedCustomHeaders,
     ...(options.headers as Record<string, string>),
   });
   const headers: Record<string, string> = {

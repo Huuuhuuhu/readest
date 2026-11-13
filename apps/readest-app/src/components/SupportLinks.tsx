@@ -1,18 +1,17 @@
 import { FaGithub, FaDiscord, FaReddit } from 'react-icons/fa';
-import { useTranslation } from '@/hooks/useTranslation';
+
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import Link from './Link';
 
 const SupportLinks = () => {
-  const _ = useTranslation();
   const iconSize = useResponsiveSize(24);
 
   return (
     <div className='my-2 flex flex-col items-center gap-2'>
-      <p className='text-neutral-content text-sm'>{_('Get Help from the Readest Community')}</p>
+      <p className='text-neutral-content text-sm'>{'Readest TV · Huuuhuuhu'}</p>
       <div className='flex gap-4'>
         <Link
-          href='https://github.com/readest/readest'
+          href='https://github.com/Huuuhuuhu/readest'
           className='flex items-center gap-2 rounded-full bg-gray-800 p-1.5 text-white transition-colors hover:bg-gray-700'
           title='GitHub'
           aria-label='GitHub'

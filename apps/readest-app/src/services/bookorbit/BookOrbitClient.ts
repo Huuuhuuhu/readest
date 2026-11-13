@@ -1,11 +1,11 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
-import type { BookOrbitProxyPayload } from '@/types/bookorbit';
+
 import type { BookOrbitSettings } from '@/types/settings';
-import { isLanAddress } from '@/utils/network';
+
 import { normalizeCustomHeaders } from '@/utils/customHeaders';
 import { allowsSelfSignedCert, tlsFetch } from '@/utils/tls';
 import { getAppVersion } from '@/utils/version';
-import { getAPIBaseUrl, isTauriAppPlatform } from '../environment';
+import { isTauriAppPlatform } from '../environment';
 import { formatKoDatetime } from './noteMapping';
 import type {
   BookOrbitVersionInfo,
@@ -41,13 +41,11 @@ export class BookOrbitRequestError extends Error {
 export class BookOrbitClient {
   private config: BookOrbitSettings;
   private serverUrl: string;
-  private isLanServer: boolean;
   private versionInfo: BookOrbitVersionInfo | null = null;
 
   constructor(config: BookOrbitSettings) {
     this.config = config;
     this.serverUrl = config.serverUrl.replace(/\/+$/, '');
-    this.isLanServer = isLanAddress(this.serverUrl);
   }
 
   private deviceFields(): PluginDeviceFields {
@@ -76,28 +74,13 @@ export class BookOrbitClient {
       headers['Content-Type'] = 'application/json';
     }
 
-    if (this.isLanServer || isTauriAppPlatform()) {
-      const fetch = isTauriAppPlatform() ? tauriFetch : window.fetch;
-      return await tlsFetch(
-        fetch,
-        `${this.serverUrl}/api/v1/koreader${endpoint}`,
-        { method, headers, body },
-        allowsSelfSignedCert(this.config),
-      );
-    }
-
-    const proxyBody: BookOrbitProxyPayload = {
-      serverUrl: this.serverUrl,
-      endpoint,
-      method,
-      headers,
-      body: body ? (JSON.parse(body) as Record<string, unknown>) : undefined,
-    };
-    return await fetch(`${getAPIBaseUrl()}/bookorbit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(proxyBody),
-    });
+    const fetch = isTauriAppPlatform() ? tauriFetch : window.fetch;
+    return await tlsFetch(
+      fetch,
+      `${this.serverUrl}/api/v1/koreader${endpoint}`,
+      { method, headers, body },
+      allowsSelfSignedCert(this.config),
+    );
   }
 
   private async requestJson<T>(

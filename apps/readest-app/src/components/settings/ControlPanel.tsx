@@ -16,7 +16,7 @@ import { annotationToolQuickActions } from '@/app/reader/components/annotator/An
 import { applyPageTurnAttributes } from '@/app/reader/hooks/useCapturedTurn';
 import { resolveImageViewerGesture } from '@/app/reader/utils/iframeEventHandlers';
 import { isTauriAppPlatform } from '@/services/environment';
-import { DEFAULT_SYSTEM_SETTINGS } from '@/services/constants';
+
 import {
   BoxedList,
   NavigationRow,
@@ -30,7 +30,7 @@ import AnnotationToolbarCustomizer from './AnnotationToolbarCustomizer';
 import { DEFAULT_ANNOTATION_TOOLBAR_ITEMS } from '@/utils/annotationToolbar';
 import { canShareText } from '@/utils/share';
 import { useEinkRefreshSupported } from '@/hooks/useEinkRefreshSupported';
-import { optInTelemetry, optOutTelemetry } from '@/utils/telemetry';
+
 import KeyboardShortcutsSettings from './KeyboardShortcutsSettings';
 
 const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset }) => {
@@ -137,9 +137,6 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
     settings.hideBookshelfPageButtons,
   );
   const [allowScript, setAllowScript] = useState(viewSettings.allowScript);
-  const [isAutoCheckUpdates, setIsAutoCheckUpdates] = useState(settings.autoCheckUpdates);
-  const [isNightlyChannel, setIsNightlyChannel] = useState(settings.updateChannel === 'nightly');
-  const [isTelemetryEnabled, setIsTelemetryEnabled] = useState(settings.telemetryEnabled);
 
   const resetToDefaults = useResetViewSettings();
   const pageTurnerResetRef = useRef<() => void>(() => {});
@@ -211,13 +208,6 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
       false,
       true,
     );
-    if (appService?.hasUpdater) {
-      const { autoCheckUpdates = true, updateChannel = 'stable' } = DEFAULT_SYSTEM_SETTINGS;
-      saveSysSettings(envConfig, 'autoCheckUpdates', autoCheckUpdates);
-      saveSysSettings(envConfig, 'updateChannel', updateChannel);
-      setIsAutoCheckUpdates(autoCheckUpdates);
-      setIsNightlyChannel(updateChannel === 'nightly');
-    }
     pageTurnerResetRef.current();
     // Keyboard/mouse bindings are NOT reset here — they are device-local and
     // have their own "Reset all" inside the Keyboard Shortcuts sub-page.
@@ -477,29 +467,6 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
     saveViewSettings(envConfig, bookKey, 'copyToNotebook', copyToNotebook, false, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [copyToNotebook]);
-
-  const toggleAutoCheckUpdates = () => {
-    const newValue = !isAutoCheckUpdates;
-    saveSysSettings(envConfig, 'autoCheckUpdates', newValue);
-    setIsAutoCheckUpdates(newValue);
-  };
-
-  const toggleNightlyChannel = () => {
-    const newValue = !isNightlyChannel;
-    saveSysSettings(envConfig, 'updateChannel', newValue ? 'nightly' : 'stable');
-    setIsNightlyChannel(newValue);
-  };
-
-  const toggleTelemetry = () => {
-    const newValue = !isTelemetryEnabled;
-    saveSysSettings(envConfig, 'telemetryEnabled', newValue);
-    setIsTelemetryEnabled(newValue);
-    if (newValue) {
-      optInTelemetry();
-    } else {
-      optOutTelemetry();
-    }
-  };
 
   const getQuickActionOptions = () => {
     return [
@@ -838,23 +805,6 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
         </div>
       )}
 
-      {appService?.hasUpdater && (
-        <BoxedList title={_('Update')} data-setting-id='settings.control.checkUpdates'>
-          <SettingsSwitchRow
-            label={_('Check Updates on Start')}
-            checked={isAutoCheckUpdates}
-            onChange={toggleAutoCheckUpdates}
-          />
-          <SettingsSwitchRow
-            label={_('Nightly Builds')}
-            description={isNightlyChannel ? _('Early daily builds') : ''}
-            checked={isNightlyChannel}
-            onChange={toggleNightlyChannel}
-            data-setting-id='settings.control.nightlyChannel'
-          />
-        </BoxedList>
-      )}
-
       <BoxedList title={_('Security')} data-setting-id='settings.control.allowJavascript'>
         <SettingsSwitchRow
           label={_('Allow JavaScript')}
@@ -862,15 +812,6 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
           checked={allowScript}
           disabled={bookData?.book?.format !== 'EPUB'}
           onChange={() => setAllowScript(!allowScript)}
-        />
-      </BoxedList>
-
-      <BoxedList title={_('Privacy')} data-setting-id='settings.control.telemetry'>
-        <SettingsSwitchRow
-          label={_('Help improve Readest')}
-          description={isTelemetryEnabled ? _('Sharing anonymized statistics') : ''}
-          checked={isTelemetryEnabled}
-          onChange={toggleTelemetry}
         />
       </BoxedList>
     </div>

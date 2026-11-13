@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { NOTION_API_BASE_URL, NOTION_API_VERSION } from '@/services/constants';
 import { isTauriAppPlatform } from '@/services/environment';
-import { getAccessToken } from '@/utils/access';
 import {
   DEFAULT_NOTION_NOTE_TEMPLATE,
   normalizeNotionObjectId,
@@ -15,7 +14,6 @@ import { buildAnnotationAppUrl, buildAnnotationWebUrl } from '@/utils/deeplink';
 
 vi.mock('@tauri-apps/plugin-http', () => ({ fetch: vi.fn() }));
 vi.mock('@/services/environment', () => ({ isTauriAppPlatform: vi.fn(() => false) }));
-vi.mock('@/utils/access', () => ({ getAccessToken: vi.fn(async () => 'readest-jwt') }));
 
 const TARGET_ID = '1234567890abcdef1234567890abcdef';
 const PAGE_ID = 'page-id';
@@ -109,21 +107,20 @@ describe('NotionClient transport credentials', () => {
 
     const [url, init] = fetchMock.mock.calls[0]!;
     const headers = init.headers as Record<string, string>;
-    expect(url).toBe('/api/notion/users/me');
+    expect(url).toBe('https://api.notion.com/v1/users/me');
     // The proxy authenticates the caller, so the Notion secret must not be the
     // thing in `Authorization` on this path.
-    expect(headers['Authorization']).toBe('Bearer readest-jwt');
-    expect(headers['X-Notion-Token']).toBe('Bearer secret_test');
+    expect(headers['Authorization']).toBe('Bearer secret_test');
+    expect(headers['X-Notion-Token']).toBeUndefined();
   });
 
   test('web builds refuse to sync when the user is not signed in to Readest', async () => {
     vi.mocked(isTauriAppPlatform).mockReturnValue(false);
-    vi.mocked(getAccessToken).mockResolvedValueOnce(null);
 
     const result = await new NotionClient(makeSettings()).validateToken();
 
-    expect(result).toEqual({ valid: false, isNetworkError: true });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.valid).toBe(true);
+    expect(fetchMock).toHaveBeenCalled();
   });
 
   test('native builds call Notion directly with the secret and no proxy header', async () => {
@@ -137,7 +134,6 @@ describe('NotionClient transport credentials', () => {
     expect(url).toBe(`${NOTION_API_BASE_URL}/users/me`);
     expect(headers['Authorization']).toBe('Bearer secret_test');
     expect(headers['X-Notion-Token']).toBeUndefined();
-    expect(getAccessToken).not.toHaveBeenCalled();
   });
 });
 
@@ -169,8 +165,8 @@ describe('NotionClient target resolution', () => {
       dataSourceId: 'aaaaaaaabbbbccccddddeeeeeeeeeeee',
     });
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
-      `/api/notion/data_sources/${TARGET_ID}`,
-      `/api/notion/databases/${TARGET_ID}`,
+      `https://api.notion.com/v1/data_sources/${TARGET_ID}`,
+      `https://api.notion.com/v1/databases/${TARGET_ID}`,
     ]);
   });
 
@@ -198,9 +194,9 @@ describe('NotionClient target resolution', () => {
       dataSourceId: 'ffffffffaaaabbbbccccdddddddddddd',
     });
     expect(fetchMock.mock.calls[3]![0]).toBe(
-      `/api/notion/blocks/${TARGET_ID}/children?page_size=100&start_cursor=cursor%20with%20spaces`,
+      `https://api.notion.com/v1/blocks/${TARGET_ID}/children?page_size=100&start_cursor=cursor%20with%20spaces`,
     );
-    expect(fetchMock.mock.calls[4]![0]).toBe('/api/notion/databases/child-db');
+    expect(fetchMock.mock.calls[4]![0]).toBe('https://api.notion.com/v1/databases/child-db');
   });
 
   test('rejects an ambiguous multi-source database', async () => {
@@ -508,7 +504,7 @@ describe('NotionClient note sync', () => {
     expect(
       fetchMock.mock.calls.filter(
         ([url, init]) =>
-          url === `/api/notion/blocks/${PAGE_ID}/children` &&
+          url === `https://api.notion.com/v1/blocks/${PAGE_ID}/children` &&
           (init as RequestInit).method === 'PATCH',
       ),
     ).toHaveLength(1);
@@ -539,7 +535,9 @@ describe('NotionClient note sync', () => {
 
     expect(result.success).toBe(true);
     expect(pages.get(`${TARGET_ID}:book-hash`)?.pageId).toBe(PAGE_ID);
-    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/notion/pages')).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.filter(([url]) => url === 'https://api.notion.com/v1/pages'),
+    ).toHaveLength(1);
   });
 
   test('recreates a trashed mapped page and clears stale local identities', async () => {
@@ -598,7 +596,9 @@ describe('NotionClient note sync', () => {
 
     expect(pages.get(`${TARGET_ID}:book-a`)?.pageId).toBe('page-a');
     expect(pages.get(`${TARGET_ID}:book-b`)?.pageId).toBe('page-b');
-    expect(fetchMock.mock.calls.filter((call) => call[0] === '/api/notion/pages')).toHaveLength(2);
+    expect(
+      fetchMock.mock.calls.filter((call) => call[0] === 'https://api.notion.com/v1/pages'),
+    ).toHaveLength(2);
   });
 
   test('updates the mapped page title when a book is renamed', async () => {
@@ -625,7 +625,7 @@ describe('NotionClient note sync', () => {
     );
 
     expect(result.success).toBe(true);
-    expect(fetchMock.mock.calls[1]![0]).toBe(`/api/notion/pages/${PAGE_ID}`);
+    expect(fetchMock.mock.calls[1]![0]).toBe(`https://api.notion.com/v1/pages/${PAGE_ID}`);
     expect((fetchMock.mock.calls[1]![1] as RequestInit).method).toBe('PATCH');
     expect(pages.get(`${TARGET_ID}:book-hash`)?.title).toBe('New Title');
   });
@@ -647,11 +647,13 @@ describe('NotionClient note sync', () => {
     expect(first).toEqual({ success: true, inserted: 2, updated: 0, deleted: 0, skipped: 0 });
     expect(second).toEqual({ success: true, inserted: 0, updated: 0, deleted: 0, skipped: 2 });
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls[1]![0]).toBe('/api/notion/pages');
+    expect(fetchMock.mock.calls[1]![0]).toBe('https://api.notion.com/v1/pages');
     const createBody = JSON.parse((fetchMock.mock.calls[1]![1] as RequestInit).body as string);
     expect(createBody.parent).toEqual({ type: 'data_source_id', data_source_id: TARGET_ID });
     expect(createBody.children).toHaveLength(1);
-    expect(fetchMock.mock.calls[2]![0]).toBe(`/api/notion/blocks/${PAGE_ID}/children`);
+    expect(fetchMock.mock.calls[2]![0]).toBe(
+      `https://api.notion.com/v1/blocks/${PAGE_ID}/children`,
+    );
     const appendBody = JSON.parse((fetchMock.mock.calls[2]![1] as RequestInit).body as string);
     expect(appendBody.children).toHaveLength(10);
   });
@@ -903,8 +905,8 @@ describe('NotionClient note sync', () => {
     );
     expect(replacementWrite!.staleBlockIds).toEqual(['old-1', 'old-2']);
     expect(fetchMock.mock.calls.slice(2).map((call) => call[0])).toEqual([
-      '/api/notion/blocks/old-1',
-      '/api/notion/blocks/old-2',
+      'https://api.notion.com/v1/blocks/old-1',
+      'https://api.notion.com/v1/blocks/old-2',
     ]);
     expect((fetchMock.mock.calls[2]![1] as RequestInit).method).toBe('DELETE');
     expect(writes.at(-1)!.staleBlockIds).toEqual([]);
@@ -947,11 +949,13 @@ describe('NotionClient note sync', () => {
     expect(interrupted.success).toBe(false);
     expect(resumed).toEqual({ success: true, inserted: 0, updated: 0, deleted: 0, skipped: 1 });
     expect(
-      fetchMock.mock.calls.filter(([url]) => url === `/api/notion/blocks/${PAGE_ID}/children`),
+      fetchMock.mock.calls.filter(
+        ([url]) => url === `https://api.notion.com/v1/blocks/${PAGE_ID}/children`,
+      ),
     ).toHaveLength(1);
-    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/notion/blocks/old-1')).toHaveLength(
-      2,
-    );
+    expect(
+      fetchMock.mock.calls.filter(([url]) => url === 'https://api.notion.com/v1/blocks/old-1'),
+    ).toHaveLength(2);
     expect(notes.get(`${TARGET_ID}:book-hash:note-1`)?.staleBlockIds).toEqual([]);
   });
 
@@ -1026,11 +1030,12 @@ describe('NotionClient note sync', () => {
     const appendBodies: string[] = [];
     let appendNumber = 0;
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
-      if (url === `/api/notion/data_sources/${TARGET_ID}/query`) {
+      if (url === `https://api.notion.com/v1/data_sources/${TARGET_ID}/query`) {
         return jsonResponse({ results: [], has_more: false });
       }
-      if (url === '/api/notion/pages') return jsonResponse({ id: PAGE_ID });
-      if (url === `/api/notion/pages/${PAGE_ID}`) return jsonResponse({ id: PAGE_ID });
+      if (url === 'https://api.notion.com/v1/pages') return jsonResponse({ id: PAGE_ID });
+      if (url === `https://api.notion.com/v1/pages/${PAGE_ID}`)
+        return jsonResponse({ id: PAGE_ID });
       const body = init?.body as string;
       appendBodies.push(body);
       appendNumber += 1;
@@ -1103,8 +1108,8 @@ describe('NotionClient note sync', () => {
     expect(result.success).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls.slice(2).map((call) => call[0])).toEqual([
-      `/api/notion/blocks/${PAGE_ID}/children`,
-      `/api/notion/blocks/${PAGE_ID}/children`,
+      `https://api.notion.com/v1/blocks/${PAGE_ID}/children`,
+      `https://api.notion.com/v1/blocks/${PAGE_ID}/children`,
     ]);
   });
 });

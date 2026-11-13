@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { useSettingsStore } from '@/store/settingsStore';
-import { setCachedUserPlan } from '@/services/sync/cloudSyncProvider';
+
 import { useLibraryStore } from '@/store/libraryStore';
 import { useFileSyncStore } from '@/store/fileSyncStore';
 import type { SystemSettings } from '@/types/settings';
@@ -120,7 +120,6 @@ describe('runFileLibrarySyncPass', () => {
     useSettingsStore.getState().setSettings(multiProviderSettings);
     useLibraryStore.setState({ library: [makeBook('h1')], libraryLoaded: true });
     useFileSyncStore.setState({ byKind: {}, activeKind: null, lastErrorByKind: {} });
-    setCachedUserPlan('pro');
   });
 
   test('runs every enabled backend in a fixed order and sums the result', async () => {
@@ -229,7 +228,6 @@ describe('runFileBookUpload', () => {
     pushBookFile.mockReset().mockResolvedValue({ uploaded: true });
     pushBookCover.mockReset().mockResolvedValue({ uploaded: true });
     useSettingsStore.getState().setSettings(multiProviderSettings);
-    setCachedUserPlan('pro');
   });
 
   test('pushes the book to every enabled backend', async () => {
@@ -261,7 +259,6 @@ describe('runFileBookDownload', () => {
   beforeEach(() => {
     downloadBookFile.mockReset();
     useSettingsStore.getState().setSettings(multiProviderSettings);
-    setCachedUserPlan('pro');
   });
 
   test('stops at the first backend that has the file', async () => {
@@ -301,7 +298,6 @@ describe('getReadyFileSyncBackends', () => {
   beforeEach(() => {
     vi.mocked(isWebAppPlatform).mockReturnValue(true);
     vi.mocked(hasValidWebDriveToken).mockReturnValue(true);
-    setCachedUserPlan('pro');
   });
 
   test('includes gdrive when the web token is valid', () => {
@@ -322,7 +318,6 @@ describe('getReadyFileSyncBackends', () => {
   });
 
   test('excludes everything when the plan gate pauses third-party sync', () => {
-    setCachedUserPlan('free');
     expect(getReadyFileSyncBackends(settings)).toEqual([]);
   });
 
@@ -333,7 +328,6 @@ describe('getReadyFileSyncBackends', () => {
 
 describe('runFileLibrarySyncPass data flow', () => {
   const enableWebdav = () => {
-    setCachedUserPlan('pro');
     useSettingsStore.getState().setSettings({
       webdav: { enabled: true, serverUrl: 'https://dav', syncBooks: true },
     } as unknown as SystemSettings);

@@ -392,16 +392,6 @@ export interface ICloudSettings {
  *
  * Device-local, like the other providers' `enabled` flags.
  */
-export interface ReadestCloudSettings {
-  enabled?: boolean;
-  /**
-   * Device-local wall-clock millis of when this device turned Readest Cloud
-   * off. Anchors the mixed-fleet probe: a native /api/sync row newer than this
-   * means another device is still writing the channels this one stopped
-   * writing. Excluded from cross-device restore.
-   */
-  disabledAt?: number;
-}
 
 /**
  * User-facing sync categories. 'progress' gates the existing book-config
@@ -512,7 +502,6 @@ export interface SystemSettings {
    */
   autoImportFlattenFolders?: string[];
 
-  keepLogin: boolean;
   alwaysOnTop: boolean;
   openBookInNewWindow: boolean;
   autoCheckUpdates: boolean;
@@ -540,7 +529,6 @@ export interface SystemSettings {
   autoImportBooksOnOpen: boolean;
   savedBookCoverForLockScreen: string;
   savedBookCoverForLockScreenPath: string;
-  telemetryEnabled: boolean;
   discordRichPresenceEnabled: boolean;
   bookshelves?: BookshelfState;
   libraryViewMode: LibraryViewModeType;
@@ -633,7 +621,6 @@ export interface SystemSettings {
   notion: NotionSettings;
   obsidian: ObsidianSettings;
   /** Optional by design — see {@link ReadestCloudSettings}. Never defaulted. */
-  readestCloud?: ReadestCloudSettings;
   webdav: WebDAVSettings;
   googleDrive: GoogleDriveSettings;
   s3: S3Settings;

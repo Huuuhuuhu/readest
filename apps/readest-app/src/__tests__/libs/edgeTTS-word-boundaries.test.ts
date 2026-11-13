@@ -41,23 +41,6 @@ vi.mock('@/services/environment', () => ({
   isTauriAppPlatform: () => false,
 }));
 
-vi.mock('@/utils/supabase', () => ({
-  supabase: { auth: { getSession: async () => ({ data: { session: null } }) } },
-  createSupabaseClient: () => ({}),
-  createSupabaseAdminClient: () => ({}),
-}));
-
-// Controllable stub for the authenticated HTTPS proxy fetch.
-const httpState = vi.hoisted(() => ({
-  headers: {} as Record<string, string>,
-  body: new Uint8Array([1, 2, 3]),
-}));
-vi.mock('@/utils/fetch', () => ({
-  fetchWithAuth: vi.fn(
-    async () => new Response(httpState.body, { status: 200, headers: httpState.headers }),
-  ),
-}));
-
 // Records where a promise stands: 'pending', 'resolved', or its rejection message.
 const track = (promise: Promise<unknown>) => {
   const outcome = { state: 'pending' };
@@ -205,49 +188,5 @@ describe('word-boundary header (de)serialization', () => {
     expect(parseWordBoundariesHeader(encodeURIComponent(JSON.stringify([{ text: 'x' }])))).toEqual(
       [],
     );
-  });
-});
-
-describe('EdgeSpeechTTS.createAudioData over the HTTPS proxy (word boundaries via header)', () => {
-  beforeEach(() => {
-    httpState.headers = {};
-    httpState.body = new Uint8Array([1, 2, 3]);
-    (URL as unknown as { createObjectURL?: (blob: Blob) => string }).createObjectURL = vi.fn(
-      () => 'blob:mock-object-url',
-    );
-  });
-
-  test('parses word boundaries from the X-TTS-Word-Boundaries response header', async () => {
-    const { EdgeSpeechTTS, serializeWordBoundaries, WORD_BOUNDARIES_HEADER } = await import(
-      '@/libs/edgeTTS'
-    );
-    const boundaries = [
-      { offset: 1000000, duration: 4000000, text: 'Hello' },
-      { offset: 6000000, duration: 4000000, text: 'world' },
-    ];
-    httpState.headers = { [WORD_BOUNDARIES_HEADER]: serializeWordBoundaries(boundaries) };
-
-    const tts = new EdgeSpeechTTS('https');
-    const result = await tts.createAudioData({
-      lang: 'en',
-      text: 'Hello world https',
-      voice: 'en-US-AriaNeural',
-      rate: 1.0,
-      pitch: 1.0,
-    });
-    expect(result.boundaries).toEqual(boundaries);
-  });
-
-  test('returns empty boundaries when the proxy omits the header', async () => {
-    const { EdgeSpeechTTS } = await import('@/libs/edgeTTS');
-    const tts = new EdgeSpeechTTS('https');
-    const result = await tts.createAudioData({
-      lang: 'en',
-      text: 'No header https',
-      voice: 'en-US-AriaNeural',
-      rate: 1.0,
-      pitch: 1.0,
-    });
-    expect(result.boundaries).toEqual([]);
   });
 });

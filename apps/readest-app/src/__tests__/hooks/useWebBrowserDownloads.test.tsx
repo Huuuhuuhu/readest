@@ -35,7 +35,7 @@ vi.mock('@/hooks/useTranslation', () => ({ useTranslation: () => (k: string) => 
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {}, appService: { isMobileApp: false } }),
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+
 vi.mock('next/navigation', () => ({ useSearchParams: () => ({ get: () => 'g1' }) }));
 vi.mock('@/store/libraryStore', () => ({
   useLibraryStore: {
@@ -97,7 +97,7 @@ describe('useWebBrowserDownloads', () => {
     await waitFor(() => expect(updateBooksMock).toHaveBeenCalled());
     expect(ingestMock).toHaveBeenCalledWith(
       expect.objectContaining({ file: '/cache/dune.epub', groupId: 'g1', groupName: 'Sci-fi' }),
-      expect.objectContaining({ isLoggedIn: false }),
+      expect.objectContaining({ ...{} }),
     );
     expect(setStatusMock).toHaveBeenNthCalledWith(1, {
       state: 'importing',

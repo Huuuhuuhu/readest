@@ -1,6 +1,8 @@
 'use client';
 
 import clsx from 'clsx';
+import { useTVScope } from '@/hooks/useTVScope';
+import { isTVMode } from '@/utils/tvInput';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MdAdd, MdClose, MdPause, MdPlayArrow, MdRemove } from 'react-icons/md';
 import { Insets } from '@/types/misc';
@@ -37,6 +39,31 @@ const AutoScrollControl: React.FC<AutoScrollControlProps> = ({
   gridInsets,
 }) => {
   const _ = useTranslation();
+  const tv = isTVMode();
+  const tvRef = useRef<HTMLDivElement>(null);
+  const [tvControls, setTVControls] = useState(false);
+  useTVScope(tvRef, tv, {
+    id: 'auto-scroll',
+    priority: 60,
+    reading: !tvControls,
+    onBack: () => {
+      if (tvControls) setTVControls(false);
+      else onStop();
+    },
+    onMenu: () => setTVControls((value) => !value),
+    onActivate: () => {
+      if (tvControls) return false;
+      onTogglePause();
+      return true;
+    },
+    onArrow: (key) => {
+      if (tvControls) return false;
+      if (key === 'ArrowUp') setTVControls(true);
+      else if (key === 'ArrowLeft') onAdjustSpeed(-1);
+      else if (key === 'ArrowRight') onAdjustSpeed(1);
+      return true;
+    },
+  });
   const { appService } = useEnv();
   const { hoveredBookKey } = useReaderStore();
   const iconSize = useResponsiveSize(18);
@@ -99,6 +126,9 @@ const AutoScrollControl: React.FC<AutoScrollControlProps> = ({
 
   return (
     <div
+      ref={tvRef}
+      tabIndex={-1}
+      aria-label='自动滚动控制'
       className={clsx(
         // `absolute` so the pill centers on the book's grid cell rather than
         // the viewport: with a pinned sidebar (or a split view) the reading
@@ -123,6 +153,13 @@ const AutoScrollControl: React.FC<AutoScrollControlProps> = ({
         startHideTimer();
       }}
     >
+      {tv && (
+        <p className='bg-base-100 rounded border px-3 py-2 text-center text-sm'>
+          {tvControls
+            ? '方向键选择按钮，返回继续阅读'
+            : '确认暂停／继续 · 左右调速 · 上键打开按钮 · 返回停止'}
+        </p>
+      )}
       <div
         className={clsx(
           'text-base-content flex items-center gap-1 rounded-full px-3 py-1.5',

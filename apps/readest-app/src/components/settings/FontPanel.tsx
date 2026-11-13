@@ -1,3 +1,6 @@
+import { downloadPublicFont, PUBLIC_FONTS } from '@/services/publicFonts';
+import { mountAdditionalFonts } from '@/styles/fonts';
+import { eventDispatcher } from '@/utils/event';
 import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
 
@@ -107,6 +110,24 @@ const FontPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   const { fonts: allCustomFonts, getFontFamilies } = useCustomFontStore();
   const viewSettings = getViewSettings(bookKey) || settings.globalViewSettings;
   const view = getView(bookKey);
+
+  const selectFont = async (family: string, apply: (value: string) => void) => {
+    try {
+      if (appService && PUBLIC_FONTS.some((font) => font.family === family)) {
+        eventDispatcher.dispatch('toast', { type: 'info', message: _('Downloading font…') });
+        await downloadPublicFont(appService, family);
+        await mountAdditionalFonts(document);
+        for (const content of view?.renderer.getContents() ?? [])
+          await mountAdditionalFonts(content.doc);
+      }
+      apply(family);
+    } catch {
+      eventDispatcher.dispatch('toast', {
+        type: 'error',
+        message: _('Font download failed. Select the font again to retry.'),
+      });
+    }
+  };
 
   const fontFamilyOptions = [
     {
@@ -400,7 +421,7 @@ const FontPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
             ]}
             moreOptions={sysFonts}
             selected={serifFont}
-            onSelect={setSerifFont}
+            onSelect={(value) => void selectFont(value, setSerifFont)}
             data-setting-id='settings.font.serifFont'
           />
           {ignorePublisherFontsRow('serif', _('Serif Font'))}
@@ -414,7 +435,7 @@ const FontPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
             ]}
             moreOptions={sysFonts}
             selected={sansSerifFont}
-            onSelect={setSansSerifFont}
+            onSelect={(value) => void selectFont(value, setSansSerifFont)}
             data-setting-id='settings.font.sansSerifFont'
           />
           {ignorePublisherFontsRow('sans-serif', _('Sans-Serif Font'))}
@@ -424,7 +445,7 @@ const FontPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
             options={[...customFonts, ...MONOSPACE_FONTS]}
             moreOptions={sysFonts}
             selected={monospaceFont}
-            onSelect={setMonospaceFont}
+            onSelect={(value) => void selectFont(value, setMonospaceFont)}
             data-setting-id='settings.font.monospaceFont'
           />
           {ignorePublisherFontsRow('monospace', _('Monospace Font'))}

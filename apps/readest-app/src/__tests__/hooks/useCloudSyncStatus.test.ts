@@ -11,15 +11,11 @@ import type { SystemSettings } from '@/types/settings';
  * healthy?" for both the reader View menu and the library Settings menu.
  */
 
-let mockUser: { id: string } | null = null;
 let mockSettings: Partial<SystemSettings> = {};
 let mockByKind: Record<string, { isSyncing: boolean }> = {};
 let mockLastError: Record<string, string | null> = {};
 let mockHardcover: Record<string, { pending: number; lastError: string | null }> = {};
 
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: mockUser }),
-}));
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation:
     () =>
@@ -53,7 +49,6 @@ const { useCloudSyncStatus } = await import('@/hooks/useCloudSyncStatus');
 const NOW = 1_700_000_000_000;
 
 beforeEach(() => {
-  mockUser = null;
   mockSettings = {};
   mockByKind = {};
   mockLastError = {};
@@ -65,24 +60,20 @@ describe('useCloudSyncStatus (issue #5910)', () => {
   it('reports a third-party backend as synced with no Readest account', () => {
     mockSettings = { webdav: { enabled: true, lastSyncedAt: NOW - 60_000 } } as never;
     const { result } = renderHook(() => useCloudSyncStatus(0));
-
-    expect(result.current.needsSignIn).toBe(false);
     expect(result.current.label).toContain('Synced {{time}}');
     expect(result.current.lastSyncedAt).toBe(NOW - 60_000);
     expect(result.current.providers.map((p) => p.kind)).toEqual(['webdav']);
   });
 
-  it('still asks for sign-in when Readest Cloud is the only provider', () => {
+  it('has no official provider or login prompt by default', () => {
     const { result } = renderHook(() => useCloudSyncStatus(0));
-
-    expect(result.current.needsSignIn).toBe(true);
-    expect(result.current.label).toBe('Sign in to Sync');
+    expect(result.current.label).toBe('Never synced');
+    expect(result.current.providers).toEqual([]);
   });
 
   it('ignores the native stamp when Readest Cloud is switched off', () => {
     // The native cursors FREEZE rather than reset when the channels are gated,
     // so a stale value would report a disabled provider as recently synced.
-    mockUser = { id: 'u1' };
     mockSettings = {
       readestCloud: { enabled: false },
       webdav: { enabled: true },
@@ -95,7 +86,6 @@ describe('useCloudSyncStatus (issue #5910)', () => {
   });
 
   it('lists both providers with their own timestamps', () => {
-    mockUser = { id: 'u1' };
     mockSettings = {
       readestCloud: { enabled: true },
       webdav: { enabled: true, lastSyncedAt: NOW - 120_000 },
@@ -103,7 +93,6 @@ describe('useCloudSyncStatus (issue #5910)', () => {
     const { result } = renderHook(() => useCloudSyncStatus(NOW - 300_000));
 
     expect(result.current.providers).toEqual([
-      expect.objectContaining({ kind: 'readest', lastSyncedAt: NOW - 300_000 }),
       expect.objectContaining({ kind: 'webdav', lastSyncedAt: NOW - 120_000 }),
     ]);
     // The row shows the freshest; the per-provider breakdown is the dialog's job.
@@ -139,7 +128,6 @@ describe('useCloudSyncStatus (issue #5910)', () => {
 
     expect(result.current.providers).toEqual([]);
     expect(result.current.lastSyncedAt).toBe(0);
-    expect(result.current.needsSignIn).toBe(false);
     expect(result.current.label).toBe('Never synced');
   });
 });
@@ -204,7 +192,6 @@ describe('useCloudSyncStatus Hardcover (book scope)', () => {
     mockSettings = { hardcover: { enabled: true, autoSync: true, accessToken: 'tok' } } as never;
     const { result } = renderHook(() => useCloudSyncStatus(0, 'book-a'));
 
-    expect(result.current.providers.map((p) => p.kind)).toEqual(['readest', 'hardcover']);
-    expect(result.current.needsSignIn).toBe(false);
+    expect(result.current.providers.map((p) => p.kind)).toEqual(['hardcover']);
   });
 });

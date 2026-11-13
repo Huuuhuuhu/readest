@@ -7,19 +7,8 @@ import type {
 } from '@/services/dictionaries/types';
 import { BUILTIN_PROVIDER_IDS, BUILTIN_WEB_SEARCH_IDS } from '@/services/dictionaries/types';
 import { useSettingsStore } from './settingsStore';
-import { publishReplicaDelete, publishReplicaUpsert } from '@/services/sync/replicaPublish';
-import { DICTIONARY_KIND } from '@/services/sync/adapters/dictionary';
-import { markExplicitProviderOrderPublish } from '@/services/sync/replicaSettingsSync';
+
 import type { DictionaryPluginControlStore } from '@/services/dictionaries/plugins/controlStore';
-
-const publishDictUpsert = (dict: ImportedDictionary): void => {
-  if (!dict.contentId) return;
-  void publishReplicaUpsert(DICTIONARY_KIND, dict, dict.contentId, dict.reincarnation);
-};
-
-const publishDictDelete = (contentId: string): void => {
-  void publishReplicaDelete(DICTIONARY_KIND, contentId);
-};
 
 /**
  * Built-in web-search ids are seeded into `providerOrder` but disabled by
@@ -236,7 +225,6 @@ export const useCustomDictionaryStore = create<DictionaryStoreState>((set, get) 
         settings: { ...state.settings, providerOrder: order, providerEnabled: enabled },
       };
     });
-    publishDictUpsert(dict);
   },
 
   applyRemoteDictionary: (dict) => {
@@ -330,7 +318,6 @@ export const useCustomDictionaryStore = create<DictionaryStoreState>((set, get) 
       const dictionaries = state.dictionaries.map((d, i) => (i === idx ? updated! : d));
       return { dictionaries };
     });
-    if (updated) publishDictUpsert(updated);
   },
 
   replaceDictionaries: (oldIds, newDict) => {
@@ -396,9 +383,7 @@ export const useCustomDictionaryStore = create<DictionaryStoreState>((set, get) 
     const isContentSurvivingSwap =
       Boolean(newDict.contentId) && oldContentIds.includes(newDict.contentId!);
     if (!isContentSurvivingSwap) {
-      for (const contentId of oldContentIds) publishDictDelete(contentId);
     }
-    publishDictUpsert(newDict);
   },
 
   removeDictionary: (id) => {
@@ -416,7 +401,7 @@ export const useCustomDictionaryStore = create<DictionaryStoreState>((set, get) 
         ),
       },
     }));
-    if (dict.contentId) publishDictDelete(dict.contentId);
+
     return true;
   },
 
@@ -711,7 +696,6 @@ export const useCustomDictionaryStore = create<DictionaryStoreState>((set, get) 
       // Auto-saves from replica pull / download-complete leave it
       // closed so automatic local order changes never publish.
       if (opts?.publishOrderChange) {
-        markExplicitProviderOrderPublish();
       }
       setSettings(next);
       saveSettings(envConfig, next);

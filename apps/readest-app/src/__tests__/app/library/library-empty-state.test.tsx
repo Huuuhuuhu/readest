@@ -11,9 +11,6 @@ vi.mock('@/hooks/useTranslation', () => ({
 }));
 
 const useAuthMock = vi.fn();
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => useAuthMock(),
-}));
 
 const navigateToLoginMock = vi.fn();
 const routerStub = { push: vi.fn(), replace: vi.fn(), back: vi.fn() };

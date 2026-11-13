@@ -15,6 +15,10 @@ export function useTVScope(
       id: options.id,
       priority: options.priority,
       reading: options.reading,
+      onArrow: options.onArrow
+        ? (key, repeat) => latest.current.onArrow?.(key, repeat) ?? false
+        : undefined,
+      onActivate: options.onActivate ? () => latest.current.onActivate?.() ?? false : undefined,
       initialFocus: () => latest.current.initialFocus?.() ?? null,
       onBack: options.onBack ? () => latest.current.onBack?.() : undefined,
       onMenu: options.onMenu ? () => latest.current.onMenu?.() : undefined,
@@ -27,5 +31,7 @@ export function useTVScope(
     options.reading,
     !!options.onBack,
     !!options.onMenu,
+    !!options.onArrow,
+    !!options.onActivate,
   ]);
 }

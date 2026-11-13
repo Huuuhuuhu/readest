@@ -2,12 +2,9 @@
  * Built-in AI context dictionary (#5544).
  *
  * Explains the selection as it is used in its passage, through one of the
- * user's OpenAI-compatible custom translators. Custom translators are a
- * premium feature, so the provider is unsupported (its card hidden) without
- * premium or without such a translator.
+ * user's OpenAI-compatible custom translators. A configured service is enough.
  */
 import i18n from '@/i18n/i18n';
-import { getAccessToken, isCustomTranslatorAllowed } from '@/utils/access';
 import { getTargetLang } from '@/utils/misc';
 import { findTranslationPrompt, getLLMTranslators } from '@/store/customTranslatorStore';
 import { parseNoteMarkdown } from '@/app/reader/utils/noteMarkdown';
@@ -83,9 +80,6 @@ export const contextProvider: DictionaryProvider = {
   kind: 'builtin',
   label: 'Context Dictionary',
   async lookup(word, ctx) {
-    if (!isCustomTranslatorAllowed(await getAccessToken())) {
-      return { ok: false, reason: 'unsupported' };
-    }
     const translator = getContextTranslator();
     if (!translator) return { ok: false, reason: 'unsupported' };
     const { selection } = ctx;

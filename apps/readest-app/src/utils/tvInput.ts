@@ -6,6 +6,8 @@ export interface TVScope {
   initialFocus?: () => HTMLElement | null;
   onBack?: () => void;
   onMenu?: () => void;
+  onArrow?: (key: string, repeat: boolean) => boolean;
+  onActivate?: () => boolean;
 }
 
 export const isTVMode = () =>
@@ -300,6 +302,7 @@ export const installTVInput = (doc: Document = document): (() => void) => {
           !target.isConnected
         )
           return;
+        if (scope?.onActivate?.()) return;
         if (textField(target)) beginEditing(target);
         else if (scope?.reading) scope.onMenu?.();
         else if (isTVVisible(target)) target.click();
@@ -322,6 +325,14 @@ export const installTVInput = (doc: Document = document): (() => void) => {
         cancelHold();
         scope.onBack();
       }
+      return;
+    }
+    if (
+      directions.has(event.key) &&
+      event.type === 'keydown' &&
+      scope?.onArrow?.(event.key, event.repeat)
+    ) {
+      consume(event);
       return;
     }
     if (directions.has(event.key) && !scope?.reading) {

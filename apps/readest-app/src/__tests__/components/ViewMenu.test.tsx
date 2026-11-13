@@ -55,9 +55,7 @@ vi.mock('@/context/EnvContext', () => ({
     appService: mockAppService,
   }),
 }));
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: null }),
-}));
+
 vi.mock('@/store/themeStore', () => {
   const useThemeStore = () => ({
     themeMode: 'auto',
@@ -347,6 +345,6 @@ describe('ViewMenu layout', () => {
       'Webtoon Mode',
       'hr',
     ]);
-    expect(seq[autoScroll + 5]).toBe('Sign in to Sync');
+    expect(seq[autoScroll + 5]).toBe('Never synced');
   });
 });

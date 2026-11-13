@@ -44,7 +44,7 @@ vi.mock('@/app/library/components/LibrarySearchResults', () => ({
     <div data-testid='content-search-results' data-books={books.map((b) => b.hash).join(',')} />
   ),
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+
 vi.mock('@/hooks/useTranslation', () => ({ useTranslation: () => mocks.translate }));
 vi.mock('@/hooks/useMedianPageDurationSecs', () => ({
   useMedianPageDurationsSecs: () => mocks.durations,

@@ -1,21 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { impactFeedback } from '@tauri-apps/plugin-haptics';
 import { useEnv } from '@/context/EnvContext';
-import { useAuth } from '@/context/AuthContext';
+
 import { useTranslation } from '@/hooks/useTranslation';
-import { useQuotaStats } from '@/hooks/useQuotaStats';
+
 import { useSettingsStore } from '@/store/settingsStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useLocalSendStore } from '@/store/localsendStore';
 import { isTauriAppPlatform } from '@/services/environment';
 import { recordFlow } from '@/services/sync/dataFlow/log';
 import { ingestFile } from '@/services/ingestService';
-import { isNearbyPairingAllowed } from '@/utils/access';
-import {
-  DEFAULT_ALIAS_NAMED_KEY,
-  getLocalSendAlias,
-  isLocalSendEnabled,
-} from '@/services/localsend/devicePrefs';
+
+import { getLocalSendAlias, isLocalSendEnabled } from '@/services/localsend/devicePrefs';
 import {
   addPairedDevice,
   canAutoAccept,
@@ -81,9 +77,6 @@ const errorText = (err: unknown) => (err instanceof Error ? err.message : String
 const LocalSendManager: React.FC = () => {
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
-  const { user } = useAuth();
-  const userRef = useRef(user);
-  userRef.current = user;
   // Read the translator at call time so the default alias localizes without
   // rebuilding `defaultAlias` (and restarting the service) on every render.
   const translateRef = useRef(_);
@@ -99,11 +92,6 @@ const LocalSendManager: React.FC = () => {
       pendingTempSendFileRef.current = null;
     }
   }, [appService]);
-
-  // Pairing entitlement, checked at receive time so a lapsed plan brings the
-  // confirmation dialogs back while the pairing records stay intact.
-  const { userProfilePlan, customizationPurchased } = useQuotaStats();
-  const pairingEntitled = isNearbyPairingAllowed(userProfilePlan ?? 'free', customizationPurchased);
 
   const toast = useCallback(
     (message: string, type: 'info' | 'error' | 'success' | 'warning' = 'info') =>
@@ -126,13 +114,6 @@ const LocalSendManager: React.FC = () => {
   }, [appService]);
 
   const defaultAlias = useCallback(async (): Promise<string> => {
-    // Prefer the signed-in user's name, AirDrop style: "<name>'s Readest".
-    // Match the library main menu ("Logged in as {{name}}"): first name only.
-    const fullName: unknown = userRef.current?.user_metadata?.['full_name'];
-    if (typeof fullName === 'string' && fullName.trim()) {
-      const name = fullName.trim().split(' ')[0];
-      return translateRef.current(DEFAULT_ALIAS_NAMED_KEY, { name });
-    }
     try {
       const { hostname } = await import('@tauri-apps/plugin-os');
       const name = await hostname();
@@ -327,7 +308,6 @@ const LocalSendManager: React.FC = () => {
                   {
                     appService,
                     settings: useSettingsStore.getState().settings,
-                    isLoggedIn: !!userRef.current,
                   },
                 );
                 if (book) importedBooks.push(book);
@@ -362,7 +342,6 @@ const LocalSendManager: React.FC = () => {
           {
             appService,
             settings: useSettingsStore.getState().settings,
-            isLoggedIn: !!userRef.current,
           },
         );
         if (book) await useLibraryStore.getState().updateBooks(envConfig, [book]);
@@ -511,7 +490,7 @@ const LocalSendManager: React.FC = () => {
     const { supported } = partitionSupportedFiles(pendingRequest.files);
     if (supported.length === 0) return; // the decline effect handles these
     const { sessionId, sender } = pendingRequest;
-    if (!canAutoAccept(sender, pairingEntitled)) return;
+    if (!canAutoAccept(sender)) return;
     refreshPairedDevice(sender.fingerprint, sender.alias, sender.deviceModel);
     useLocalSendStore.getState().requestClosed(sessionId);
     void (async () => {
@@ -525,7 +504,7 @@ const LocalSendManager: React.FC = () => {
         haptic();
       }
     })();
-  }, [pendingRequest, pairingEntitled, toast, _, haptic]);
+  }, [pendingRequest, toast, _, haptic]);
 
   if (!isTauriAppPlatform()) return null;
 
@@ -533,7 +512,7 @@ const LocalSendManager: React.FC = () => {
     pendingRequest &&
     partitionSupportedFiles(pendingRequest.files).supported.length > 0 &&
     // Auto-accepted requests never flash the dialog; the effect above answers.
-    !canAutoAccept(pendingRequest.sender, pairingEntitled);
+    !canAutoAccept(pendingRequest.sender);
 
   return (
     <>

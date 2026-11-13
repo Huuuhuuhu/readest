@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import {
   ErrorCodes,
   getTranslator,
@@ -17,11 +16,10 @@ import {
   useCustomTranslatorStore,
 } from '@/store/customTranslatorStore';
 import { isCustomTranslatorName } from '@/services/translators/custom';
-import { isCustomTranslatorAllowed } from '@/utils/access';
 import { useTranslation } from './useTranslation';
 
 export function useTranslator({
-  provider = 'deepl',
+  provider = 'azure',
   sourceLang = 'AUTO',
   targetLang = 'EN',
   enablePolishing = true,
@@ -31,7 +29,6 @@ export function useTranslator({
   bookAuthor,
 }: UseTranslatorOptions = {}) {
   const _ = useTranslation();
-  const { token } = useAuth();
   const { envConfig } = useEnv();
   const [loading, setLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(provider);
@@ -49,17 +46,14 @@ export function useTranslator({
   }, [provider, sourceLang, targetLang]);
 
   useEffect(() => {
-    const hasPremium = isCustomTranslatorAllowed(token);
-    const availableTranslators = translators.filter((t) =>
-      isTranslatorAvailable(t, !!token, hasPremium),
-    );
+    const availableTranslators = translators.filter((t) => isTranslatorAvailable(t));
     const selectedTranslator =
       availableTranslators.find((t) => t.name === provider) || availableTranslators[0]!;
     const selectedProviderName = selectedTranslator.name as TranslatorName;
     setTransltor(selectedTranslator);
     setSelectedProvider(selectedProviderName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, translators, token]);
+  }, [provider, translators]);
 
   const translate = useCallback(
     async (
@@ -122,7 +116,7 @@ export function useTranslator({
           textsNeedingTranslation,
           sourceLanguage,
           targetLanguage,
-          token,
+          undefined,
           useCache,
           undefined,
           context,
@@ -168,16 +162,6 @@ export function useTranslator({
         setLoading(false);
         return enablePolishing ? polish(results, targetLanguage) : results;
       } catch (err) {
-        if (err instanceof Error && err.message.includes(ErrorCodes.DAILY_QUOTA_EXCEEDED)) {
-          eventDispatcher.dispatch('toast', {
-            timeout: 5000,
-            message: _(
-              'Daily translation quota reached. Upgrade your plan to continue using AI translations.',
-            ),
-            type: 'error',
-          });
-          setSelectedProvider('azure');
-        }
         if (
           err instanceof Error &&
           err.message === ErrorCodes.UNAUTHORIZED &&
@@ -194,7 +178,7 @@ export function useTranslator({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedProvider, sourceLang, targetLang, translators, token, promptId, bookTitle, bookAuthor],
+    [selectedProvider, sourceLang, targetLang, translators, promptId, bookTitle, bookAuthor],
   );
 
   return {

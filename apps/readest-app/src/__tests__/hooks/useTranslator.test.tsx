@@ -25,7 +25,7 @@ vi.mock('@/services/environment', async (importOriginal) => ({
   isTauriAppPlatform: isTauriMock,
 }));
 vi.mock('@/utils/supabase', () => ({ supabase: { auth: {}, from: vi.fn() } }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ token: auth.token }) }));
+
 vi.mock('@/context/EnvContext', () => ({ useEnv: () => ({ envConfig: {} }) }));
 vi.mock('@/hooks/useTranslation', () => ({ useTranslation: () => (s: string) => s }));
 vi.mock('@/services/sync/replicaPublish', () => ({
@@ -81,7 +81,7 @@ describe('custom translators in the registry and useTranslator', () => {
   it('greys out the DeepL type on web and enables it in the app', () => {
     const web = getTranslators().find((t) => t.name === 'custom:dl')!;
     expect(web.disabled).toBe(true);
-    expect(getTranslatorDisplayLabel(web, true, true, (s) => s)).toBe('My DeepL (App only)');
+    expect(getTranslatorDisplayLabel(web, (s) => s)).toBe('My DeepL (App only)');
     isTauriMock.mockReturnValue(true);
     useCustomTranslatorStore.setState({ translators: [llm, { ...deepl, updatedAt: 2 }] });
     expect(getTranslators().find((t) => t.name === 'custom:dl')!.disabled).toBe(false);
@@ -109,27 +109,27 @@ describe('custom translators in the registry and useTranslator', () => {
     expect(result.current.translator!.name.startsWith('custom:')).toBe(false);
   });
 
-  it('marks custom translators premium-only and keeps them from free users', () => {
+  it('makes configured translators available without a membership', () => {
     const custom = getTranslators().find((t) => t.name === 'custom:llm')!;
-    expect(custom.premiumRequired).toBe(true);
-    expect(isTranslatorAvailable(custom, true, true)).toBe(true);
-    expect(isTranslatorAvailable(custom, true, false)).toBe(false);
-    expect(getTranslatorDisplayLabel(custom, true, false, (s) => s)).toBe('My LLM (Premium)');
+    expect(custom.premiumRequired).toBeUndefined();
+    expect(isTranslatorAvailable(custom)).toBe(true);
+    expect(isTranslatorAvailable(custom)).toBe(true);
+    expect(getTranslatorDisplayLabel(custom, (s) => s)).toBe('My LLM');
     const builtIn = getTranslators().find((t) => t.name === 'google')!;
-    expect(isTranslatorAvailable(builtIn, true, false)).toBe(true);
+    expect(isTranslatorAvailable(builtIn)).toBe(true);
   });
 
-  it('falls back to a built-in translator for a free user who picked a custom one', async () => {
+  it('uses the configured translator with no paid account', async () => {
     auth.token = sessionToken({ plan: 'free' });
     const { result } = renderHook(() => useTranslator({ provider: 'custom:llm' }));
     await waitFor(() => expect(result.current.translator).toBeDefined());
-    expect(result.current.translator!.name.startsWith('custom:')).toBe(false);
+    expect(result.current.translator!.name).toBe('custom:llm');
   });
 
-  it('falls back to a built-in translator when signed out', async () => {
+  it('uses the configured translator with no account', async () => {
     auth.token = null;
     const { result } = renderHook(() => useTranslator({ provider: 'custom:llm' }));
     await waitFor(() => expect(result.current.translator).toBeDefined());
-    expect(result.current.translator!.name.startsWith('custom:')).toBe(false);
+    expect(result.current.translator!.name).toBe('custom:llm');
   });
 });

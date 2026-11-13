@@ -12,7 +12,7 @@ const h = vi.hoisted(() => ({
   pull: vi.fn(async (_full?: boolean, _verbose?: boolean) => {}),
   stages: [] as (() => Promise<void>)[],
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: h.user }) }));
+
 vi.mock('@/hooks/useAppRouter', () => ({ useAppRouter: () => h.router }));
 vi.mock('@/utils/nav', () => ({ navigateToLogin: (...args: unknown[]) => h.login(...args) }));
 vi.mock('@/hooks/useOPDSSubscriptions', () => ({
@@ -26,10 +26,6 @@ vi.mock('@/hooks/usePullToRefresh', () => ({
 }));
 
 import { useSettingsStore } from '@/store/settingsStore';
-import {
-  setCachedUserPlan,
-  setCachedCustomizationPurchased,
-} from '@/services/sync/cloudSyncProvider';
 
 vi.mock('@/services/runtimeConfig', () => ({ getRuntimeConfig: () => ({ selfHosted: false }) }));
 import { useLibraryRefresh } from '@/app/library/hooks/useLibraryRefresh';
@@ -40,15 +36,12 @@ beforeEach(() => {
   h.user = null;
   vi.stubEnv('SELF_HOSTED', 'false');
   vi.stubEnv('NEXT_PUBLIC_SELF_HOSTED', 'false');
-  setCachedUserPlan('plus');
-  setCachedCustomizationPurchased(false);
+
   useSettingsStore.setState({ settings: { ...defaults, opdsCatalogs: [], absServers: [] } });
 });
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
-  setCachedUserPlan(undefined);
-  setCachedCustomizationPurchased(false);
 });
 
 for (const [stage, fullRefresh] of [false, true].entries()) {
@@ -87,7 +80,6 @@ for (const [stage, fullRefresh] of [false, true].entries()) {
     });
 
     it('prompts for sign-in when the only file backend is paused by the plan gate', async () => {
-      setCachedUserPlan('free');
       const settings = useSettingsStore.getState().settings;
       useSettingsStore.setState({
         settings: { ...settings, webdav: { ...settings.webdav, enabled: true } },
@@ -98,7 +90,6 @@ for (const [stage, fullRefresh] of [false, true].entries()) {
     });
 
     it('refreshes OPDS even when a configured file backend is paused', async () => {
-      setCachedUserPlan('free');
       const settings = useSettingsStore.getState().settings;
       useSettingsStore.setState({
         settings: {

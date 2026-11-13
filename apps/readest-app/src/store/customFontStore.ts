@@ -9,22 +9,10 @@ import {
 } from '@/styles/fonts';
 import { useSettingsStore } from './settingsStore';
 import { getReplicaPersistEnv } from '@/services/sync/replicaPersist';
-import { publishReplicaDelete, publishReplicaUpsert } from '@/services/sync/replicaPublish';
-import { queueReplicaBinaryDelete } from '@/services/sync/replicaBinaryUpload';
+
 import { FONT_KIND } from '@/services/sync/adapters/font';
 import { computeFontContentId } from '@/services/fontService';
 import { migrateLegacyReplicas } from '@/services/sync/migrateLegacy';
-
-const publishFontUpsert = (font: CustomFont): void => {
-  if (!font.contentId) return;
-  void publishReplicaUpsert(FONT_KIND, font, font.contentId, font.reincarnation);
-};
-
-const publishFontDelete = (font: CustomFont): void => {
-  if (!font.contentId) return;
-  void publishReplicaDelete(FONT_KIND, font.contentId);
-  void queueReplicaBinaryDelete(FONT_KIND, font);
-};
 
 interface FontStoreState {
   fonts: CustomFont[];
@@ -123,7 +111,7 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
         fonts: [...state.fonts],
       }));
       const refreshed = get().getFont(font.id) ?? existingFont;
-      publishFontUpsert(refreshed);
+
       return refreshed;
     }
 
@@ -136,7 +124,6 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
       fonts: [...state.fonts, newFont],
     }));
 
-    publishFontUpsert(newFont);
     return newFont;
   },
 
@@ -157,7 +144,7 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
     set((state) => ({
       fonts: [...state.fonts],
     }));
-    publishFontDelete(font);
+
     return result;
   },
 
@@ -458,7 +445,6 @@ export const migrateLegacyFonts = (envConfig: EnvConfigType): Promise<void> =>
     computeContentId: computeFontContentId,
     updateRecord: (id, next) => useCustomFontStore.getState().updateFont(id, next),
     saveStore: (env) => useCustomFontStore.getState().saveCustomFonts(env),
-    publishUpsert: publishFontUpsert,
   });
 
 if (typeof window !== 'undefined') {

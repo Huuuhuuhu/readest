@@ -26,7 +26,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: h.envConfig, appService: h.appService }),
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+
 vi.mock('@/hooks/useTranslation', () => ({ useTranslation: () => (s: string) => s }));
 vi.mock('@/hooks/useAndroidGamepadConnection', () => ({
   useAndroidGamepadConnection: () => false,

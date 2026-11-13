@@ -1,6 +1,6 @@
 import { partialMD5 } from '@/utils/md5';
 import { uniqueId } from '@/utils/misc';
-import { queueReplicaBinaryUpload } from '@/services/sync/replicaBinaryUpload';
+
 import type { EnvConfigType } from '@/services/environment';
 import type { BaseDir } from '@/types/system';
 
@@ -41,8 +41,6 @@ export interface MigrateLegacyReplicasDeps<T extends LegacyReplicaRecord> {
   updateRecord: (id: string, next: T) => void;
   /** Persist the kind's settings entry post-migration. */
   saveStore: (envConfig: EnvConfigType) => Promise<void>;
-  /** Publish the now-syncable record to the replica row. */
-  publishUpsert: (record: T) => void;
 }
 
 /**
@@ -117,9 +115,5 @@ export const migrateLegacyReplicas = async <T extends LegacyReplicaRecord>(
     await deps.saveStore(envConfig);
   } catch (err) {
     console.warn(`migrateLegacyReplicas[${deps.kind}]: save failed`, err);
-  }
-  for (const record of migrated) {
-    deps.publishUpsert(record);
-    void queueReplicaBinaryUpload(deps.kind, record, appService);
   }
 };

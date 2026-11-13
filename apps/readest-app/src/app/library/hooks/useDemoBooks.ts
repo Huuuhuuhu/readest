@@ -1,45 +1,57 @@
 import { useEffect, useRef, useState } from 'react';
-
 import { useEnv } from '@/context/EnvContext';
-import { Book } from '@/types/book';
+import type { Book } from '@/types/book';
 import { getUserLang } from '@/utils/misc';
-import { isWebAppPlatform } from '@/services/environment';
-import { demoLibraries as libraries } from '@/services/demoBooks';
-
-interface DemoBooks {
-  library: string[];
-}
-
+import { demoLibraries } from '@/services/demoBooks';
+import { useLibraryStore } from '@/store/libraryStore';
+import { eventDispatcher } from '@/utils/event';
 export const useDemoBooks = () => {
   const { envConfig } = useEnv();
   const [books, setBooks] = useState<Book[]>([]);
-  const isLoading = useRef(false);
-
+  const loading = useRef(false);
   useEffect(() => {
-    if (isLoading.current) return;
-    isLoading.current = true;
-
-    const userLang = getUserLang() as keyof typeof libraries;
-    const fetchDemoBooks = async () => {
+    const load = async () => {
+      if (loading.current) return;
+      loading.current = true;
+      let failures = 0;
+      const downloaded: Book[] = [];
       try {
-        const appService = await envConfig.getAppService();
-        const demoBooks = libraries[userLang] || (libraries.en as DemoBooks);
-        const books = await Promise.all(
-          demoBooks.library.map((url) => appService.importBook(url, [], { saveBook: false })),
-        );
-        setBooks(books.filter((book) => book !== null) as Book[]);
-      } catch (error) {
-        console.error('Failed to import demo books:', error);
+        const service = await envConfig.getAppService();
+        const sources = getUserLang().startsWith('zh') ? demoLibraries.zh : demoLibraries.en;
+        eventDispatcher.dispatch('toast', { type: 'info', message: '正在下载示例书籍…' });
+        for (const url of sources.library) {
+          try {
+            const book = await service.importBook(
+              url,
+              [...useLibraryStore.getState().library, ...downloaded],
+              { saveBook: true },
+            );
+            if (book) downloaded.push(book);
+          } catch {
+            failures++;
+          }
+        }
+        setBooks(downloaded);
+        eventDispatcher.dispatch('toast', {
+          type: failures ? 'error' : 'info',
+          message: failures
+            ? `已下载 ${downloaded.length} 本，${failures} 本失败；可再次选择下载重试。`
+            : `已下载 ${downloaded.length} 本示例书，可离线阅读。`,
+        });
+      } catch {
+        eventDispatcher.dispatch('toast', {
+          type: 'error',
+          message: '示例书下载失败，可稍后重试。',
+        });
+      } finally {
+        loading.current = false;
       }
     };
-
-    const demoBooksFetchedFlag = localStorage.getItem('demoBooksFetched');
-    if (isWebAppPlatform() && !demoBooksFetchedFlag) {
-      fetchDemoBooks();
-      localStorage.setItem('demoBooksFetched', 'true');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+    const onRequest = () => {
+      void load();
+    };
+    eventDispatcher.on('download-public-samples', onRequest);
+    return () => eventDispatcher.off('download-public-samples', onRequest);
+  }, [envConfig]);
   return books;
 };

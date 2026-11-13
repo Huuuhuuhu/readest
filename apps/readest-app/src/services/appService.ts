@@ -20,7 +20,7 @@ import { SchemaType } from '@/services/database/migrate';
 import { Book, BookConfig, BookContent, ImportBookOptions, ViewSettings } from '@/types/book';
 import type { BookNav } from '@/services/nav';
 import { getLibraryFilename, getLibraryBackupFilename } from '@/utils/book';
-import { getDirPath, getFilename } from '@/utils/path';
+import { getFilename } from '@/utils/path';
 
 import { getOSPlatform } from '@/utils/misc';
 import { buildAbsEbookUrl, isAbsEbook, parseAbsFilePath } from '@/utils/audiobook';
@@ -462,117 +462,21 @@ export abstract class BaseAppService implements AppService {
     }
   }
 
-  async uploadFileToCloud(
-    lfp: string,
-    cfp: string,
-    base: BaseDir,
-    handleProgress: ProgressHandler,
-    hash: string,
-    temp: boolean = false,
-    media?: string,
-  ) {
-    return CloudSvc.uploadFileToCloud(
-      this.fs,
-      this.resolveFilePath.bind(this),
-      lfp,
-      cfp,
-      base,
-      handleProgress,
-      hash,
-      temp,
-      media,
-    );
-  }
-
-  async uploadReplicaFile(
-    kind: string,
-    replicaId: string,
-    filename: string,
-    lfp: string,
-    base: BaseDir,
-    onProgress: ProgressHandler,
-  ) {
-    return CloudSvc.uploadReplicaFileToCloud(this.fs, this.resolveFilePath.bind(this), {
-      kind,
-      replicaId,
-      filename,
-      lfp,
-      base,
-      onProgress,
-    });
-  }
-
-  async downloadReplicaFile(
-    kind: string,
-    replicaId: string,
-    filename: string,
-    lfp: string,
-    base: BaseDir,
-    onProgress?: ProgressHandler,
-  ) {
-    // The native downloader writes with `File::create`, which does not create
-    // parent directories, so a missing bundle dir fails as an opaque
-    // "No such file or directory (os error 2)" (issue #5675). The pull path
-    // only mkdirs when it MINTS a bundle dir for a record it has never seen —
-    // a record whose directory was lost afterwards (custom root dir changed,
-    // external storage cleared), a transfer replayed from the persisted queue,
-    // and Retry All all arrive here with nothing on disk. Book downloads have
-    // always guarded this (see cloudService.downloadBook); do the same here.
-    // `createDir` is recursive, so this is a no-op when the dir exists.
-    const bundleDir = getDirPath(lfp);
-    if (bundleDir) {
-      await this.fs.createDir(bundleDir, base, true);
-    }
-    // Resolve the relative `<bundleDir>/<filename>` lfp against the
-    // replica's base dir before downloading. Mirrors how upload uses
-    // `resolveFilePath(opts.lfp, opts.base)`. Without this, the writer
-    // lands the bytes at the literal lfp (no base prefix) so subsequent
-    // openFile(lfp, base) calls fail with "File not found".
-    const dst = await this.resolveFilePath(lfp, base);
-    return CloudSvc.downloadReplicaFileFromCloud(this, {
-      kind,
-      replicaId,
-      filename,
-      dst,
-      onProgress,
-    });
-  }
-
-  async deleteReplicaBundle(kind: string, replicaId: string, filenames: string[]) {
-    return CloudSvc.deleteReplicaBundleFromCloud(kind, replicaId, filenames);
-  }
-
-  async uploadBook(book: Book, onProgress?: ProgressHandler): Promise<void> {
-    return CloudSvc.uploadBook(this.fs, this.resolveFilePath.bind(this), book, onProgress);
-  }
-
-  async uploadBookCover(book: Book, onProgress?: ProgressHandler): Promise<void> {
-    return CloudSvc.uploadBookCover(this.fs, this.resolveFilePath.bind(this), book, onProgress);
-  }
-
-  async downloadCloudFile(lfp: string, cfp: string, onProgress: ProgressHandler) {
-    return CloudSvc.downloadCloudFile(this, this.localBooksDir, lfp, cfp, onProgress);
-  }
-
-  async downloadBookCovers(books: Book[]): Promise<void> {
-    return CloudSvc.downloadBookCovers(this, this.fs, this.localBooksDir, books);
+  async uploadBook(book: Book, _onProgress?: ProgressHandler): Promise<void> {
+    const { runFileBookUpload } = await import('@/services/sync/file/runLibrarySync');
+    if (!(await runFileBookUpload({ getAppService: async () => this }, book)))
+      throw new Error('No configured sync service accepted this book');
   }
 
   async downloadBook(
     book: Book,
-    onlyCover = false,
-    redownload = false,
+    _onlyCover = false,
+    _redownload = false,
     onProgress?: ProgressHandler,
   ): Promise<void> {
-    return CloudSvc.downloadBook(
-      this,
-      this.fs,
-      this.localBooksDir,
-      book,
-      onlyCover,
-      redownload,
-      onProgress,
-    );
+    const { runFileBookDownload } = await import('@/services/sync/file/runLibrarySync');
+    if (!(await runFileBookDownload({ getAppService: async () => this }, book, onProgress)))
+      throw new Error('Book is unavailable on the configured sync services');
   }
 
   async exportBook(book: Book): Promise<boolean> {

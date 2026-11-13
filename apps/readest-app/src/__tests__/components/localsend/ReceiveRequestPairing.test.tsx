@@ -18,13 +18,12 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {}, appService: { osPlatform: 'macos' } }),
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+
 vi.mock('@/store/themeStore', () => ({
   useThemeStore: () => ({ safeAreaInsets: { top: 0, bottom: 0, left: 0, right: 0 } }),
 }));
 
 const quota = { userProfilePlan: 'free' as string | undefined, customizationPurchased: false };
-vi.mock('@/hooks/useQuotaStats', () => ({ useQuotaStats: () => quota }));
 
 import ReceiveRequestDialog from '@/components/localsend/ReceiveRequestDialog';
 import en from '../../../../public/locales/en/translation.json';

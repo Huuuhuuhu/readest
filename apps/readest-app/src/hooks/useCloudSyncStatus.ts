@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useFileSyncStore } from '@/store/fileSyncStore';
 import { useHardcoverSyncStore } from '@/store/hardcoverSyncStore';
@@ -8,7 +7,6 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { formatSyncTimeFromNow } from '@/utils/time';
 import {
   cloudProviderDisplayName,
-  isReadestCloudEnabled,
   settingsKeyForBackend,
   type CloudSyncProviderKind,
 } from '@/services/sync/cloudSyncProvider';
@@ -42,7 +40,6 @@ export interface CloudSyncStatus {
    * token expired): signing in would not help, and that provider's own settings
    * row already shows a Reconnect CTA.
    */
-  needsSignIn: boolean;
   /** Ready-to-render status line for a menu row. */
   label: string;
 }
@@ -70,9 +67,8 @@ export interface CloudSyncStatus {
  * `bookKey` scopes the status to one open book, which adds Hardcover: it has
  * no library-level sync.
  */
-export const useCloudSyncStatus = (nativeLastSyncedAt = 0, bookKey?: string): CloudSyncStatus => {
+export const useCloudSyncStatus = (_nativeLastSyncedAt = 0, bookKey?: string): CloudSyncStatus => {
   const _ = useTranslation();
-  const { user } = useAuth();
   const settings = useSettingsStore((state) => state.settings);
   const fileSyncByKind = useFileSyncStore((state) => state.byKind);
   const fileSyncLastError = useFileSyncStore((state) => state.lastErrorByKind);
@@ -81,7 +77,6 @@ export const useCloudSyncStatus = (nativeLastSyncedAt = 0, bookKey?: string): Cl
   );
 
   return useMemo(() => {
-    const readestEnabled = isReadestCloudEnabled(settings);
     // Only backends that can actually run. A web Google Drive whose token
     // expired is still `enabled` but silently skipped, so counting it would
     // both inflate the provider list and lend its stale lastSyncedAt to
@@ -89,19 +84,6 @@ export const useCloudSyncStatus = (nativeLastSyncedAt = 0, bookKey?: string): Cl
     const backends = getReadyFileSyncBackends(settings);
 
     const providers: CloudSyncProviderStatus[] = [
-      ...(readestEnabled
-        ? [
-            {
-              kind: 'readest' as const,
-              name: cloudProviderDisplayName('readest'),
-              lastSyncedAt: nativeLastSyncedAt,
-              // The native channel reports neither in-flight nor failed state
-              // per book; its row is a timestamp only.
-              syncing: false,
-              failed: false,
-            },
-          ]
-        : []),
       ...backends.map((kind) => ({
         kind,
         name: cloudProviderDisplayName(kind),
@@ -125,30 +107,16 @@ export const useCloudSyncStatus = (nativeLastSyncedAt = 0, bookKey?: string): Cl
     const syncing = providers.some((p) => p.syncing);
     const failed = providers.some((p) => p.failed);
     const lastSyncedAt = Math.max(0, ...providers.map((p) => p.lastSyncedAt));
-    const needsSignIn =
-      !user && providers.length > 0 && providers.every((p) => p.kind === 'readest');
+    const label = syncing
+      ? _('Syncing…')
+      : failed
+        ? _('Sync failed')
+        : lastSyncedAt
+          ? _('Synced {{time}}', { time: formatSyncTimeFromNow(lastSyncedAt) })
+          : _('Never synced');
 
-    const label = needsSignIn
-      ? _('Sign in to Sync')
-      : syncing
-        ? _('Syncing…')
-        : failed
-          ? _('Sync failed')
-          : lastSyncedAt
-            ? _('Synced {{time}}', { time: formatSyncTimeFromNow(lastSyncedAt) })
-            : _('Never synced');
-
-    return { providers, syncing, failed, lastSyncedAt, needsSignIn, label };
-  }, [
-    _,
-    user,
-    settings,
-    fileSyncByKind,
-    fileSyncLastError,
-    nativeLastSyncedAt,
-    bookKey,
-    hardcoverSync,
-  ]);
+    return { providers, syncing, failed, lastSyncedAt, label };
+  }, [_, settings, fileSyncByKind, fileSyncLastError, bookKey, hardcoverSync]);
 };
 
 export default useCloudSyncStatus;

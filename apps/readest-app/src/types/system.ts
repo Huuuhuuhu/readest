@@ -203,40 +203,14 @@ export interface AppService {
   refreshBookMetadata(book: Book): Promise<boolean>;
   deleteBook(book: Book, deleteAction: DeleteAction): Promise<void>;
   uploadBook(book: Book, onProgress?: ProgressHandler): Promise<void>;
-  uploadBookCover(book: Book, onProgress?: ProgressHandler): Promise<void>;
+
   downloadBook(
     book: Book,
     onlyCover?: boolean,
     redownload?: boolean,
     onProgress?: ProgressHandler,
   ): Promise<void>;
-  uploadFileToCloud(
-    lfp: string,
-    cfp: string,
-    base: BaseDir,
-    handleProgress: ProgressHandler,
-    hash: string,
-    temp?: boolean,
-    media?: string,
-  ): Promise<string | undefined>;
-  uploadReplicaFile(
-    kind: string,
-    replicaId: string,
-    filename: string,
-    lfp: string,
-    base: BaseDir,
-    onProgress: ProgressHandler,
-  ): Promise<void>;
-  downloadReplicaFile(
-    kind: string,
-    replicaId: string,
-    filename: string,
-    lfp: string,
-    base: BaseDir,
-    onProgress?: ProgressHandler,
-  ): Promise<void>;
-  deleteReplicaBundle(kind: string, replicaId: string, filenames: string[]): Promise<void>;
-  downloadBookCovers(books: Book[], redownload?: boolean): Promise<void>;
+
   exportBook(book: Book): Promise<boolean>;
   isBookAvailable(book: Book): Promise<boolean>;
   getBookFileSize(book: Book): Promise<number | null>;

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+
 import { useEnv } from '@/context/EnvContext';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -32,14 +32,12 @@ export const discardNotebookDocument = (bookKey: string): void => {
 
 export const useNotebookDocumentCoordinator = (bookKey: string | null) => {
   const { envConfig } = useEnv();
-  const { user } = useAuth();
   const { settings } = useSettingsStore();
 
   useEffect(() => {
     if (!bookKey) return;
     const bookHash = getBookHash(bookKey);
-    const profileId =
-      user?.id ?? settings.replicaDeviceId ?? settings.kosync.deviceId ?? 'anonymous-profile';
+    const profileId = settings.replicaDeviceId ?? settings.kosync.deviceId ?? 'anonymous-profile';
     const recoveryKey = getNotebookRecoveryKey(profileId, bookHash);
     const coordinator = createNotebookDocumentCoordinator({
       bookHash,
@@ -88,5 +86,5 @@ export const useNotebookDocumentCoordinator = (bookKey: string | null) => {
         if (coordinators.get(bookHash) === coordinator) coordinators.delete(bookHash);
       });
     };
-  }, [bookKey, envConfig, settings.kosync.deviceId, settings.replicaDeviceId, user?.id]);
+  }, [bookKey, envConfig, settings.kosync.deviceId, settings.replicaDeviceId]);
 };

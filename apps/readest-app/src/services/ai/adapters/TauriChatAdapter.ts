@@ -26,39 +26,6 @@ export interface TauriAdapterOptions {
   onTurnStart?: (turnId: string) => void;
 }
 
-async function* streamViaApiRoute(
-  messages: Array<{ role: string; content: string }>,
-  systemPrompt: string,
-  settings: AISettings,
-  abortSignal?: AbortSignal,
-): AsyncGenerator<string> {
-  const response = await fetch('/api/ai/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages,
-      system: systemPrompt,
-      apiKey: settings.aiGatewayApiKey,
-      model: settings.aiGatewayModel || 'google/gemini-2.5-flash-lite',
-    }),
-    signal: abortSignal,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `Chat failed: ${response.status}`);
-  }
-
-  const reader = response.body!.getReader();
-  const decoder = new TextDecoder();
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    yield decoder.decode(value, { stream: true });
-  }
-}
-
 export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatModelAdapter {
   return {
     async *run({ messages, abortSignal }): AsyncGenerator<ChatModelRunResult> {
@@ -100,8 +67,6 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
           .map((c) => c.text)
           .join('\n'),
       }));
-
-      const useApiRoute = typeof window !== 'undefined' && settings.provider === 'ai-gateway';
 
       try {
         let text = '';
@@ -152,17 +117,7 @@ export function createTauriAdapter(getOptions: () => TauriAdapterOptions): ChatM
 
           const systemPrompt = buildSystemPrompt(bookTitle, authorName, chunks, currentPage);
 
-          if (useApiRoute) {
-            for await (const chunk of streamViaApiRoute(
-              aiMessages,
-              systemPrompt,
-              settings,
-              abortSignal,
-            )) {
-              text += chunk;
-              yield { content: [{ type: 'text', text }] };
-            }
-          } else {
+          {
             const provider = getAIProvider(settings);
             const result = streamText({
               model: provider.getModel(),

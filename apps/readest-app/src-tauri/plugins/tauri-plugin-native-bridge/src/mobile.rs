@@ -163,55 +163,6 @@ impl<R: Runtime> NativeBridge<R> {
 }
 
 impl<R: Runtime> NativeBridge<R> {
-    pub fn iap_is_available(&self) -> crate::Result<IAPIsAvailableResponse> {
-        self.0
-            .run_mobile_plugin("iap_is_available", ())
-            .map_err(Into::into)
-    }
-}
-
-impl<R: Runtime> NativeBridge<R> {
-    pub fn iap_initialize(
-        &self,
-        payload: IAPInitializeRequest,
-    ) -> crate::Result<IAPInitializeResponse> {
-        self.0
-            .run_mobile_plugin("iap_initialize", payload)
-            .map_err(Into::into)
-    }
-}
-
-impl<R: Runtime> NativeBridge<R> {
-    pub fn iap_fetch_products(
-        &self,
-        payload: IAPFetchProductsRequest,
-    ) -> crate::Result<IAPFetchProductsResponse> {
-        self.0
-            .run_mobile_plugin("iap_fetch_products", payload)
-            .map_err(Into::into)
-    }
-}
-
-impl<R: Runtime> NativeBridge<R> {
-    pub fn iap_purchase_product(
-        &self,
-        payload: IAPPurchaseProductRequest,
-    ) -> crate::Result<IAPPurchaseProductResponse> {
-        self.0
-            .run_mobile_plugin("iap_purchase_product", payload)
-            .map_err(Into::into)
-    }
-}
-
-impl<R: Runtime> NativeBridge<R> {
-    pub fn iap_restore_purchases(&self) -> crate::Result<IAPRestorePurchasesResponse> {
-        self.0
-            .run_mobile_plugin("iap_restore_purchases", ())
-            .map_err(Into::into)
-    }
-}
-
-impl<R: Runtime> NativeBridge<R> {
     pub fn get_system_color_scheme(&self) -> crate::Result<GetSystemColorSchemeResponse> {
         self.0
             .run_mobile_plugin("get_system_color_scheme", ())
@@ -688,5 +639,20 @@ impl<R: Runtime> NativeBridge<R> {
         self.0
             .run_mobile_plugin("icloud_ensure_downloaded", payload)
             .map_err(Into::into)
+    }
+}
+
+impl<R: Runtime> NativeBridge<R> {
+    pub fn lan_network_state(&self) -> crate::Result<serde_json::Value> {
+        #[cfg(target_os = "android")]
+        {
+            self.0
+                .run_mobile_plugin("get_lan_network", ())
+                .map_err(Into::into)
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            Ok(serde_json::Value::Null)
+        }
     }
 }

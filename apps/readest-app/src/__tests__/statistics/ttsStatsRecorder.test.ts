@@ -28,7 +28,7 @@ vi.mock('@/services/sync/syncCategories', () => ({
   isSyncCategoryEnabled: () => mocks.syncEnabled,
 }));
 vi.mock('@/libs/sync', () => ({ SyncClient: class {} }));
-vi.mock('@/utils/access', () => ({ getAccessToken: async () => mocks.accessToken }));
+
 vi.mock('@/store/readerProgressStore', () => ({ getBookProgress: () => mocks.progress }));
 vi.mock('@/store/bookDataStore', () => ({
   useBookDataStore: {

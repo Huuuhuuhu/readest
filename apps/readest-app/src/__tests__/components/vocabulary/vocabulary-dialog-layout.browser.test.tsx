@@ -10,10 +10,7 @@ vi.mock('@/hooks/useTranslation', () => ({ useTranslation: () => (s: string) => 
 vi.mock('@/context/EnvContext', () => ({ useEnv: () => ({ envConfig: {}, appService: null }) }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 // The Anki link reads the account; the app always renders this inside AuthProvider.
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null, token: null }) }));
-vi.mock('@/hooks/useQuotaStats', () => ({
-  useQuotaStats: () => ({ userProfilePlan: undefined, customizationPurchased: false }),
-}));
+
 await import('@/styles/globals.css');
 
 afterEach(() => {

@@ -135,36 +135,6 @@ describe('BookDetailView More menu (Goodreads + Share)', () => {
     fireEvent.click(toggle!);
   };
 
-  it('folds Goodreads and Share into the hamburger menu', () => {
-    const { container, getByText } = renderView({ onShare: vi.fn(), shareEnabled: true });
-    // Goodreads is no longer a standalone icon button outside the menu.
-    expect(container.querySelector('button[aria-label="More Actions"]')).toBeTruthy();
-    openMore(container);
-    expect(getByText('Search on Goodreads')).toBeTruthy();
-    expect(getByText('Share Book')).toBeTruthy();
-  });
-
-  it('enables Share and calls onShare when the book is shareable', () => {
-    const onShare = vi.fn();
-    const { container, getByText } = renderView({ onShare, shareEnabled: true });
-    openMore(container);
-    const shareButton = getByText('Share Book').closest('button');
-    expect(shareButton).toBeTruthy();
-    expect(shareButton!.disabled).toBe(false);
-    fireEvent.click(shareButton!);
-    expect(onShare).toHaveBeenCalledTimes(1);
-  });
-
-  it('disables Share when not shareable (logged out or no local file)', () => {
-    const onShare = vi.fn();
-    const { container, getByText } = renderView({ onShare, shareEnabled: false });
-    openMore(container);
-    const shareButton = getByText('Share Book').closest('button');
-    expect(shareButton!.disabled).toBe(true);
-    fireEvent.click(shareButton!);
-    expect(onShare).not.toHaveBeenCalled();
-  });
-
   it('keeps Export in the More menu and calls onExport when the file exists', () => {
     const onExport = vi.fn();
     const { container, getByText } = renderView({ onExport, fileSize: 1024 });
@@ -307,7 +277,6 @@ describe('BookDetailView offline Audiobookshelf download (#6256)', () => {
     const { getByRole, getByText } = renderView({
       book: absBook(),
       onDownloadOffline,
-      offlinePremiumLabel: 'Premium',
     });
 
     fireEvent.click(getByRole('button', { name: /Download for Offline/ }));

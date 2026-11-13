@@ -26,7 +26,7 @@ import { captureImageRenderStyle, type ImageRenderStyle } from '../utils/imageRe
 import BrightnessOverlay from './BrightnessOverlay';
 import { usePagination, viewPagination } from '../hooks/usePagination';
 import { useFoliateEvents } from '../hooks/useFoliateEvents';
-import { useProgressSync } from '../hooks/useProgressSync';
+
 import { useABSProgressSync } from '../hooks/useABSProgressSync';
 import { useProgressAutoSave } from '../hooks/useProgressAutoSave';
 import {
@@ -68,7 +68,7 @@ import { layoutWarichu, relayoutWarichu } from '@/utils/warichu';
 import { refreshSectionGlosses, whenSelectionClears } from '@/app/reader/utils/wordlensSection';
 import { useVocabularyStore } from '@/store/vocabularyStore';
 import { vocabularyLang } from '@/services/vocabulary/entry';
-import { initVocabularySync } from '@/services/vocabulary/vocabularySync';
+
 import { getBookDirFromLanguage, getBookDirFromWritingMode } from '@/utils/book';
 import { getIndexFromCfi } from '@/utils/cfi';
 import { useUICSS } from '@/hooks/useUICSS';
@@ -233,7 +233,7 @@ const FoliateViewer: React.FC<{
   }, [toastMessage]);
 
   useUICSS(bookKey);
-  useProgressSync(bookKey);
+
   useABSProgressSync(bookKey);
   useProgressAutoSave(bookKey);
   useBookCoverAutoSave(bookKey);
@@ -715,10 +715,7 @@ const FoliateViewer: React.FC<{
   });
   useEffect(() => {
     if (!appService) return;
-    void useVocabularyStore
-      .getState()
-      .load(appService)
-      .then(() => initVocabularySync());
+    void useVocabularyStore.getState().load(appService);
   }, [appService]);
   const buildWordLensCtx = (bookLang?: string | null) => {
     // Read the live setting (not the first-render `settings` snapshot closed over

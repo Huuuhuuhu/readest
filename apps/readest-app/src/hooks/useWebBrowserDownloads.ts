@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+
 import { useEnv } from '@/context/EnvContext';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -25,7 +25,7 @@ import { useTranslation } from './useTranslation';
 export function useWebBrowserDownloads() {
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
-  const { user } = useAuth();
+
   const searchParams = useSearchParams();
 
   const handleDownload = useCallback(
@@ -59,7 +59,7 @@ export function useWebBrowserDownloads() {
           const { library } = useLibraryStore.getState();
           const book = await ingestFile(
             { file, books: library, groupId, groupName },
-            { appService, settings, isLoggedIn: !!user },
+            { appService, settings },
           );
           if (!book) throw new Error(_('Import produced no book'));
           await useLibraryStore.getState().updateBooks(envConfig, [book]);
@@ -79,7 +79,7 @@ export function useWebBrowserDownloads() {
         });
       }
     },
-    [appService, envConfig, user, searchParams, _],
+    [appService, envConfig, searchParams, _],
   );
 
   // Register once per appService; dispatch to the latest handler.

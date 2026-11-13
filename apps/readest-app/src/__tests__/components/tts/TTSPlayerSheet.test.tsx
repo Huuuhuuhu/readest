@@ -105,12 +105,7 @@ const { routerPush, mockAuth, mockQuota } = vi.hoisted(() => ({
   },
 }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: routerPush }) }));
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: mockAuth.user, token: 'tok' }),
-}));
-vi.mock('@/hooks/useQuotaStats', () => ({
-  useQuotaStats: () => ({ userProfilePlan: mockQuota.userProfilePlan }),
-}));
+
 vi.mock('@/app/reader/components/tts/TTSChaptersView', () => ({
   default: () => <div>chapters-view</div>,
 }));
@@ -882,56 +877,6 @@ describe('TTSPlayerSheet', () => {
     await waitFor(() => screen.getByText('Jane Reader'));
     expect(screen.queryByLabelText('Preview Jane Reader')).toBeNull();
     expect(screen.getByLabelText('Preview Guy')).toBeTruthy();
-  });
-
-  test('a Readest voice the plan lacks sends the reader to upgrade', async () => {
-    const groups = [
-      {
-        id: 'readest-tts',
-        name: 'Readest Voice',
-        voices: [
-          {
-            id: 'omnivoice:clara',
-            name: 'Clara',
-            lang: 'en-US',
-            tier: 'pro' as const,
-            disabled: true,
-          },
-        ],
-      },
-    ];
-    const props = makeProps({ onGetVoices: vi.fn().mockResolvedValue(groups) });
-    render(<TTSPlayerSheet {...props} />);
-    fireEvent.click(screen.getByLabelText('Voice'));
-    fireEvent.click(await waitFor(() => screen.getByText('Clara')));
-    expect(props.onSetVoice).not.toHaveBeenCalled();
-    expect(routerPush).toHaveBeenCalledWith(expect.stringMatching(/^\/user\?redirect=/));
-    expect(props.onClose).toHaveBeenCalled();
-  });
-
-  test('a signed-out reader tapping a Readest voice is sent to sign in', async () => {
-    mockAuth.user = null;
-    const groups = [
-      {
-        id: 'readest-tts',
-        name: 'Readest Voice',
-        voices: [
-          {
-            id: 'kokoro:af_heart',
-            name: 'Heart',
-            lang: 'en-US',
-            tier: 'plus' as const,
-            disabled: true,
-          },
-        ],
-      },
-    ];
-    const props = makeProps({ onGetVoices: vi.fn().mockResolvedValue(groups) });
-    render(<TTSPlayerSheet {...props} />);
-    fireEvent.click(screen.getByLabelText('Voice'));
-    fireEvent.click(await waitFor(() => screen.getByText('Heart')));
-    expect(props.onSetVoice).not.toHaveBeenCalled();
-    expect(routerPush).toHaveBeenCalledWith(expect.stringMatching(/^\/auth/));
   });
 
   test('reopening the sheet returns to the main view', async () => {

@@ -18,7 +18,7 @@ vi.mock('@/utils/misc', async (importOriginal) => ({
 }));
 vi.mock('@/services/statistics/statisticsDb', () => ({ StatisticsDb: db }));
 const sync = vi.hoisted(() => ({ user: null as object | null, pullStats: vi.fn() }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: sync.user }) }));
+
 vi.mock('@/services/sync/syncCategories', () => ({ isSyncCategoryEnabled: () => true }));
 vi.mock('@/services/statistics/statsSync', () => ({ pullStats: sync.pullStats }));
 vi.mock('@/libs/sync', () => ({ SyncClient: class {} }));

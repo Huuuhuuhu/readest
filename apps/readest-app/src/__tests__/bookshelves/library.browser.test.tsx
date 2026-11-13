@@ -24,7 +24,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: mocks.env, appService: null }),
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+
 vi.mock('@/hooks/useTranslation', () => ({ useTranslation: () => mocks.translate }));
 vi.mock('@/hooks/useResponsiveSize', () => ({ useResponsiveSize: (n: number) => n }));
 vi.mock('@/app/library/hooks/useSpatialNavigation', () => ({ useSpatialNavigation: () => {} }));

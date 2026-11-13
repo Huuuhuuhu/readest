@@ -6,7 +6,7 @@ import {
   READEST_WEB_BASE_URL,
 } from '@/services/constants';
 import { isTauriAppPlatform } from '@/services/environment';
-import { getAccessToken } from '@/utils/access';
+
 import type { BookNote, HighlightColor } from '@/types/book';
 import type { NotionSettings } from '@/types/settings';
 import {
@@ -499,18 +499,6 @@ export class NotionClient {
    * `X-Notion-Token` carries the integration secret. Desktop and mobile talk to
    * api.notion.com directly and put the Notion secret in `Authorization`.
    */
-  private async proxyHeaders(body?: string): Promise<Record<string, string>> {
-    const readestToken = await getAccessToken();
-    if (!readestToken) {
-      throw new Error('Notion sync requires signing in to Readest on the web');
-    }
-    return {
-      Authorization: `Bearer ${readestToken}`,
-      'X-Notion-Token': `Bearer ${this.token}`,
-      'Notion-Version': NOTION_API_VERSION,
-      ...(body ? { 'Content-Type': 'application/json' } : {}),
-    };
-  }
 
   private async request(
     path: string,
@@ -530,9 +518,9 @@ export class NotionClient {
             headers: nativeHeaders,
             body,
           })
-        : await globalThis.fetch(`/api/notion${path}`, {
+        : await globalThis.fetch(`${NOTION_API_BASE_URL}${path}`, {
             method,
-            headers: await this.proxyHeaders(body),
+            headers: nativeHeaders,
             body,
           });
 

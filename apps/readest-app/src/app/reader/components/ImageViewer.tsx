@@ -1,3 +1,5 @@
+import { useTVScope } from '@/hooks/useTVScope';
+import { isTVMode } from '@/utils/tvInput';
 import clsx from 'clsx';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
@@ -100,6 +102,45 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
   const dragStart = useRef({ x: 0, y: 0 });
   const wasDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [tvPan, setTVPan] = useState(false);
+  useTVScope(containerRef, isTVMode(), {
+    id: 'image-viewer',
+    priority: 80,
+    reading: tvPan,
+    onBack: () => {
+      if (tvPan) setTVPan(false);
+      else onClose();
+    },
+    onMenu: () => setTVPan((value) => !value),
+    onActivate: () => {
+      if (!tvPan) return false;
+      setTVPan(false);
+      return true;
+    },
+    onArrow: (key) => {
+      if (!tvPan) return false;
+      const box = containerRef.current?.getBoundingClientRect();
+      const maxX = Math.max(
+        0,
+        ((fitSize?.width ?? box?.width ?? 0) * scale - (box?.width ?? 0)) / 2,
+      );
+      const maxY = Math.max(
+        0,
+        ((fitSize?.height ?? box?.height ?? 0) * scale - (box?.height ?? 0)) / 2,
+      );
+      setPosition((old) => ({
+        x: Math.max(
+          -maxX,
+          Math.min(maxX, old.x + (key === 'ArrowLeft' ? 60 : key === 'ArrowRight' ? -60 : 0)),
+        ),
+        y: Math.max(
+          -maxY,
+          Math.min(maxY, old.y + (key === 'ArrowUp' ? 60 : key === 'ArrowDown' ? -60 : 0)),
+        ),
+      }));
+      return true;
+    },
+  });
   const imageRef = useRef<HTMLImageElement>(null);
   const zoomLabelTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wheelZoomEndTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -226,6 +267,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isTVMode()) return;
     e.stopPropagation();
 
     // Escape is handled by useKeyDownActions (also covers Android Back key).
@@ -653,7 +695,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
       >
         <div
           role='button'
-          tabIndex={0}
+          tabIndex={isTVMode() ? -1 : 0}
           className='image-viewer-overlay not-eink:bg-black/50 eink:bg-base-100 not-eink:backdrop-blur-md absolute inset-0'
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -661,7 +703,15 @@ const ImageViewer: React.FC<ImageViewerProps> = ({
             }
           }}
         />
-        {showChrome && (
+        {isTVMode() && (
+          <div className='bg-base-100 absolute bottom-6 left-1/2 z-20 -translate-x-1/2 rounded border p-3'>
+            <button className='btn eink-bordered' onClick={() => setTVPan((value) => !value)}>
+              {tvPan ? '结束平移' : '平移图片'}
+            </button>
+            <p>{tvPan ? '方向键移动图片，确认或返回退出平移' : '方向键选择缩放、平移或关闭'}</p>
+          </div>
+        )}
+        {(showChrome || isTVMode()) && (
           <ZoomControls
             gridInsets={gridInsets}
             canShare={canShare}

@@ -1,7 +1,6 @@
 import { useCustomTranslatorStore } from '@/store/customTranslatorStore';
 import { TranslationProvider } from '../types';
 import { createCustomTranslator } from '../custom';
-import { deeplProvider } from './deepl';
 import { azureProvider } from './azure';
 import { googleProvider } from './google';
 import { yandexProvider } from './yandex';
@@ -18,13 +17,11 @@ function createTranslator<T extends string>(
   return implementation as TranslationProvider & { name: T };
 }
 
-const deeplTranslator = createTranslator('deepl', deeplProvider);
 const azureTranslator = createTranslator('azure', azureProvider);
 const googleTranslator = createTranslator('google', googleProvider);
 const yandexTranslator = createTranslator('yandex', yandexProvider);
 
 const availableTranslators = [
-  deeplTranslator,
   azureTranslator,
   googleTranslator,
   yandexTranslator,
@@ -55,15 +52,9 @@ export const getTranslator = (name: TranslatorName): TranslationProvider | undef
  * render them greyed out, but this predicate excludes them so they can never
  * be chosen or fallen back to.
  */
-export const isTranslatorAvailable = (
-  translator: TranslationProvider,
-  hasToken: boolean,
-  hasPremium: boolean,
-): boolean => {
+export const isTranslatorAvailable = (translator: TranslationProvider): boolean => {
   if (translator.disabled) return false;
-  if (translator.premiumRequired && !hasPremium) return false;
   if (translator.quotaExceeded) return false;
-  if (translator.authRequired && !hasToken) return false;
   return true;
 };
 
@@ -76,20 +67,12 @@ export const isTranslatorAvailable = (
  */
 export const getTranslatorDisplayLabel = (
   translator: TranslationProvider,
-  hasToken: boolean,
-  hasPremium: boolean,
   _: (key: string) => string,
 ): string => {
   if (translator.disabled) {
     return translator.requiresApp
       ? `${translator.label} (${_('App only')})`
       : `${translator.label}`;
-  }
-  if (translator.premiumRequired && !hasPremium) {
-    return `${translator.label} (${_('Premium')})`;
-  }
-  if (translator.authRequired && !hasToken) {
-    return `${translator.label} (${_('Login Required')})`;
   }
   if (translator.quotaExceeded) {
     return `${translator.label} (${_('Quota Exceeded')})`;

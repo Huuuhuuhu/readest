@@ -20,10 +20,7 @@ vi.mock('@/context/EnvContext', () => ({
     appService: { osPlatform: 'ios', isIOSApp: true, isAndroidApp: false, hasHaptics: false },
   }),
 }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
-vi.mock('@/hooks/useQuotaStats', () => ({
-  useQuotaStats: () => ({ userProfilePlan: 'free', customizationPurchased: false }),
-}));
+
 vi.mock('@/services/localsend/devicePrefs', () => ({
   DEFAULT_ALIAS_NAMED_KEY: "{{name}}'s Readest",
   getLocalSendAlias: () => 'Test Device',

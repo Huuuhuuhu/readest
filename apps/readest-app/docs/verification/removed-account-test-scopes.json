@@ -1,0 +1,161 @@
+{
+  "reason": "Tests of removed Readest account, hosted backend, payment, entitlement, official sync, or telemetry implementations. Local reading and independently configured service suites are retained and updated.",
+  "files": [
+    "api/google-iap-verify-consume.test.ts",
+    "api/iap-verify.test.ts",
+    "api/share-import-quota.test.ts",
+    "api/storage-delete-book-key-fallback.test.ts",
+    "api/storage-upload-media-key.test.ts",
+    "api/storage-upload-quota.test.ts",
+    "api/storage-upload-temp-key.test.ts",
+    "api/storage-upload-traversal.test.ts",
+    "app/auth-page.test.tsx",
+    "components/passphrase-prompt.test.tsx",
+    "components/SyncCategoriesSection.test.tsx",
+    "context/auth-context-logout.test.tsx",
+    "context/auth-context-refresh.test.tsx",
+    "context/auth-context.test.tsx",
+    "helpers/auth.test.ts",
+    "helpers/supabase-mock.ts",
+    "hooks/useInboxDrainer.test.tsx",
+    "hooks/useProgressSync.test.tsx",
+    "hooks/useQuotaStats-signout.test.ts",
+    "hooks/useReplicaPull.test.tsx",
+    "hooks/useSync-cursor.test.ts",
+    "hooks/useSync-data-flow.test.tsx",
+    "hooks/useSync-paged-books-pull.test.ts",
+    "hooks/useSync-stale-settings-clobber.test.tsx",
+    "hooks/useSync.test.ts",
+    "integration/apple-iap.test.ts",
+    "libs/replicaSyncClient.test.ts",
+    "libs/shareServer.test.ts",
+    "libs/storage-list-all-pages.test.ts",
+    "services/opds-cloud-upload-gate.test.ts",
+    "services/send-address-plan-gate.test.ts",
+    "services/send-fetch-url-guard.test.ts",
+    "services/send-inbox-file-api.test.ts",
+    "statistics/statsSync.test.ts",
+    "utils/abs-offline-plan-gate.test.ts",
+    "utils/access-tts.test.ts",
+    "utils/access-validate-token.test.ts",
+    "utils/bookorbit-ssrf.test.ts",
+    "utils/customization-access.test.ts",
+    "utils/nearby-pairing-plan-gate.test.ts",
+    "utils/supabase-auth-proxy.test.ts",
+    "utils/supabase-storage-key.test.ts",
+    "utils/telemetry.test.ts",
+    "utils/tts-cache-plan-gate.test.ts",
+    "utils/usage.test.ts",
+    "workers/iap-reconcile.test.ts",
+    "services/sync/passphraseGate.test.ts",
+    "services/sync/replicaBinaryUpload.test.ts",
+    "services/sync/replicaCryptoMiddleware.test.ts",
+    "services/sync/replicaCursorStore.test.ts",
+    "services/sync/replicaPublish.test.ts",
+    "services/sync/replicaPullAndApply.test.ts",
+    "services/sync/replicaSettingsSync.test.ts",
+    "services/sync/replicaSync.test.ts",
+    "services/sync/replicaSyncManager.test.ts",
+    "services/sync/replicaTransferIntegration.test.ts",
+    "services/vocabulary/vocabularySync.test.ts",
+    "libs/crypto/session.test.ts",
+    "libs/payment/apple-iap-app-account-token.test.ts",
+    "libs/payment/apple-iap-restore-verify.test.ts",
+    "libs/payment/apple-notifications.test.ts",
+    "libs/payment/cross-provider-entitlement.test.ts",
+    "libs/payment/google-iap-restore-verify.test.ts",
+    "libs/payment/google-iap-server.test.ts",
+    "libs/payment/google-notifications.test.ts",
+    "libs/payment/google-verifier.test.ts",
+    "libs/payment/iap-telemetry.test.ts",
+    "libs/payment/purchased-features.test.ts",
+    "libs/payment/stripe-payment-refund-state.test.ts",
+    "libs/payment/stripe-server.live.test.ts",
+    "libs/payment/stripe-server.test.ts",
+    "components/auth/AuthPanelCloudChoiceRace.test.tsx",
+    "components/auth/ReadestCloudOptIn.test.tsx",
+    "app/auth/auth-page-duo.browser.test.tsx",
+    "app/auth/auth-page-safe-area.test.tsx",
+    "app/auth/email-password-auth-autofill.test.tsx",
+    "app/auth/email-password-keyboard-scroll.test.tsx",
+    "app/link/LinkDevice.test.tsx",
+    "app/user/account-actions.test.tsx",
+    "app/user/plan.test.ts",
+    "app/user/plans-comparison.test.tsx",
+    "app/user/plans-grid-layout.browser.test.tsx",
+    "app/user/profile-header-clickthrough.browser.test.tsx",
+    "app/user/restore-purchase-confirmation.test.tsx",
+    "app/user/StorageManager-book-data.test.tsx",
+    "app/user/StorageManager.test.tsx",
+    "app/reader/hooks/useNotesSync-crosspoint.test.tsx",
+    "app/reader/hooks/useNotesSync-first-open.test.tsx",
+    "app/reader/hooks/useNotesSync-ink.test.tsx",
+    "app/reader/hooks/useNotesSync-push-reply.test.tsx",
+    "app/reader/hooks/useNotesSync-tombstone.test.tsx",
+    "app/reader/hooks/useNotesSync-trailing-push.test.tsx"
+  ],
+  "additionalRetired": [
+    {
+      "file": "bookshelves/queue.test.ts",
+      "reason": "Removed official account cloud, telemetry upload, or upstream updater; retained local and independent-service suites cover the supported paths."
+    },
+    {
+      "file": "components/UpdaterWindow.test.tsx",
+      "reason": "Removed official account cloud, telemetry upload, or upstream updater; retained local and independent-service suites cover the supported paths."
+    },
+    {
+      "file": "helpers/updater.test.ts",
+      "reason": "Removed official account cloud, telemetry upload, or upstream updater; retained local and independent-service suites cover the supported paths."
+    },
+    {
+      "file": "hooks/useOpenDeviceLink.test.ts",
+      "reason": "Removed official account cloud, telemetry upload, or upstream updater; retained local and independent-service suites cover the supported paths."
+    },
+    {
+      "file": "libs/storage.test.ts",
+      "reason": "Removed official account cloud, telemetry upload, or upstream updater; retained local and independent-service suites cover the supported paths."
+    },
+    {
+      "file": "scripts/upload-sourcemaps.test.ts",
+      "reason": "Removed official account cloud, telemetry upload, or upstream updater; retained local and independent-service suites cover the supported paths."
+    },
+    {
+      "file": "services/cover-sync.test.ts",
+      "reason": "Removed official account cloud, telemetry upload, or upstream updater; retained local and independent-service suites cover the supported paths."
+    }
+  ],
+  "removedOfficialBookChannel": [
+    {
+      "file": "services/cloudService-delete-book-data.test.ts",
+      "reason": "Tests of the removed authenticated Readest book-channel pull/push. Local imports and metadata remain covered by bookService/store tests; independent provider merges by services/sync/file tests."
+    },
+    {
+      "file": "app/library/abs-books-sync.test.tsx",
+      "reason": "Tests of the removed authenticated Readest book-channel pull/push. Local imports and metadata remain covered by bookService/store tests; independent provider merges by services/sync/file tests."
+    },
+    {
+      "file": "app/library/demo-books-sync.test.tsx",
+      "reason": "Tests of the removed authenticated Readest book-channel pull/push. Local imports and metadata remain covered by bookService/store tests; independent provider merges by services/sync/file tests."
+    },
+    {
+      "file": "app/library/feed-books-sync.test.tsx",
+      "reason": "Tests of the removed authenticated Readest book-channel pull/push. Local imports and metadata remain covered by bookService/store tests; independent provider merges by services/sync/file tests."
+    },
+    {
+      "file": "app/library/field-edit-push.test.tsx",
+      "reason": "Tests of the removed authenticated Readest book-channel pull/push. Local imports and metadata remain covered by bookService/store tests; independent provider merges by services/sync/file tests."
+    },
+    {
+      "file": "app/library/metadata-edit-sync.test.tsx",
+      "reason": "Tests of the removed authenticated Readest book-channel pull/push. Local imports and metadata remain covered by bookService/store tests; independent provider merges by services/sync/file tests."
+    },
+    {
+      "file": "app/library/useBooksSync-inflight-change.test.tsx",
+      "reason": "Tests of the removed authenticated Readest book-channel pull/push. Local imports and metadata remain covered by bookService/store tests; independent provider merges by services/sync/file tests."
+    },
+    {
+      "file": "app/library/useBooksSync-routing.test.tsx",
+      "reason": "Tests of the removed authenticated Readest book-channel pull/push. Local imports and metadata remain covered by bookService/store tests; independent provider merges by services/sync/file tests."
+    }
+  ]
+}

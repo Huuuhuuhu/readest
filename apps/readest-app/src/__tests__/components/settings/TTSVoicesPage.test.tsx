@@ -10,7 +10,6 @@ const state = vi.hoisted(() => ({
   play: vi.fn(),
 }));
 
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: state.user }) }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: state.push }) }));
 vi.mock('@/context/EnvContext', () => ({ useEnv: () => ({ envConfig: {}, appService: null }) }));
 vi.mock('@/hooks/useTranslation', () => ({
@@ -116,15 +115,6 @@ describe('TTSVoicesPage', () => {
     expect(TTSUtils.getDefaultVoice('en')?.voiceId).toBe('en-GB-RyanNeural');
   });
 
-  it('a voice the plan lacks can be previewed but leads to the plans to be chosen', async () => {
-    renderPage();
-    fireEvent.click(await screen.findByText('Ethan'));
-    expect(state.push).toHaveBeenCalledWith(expect.stringMatching(/^\/user/));
-    expect(TTSUtils.getDefaultVoice('en')).toBeNull();
-    fireEvent.click(screen.getByLabelText('Preview Ethan'));
-    await waitFor(() => expect(state.play).toHaveBeenCalled());
-  });
-
   it('from the library, a preview reads a sample in the voice’s own language', async () => {
     renderPage();
     fireEvent.click(await screen.findByLabelText('Preview Ryan'));
@@ -153,15 +143,5 @@ describe('TTSVoicesPage', () => {
       lang: 'en',
       text: 'Call me Ishmael. Some years ago, never mind how long precisely, I went to sea.',
     });
-  });
-
-  it('a signed-out reader is sent to sign in to preview Readest Voice, not other engines', async () => {
-    state.user = null;
-    renderPage();
-    fireEvent.click(await screen.findByLabelText('Preview Heart'));
-    expect(state.push).toHaveBeenCalledWith(expect.stringMatching(/^\/auth/));
-    expect(state.play).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByLabelText('Preview Ryan'));
-    await waitFor(() => expect(state.play).toHaveBeenCalled());
   });
 });

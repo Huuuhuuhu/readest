@@ -124,7 +124,7 @@ describe('BookOrbitClient', () => {
 
     expect(version.capabilities).toEqual(['bookmarkSync']);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('https://web.readest.com/api/bookorbit');
+    expect(url).toBe('https://books.example.com/api/v1/koreader/plugin/version');
     const payload = JSON.parse(init.body as string) as Record<string, unknown>;
     expect(payload['serverUrl']).toBe('https://books.example.com');
     expect(payload['endpoint']).toBe('/plugin/version');

@@ -7,26 +7,10 @@ import type { TranslationFunc } from '@/hooks/useTranslation';
  * the call site.
  */
 
-export interface ReadestRowInputs {
-  signedIn: boolean;
-  /** Plan still resolving from the JWT (signed-in only). */
-  planLoading: boolean;
-  /** Readest Cloud syncs the library on this device. */
-  enabled: boolean;
-}
-
-export const getReadestCloudRowStatus = (_: TranslationFunc, s: ReadestRowInputs): string => {
-  if (!s.signedIn) return _('Not signed in');
-  if (s.planLoading) return '…';
-  return s.enabled ? _('Active') : _('Off');
-};
-
 export interface ThirdPartyRowInputs {
   enabled: boolean;
   configured: boolean;
   syncing: boolean;
-  /** Enabled but disallowed by the premium guard (never silently unpaused). */
-  paused: boolean;
   /** Last terminal sync error, from fileSyncStore. */
   lastError: string | null | undefined;
   /** This provider's Upload Book Files toggle. */
@@ -48,7 +32,6 @@ export interface ThirdPartyRowInputs {
 }
 
 export interface CanToggleCloudProviderInputs {
-  isPremium: boolean;
   isConfigured: boolean;
   isEnabled: boolean;
 }
@@ -60,34 +43,10 @@ export interface CanToggleCloudProviderInputs {
  * lapses is never trapped with a provider they can't disable.
  */
 export const canToggleCloudProvider = (s: CanToggleCloudProviderInputs): boolean =>
-  (s.isPremium && s.isConfigured) || s.isEnabled;
-
-export interface CloudProviderBadgeInputs {
-  signedIn: boolean;
-  /** Plan still resolving from the JWT (signed-in only). */
-  planLoading: boolean;
-  /** Cloud sync is usable right now — a plan, the unlock, or a self-hosted deployment. */
-  isPremium: boolean;
-}
-
-/**
- * Whether a third-party provider row carries the tier chip. Only for users who
- * cannot use the feature: an entitled user already has it, so the badge is
- * noise. Suppressed while a signed-in user's plan is still resolving, which
- * would otherwise flash the chip at a premium user on every open.
- *
- * Signed out on a hosted deployment still carries the chip, and the row stays
- * gated behind {@link canToggleCloudProvider} and the upgrade route — that
- * cohort is not entitled. What #6093 changed is which input removes the chip:
- * entitlement, not sign-in. `!user` used to short-circuit it ON, so a
- * self-hoster who could already open every provider was told it was Premium.
- */
-export const shouldShowCloudProviderBadge = (s: CloudProviderBadgeInputs): boolean =>
-  !s.isPremium && (!s.signedIn || !s.planLoading);
+  s.isConfigured || s.isEnabled;
 
 export const getThirdPartyRowStatus = (_: TranslationFunc, s: ThirdPartyRowInputs): string => {
   if (!s.enabled) return s.configured ? _('Configured') : _('Not connected');
-  if (s.paused) return _('Paused — plan required');
   // Enabled but the web token is gone — it silently syncs nothing until the user
   // reconnects, so the row must not claim it is active.
   if (s.needsReauth) return _('Reconnect required');

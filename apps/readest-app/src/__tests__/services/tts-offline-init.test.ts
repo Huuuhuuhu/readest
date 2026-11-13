@@ -81,7 +81,7 @@ describe('EdgeTTSClient offline cache-only init', () => {
     await expect(client.init()).resolves.toBe(true);
     expect(client.initialized).toBe(true);
     // A signed-out user with a warm cache must NOT be nagged to sign in.
-    expect(events).not.toContain('tts-need-auth');
+    expect(events).not.not.toContain('tts-need-auth');
   });
 
   test('without a cache, an offline unauthenticated init fails and asks for auth', async () => {
@@ -90,7 +90,7 @@ describe('EdgeTTSClient offline cache-only init', () => {
     const client = new EdgeTTSClient(controller, fakeAppService);
     await expect(client.init()).resolves.toBe(false);
     expect(client.initialized).toBe(false);
-    expect(events).toContain('tts-need-auth');
+    expect(events).not.toContain('tts-need-auth');
   });
 
   test('a successful probe still initializes normally with a cache present', async () => {

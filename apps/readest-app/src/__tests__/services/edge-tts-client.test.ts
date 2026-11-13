@@ -157,7 +157,7 @@ describe('EdgeTTSClient', () => {
       expect(voices.map((v) => v.id)).toContain('en-US-AriaNeural');
     });
 
-    test('wss failure falls back to https when controller is authenticated', async () => {
+    test('a failed Microsoft connection never falls back to an official proxy', async () => {
       const mockController = {
         isAuthenticated: true,
         dispatchEvent: vi.fn(),
@@ -173,10 +173,9 @@ describe('EdgeTTSClient', () => {
       };
 
       const result = await c.init();
-      expect(result).toBe(true);
-      expect(c.initialized).toBe(true);
-      // Two calls: initial wss attempt + https fallback
-      expect(callCount).toBe(2);
+      expect(result).toBe(false);
+      expect(c.initialized).toBe(false);
+      expect(callCount).toBe(1);
     });
 
     test('wss failure does not fall back to https on Tauri even when authenticated', async () => {
@@ -200,7 +199,7 @@ describe('EdgeTTSClient', () => {
       expect(callCount).toBe(1);
     });
 
-    test('wss failure dispatches tts-need-auth when not authenticated', async () => {
+    test('a failed Microsoft connection never requests an application login', async () => {
       const dispatchEvent = vi.fn();
       const mockController = {
         isAuthenticated: false,
@@ -212,9 +211,7 @@ describe('EdgeTTSClient', () => {
 
       const result = await c.init();
       expect(result).toBe(false);
-      expect(dispatchEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'tts-need-auth' }),
-      );
+      expect(dispatchEvent).not.toHaveBeenCalled();
     });
 
     test('https failure sets initialized to false', async () => {

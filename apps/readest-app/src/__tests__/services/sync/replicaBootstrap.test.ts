@@ -34,13 +34,11 @@ import {
   getReplicaAdapter,
   listReplicaAdapters,
 } from '@/services/sync/replicaRegistry';
-import { __resetReplicaTransferIntegrationForTests } from '@/services/sync/replicaTransferIntegration';
 import { dictionaryAdapter } from '@/services/sync/adapters/dictionary';
 
 afterEach(() => {
   clearReplicaAdapters();
   __resetBootstrapForTests();
-  __resetReplicaTransferIntegrationForTests();
 });
 
 describe('bootstrapReplicaAdapters', () => {

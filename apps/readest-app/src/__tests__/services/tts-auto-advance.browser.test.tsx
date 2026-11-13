@@ -109,10 +109,6 @@ vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {}, appService: null }),
   EnvProvider: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: null }),
-  AuthProvider: ({ children }: { children: ReactNode }) => children,
-}));
 
 // ---------------------------------------------------------------------------
 // Fixture: sample-alice.epub spine (all linear), 0-based section indices:

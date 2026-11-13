@@ -61,10 +61,10 @@ describe('EdgeSpeechProvider', () => {
     await expect(failing.init()).resolves.toBe(false);
   });
 
-  test('init accepts an explicit protocol', async () => {
+  test('init accepts only the direct Microsoft protocol', async () => {
     const provider = new EdgeSpeechProvider();
-    await provider.init('https');
-    expect(h.lastConstructedProtocol).toBe('https');
+    await provider.init('wss');
+    expect(h.lastConstructedProtocol).toBe('wss');
   });
 
   test('synthesize always pins rate to 1.0 in the payload', async () => {

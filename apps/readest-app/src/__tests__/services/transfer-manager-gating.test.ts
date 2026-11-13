@@ -78,7 +78,7 @@ const settingsLoaded = (overrides: Partial<SystemSettings> = {}): void => {
   useSettingsStore.setState({
     settings: {
       version: 1,
-      webdav: { enabled: false },
+      webdav: { enabled: true },
       googleDrive: { enabled: false },
       ...overrides,
     } as SystemSettings,
@@ -89,8 +89,8 @@ const settingsNotLoaded = (): void => {
   useSettingsStore.setState({ settings: {} as SystemSettings });
 };
 
-const webdavSelected = (): void =>
-  settingsLoaded({ webdav: { enabled: true } } as Partial<SystemSettings>);
+const noProviderSelected = (): void =>
+  settingsLoaded({ webdav: { enabled: false } } as Partial<SystemSettings>);
 
 const booksSyncOff = (): void =>
   settingsLoaded({ syncCategories: { book: false } } as Partial<SystemSettings>);
@@ -141,8 +141,8 @@ afterEach(() => {
 });
 
 describe('provider gating of book uploads', () => {
-  test('queueUpload returns null and queues nothing when a third-party provider is selected', async () => {
-    webdavSelected();
+  test('queueUpload returns null and queues nothing when no file backend is enabled', async () => {
+    noProviderSelected();
     await initManager();
 
     const id = transferManager.queueUpload(makeBook());
@@ -150,7 +150,7 @@ describe('provider gating of book uploads', () => {
     expect(Object.keys(useTransferStore.getState().transfers)).toHaveLength(0);
   });
 
-  test('queueUpload works when Readest Cloud is the provider', async () => {
+  test('queueUpload works when a file backend is enabled', async () => {
     await initManager();
 
     const id = transferManager.queueUpload(makeBook());
@@ -158,7 +158,7 @@ describe('provider gating of book uploads', () => {
   });
 
   test('queueBatchUploads returns empty when gated', async () => {
-    webdavSelected();
+    noProviderSelected();
     await initManager();
 
     const ids = transferManager.queueBatchUploads([makeBook(), makeBook({ hash: 'hash2' })]);
@@ -166,20 +166,11 @@ describe('provider gating of book uploads', () => {
   });
 
   test('downloads and replica transfers are never gated', async () => {
-    webdavSelected();
+    noProviderSelected();
     await initManager();
 
     const downloadId = transferManager.queueDownload(makeBook());
     expect(downloadId).toBeTruthy();
-
-    const replicaId = transferManager.queueReplicaUpload(
-      'font',
-      'font-1',
-      'A Font',
-      [{ logical: 'font.ttf', lfp: '/tmp/font.ttf', byteSize: 10 }],
-      'Data' as never,
-    );
-    expect(replicaId).toBeTruthy();
   });
 });
 
@@ -262,7 +253,7 @@ describe('settings-loaded barrier', () => {
     expect(useTransferStore.getState().transfers['t1']?.status).toBe('pending');
   });
 
-  test('the deferred upload executes once settings hydrate with readest selected', async () => {
+  test('the deferred upload executes once settings hydrate with a file backend enabled', async () => {
     settingsNotLoaded();
     localStorage.setItem(
       'readest_transfer_queue',
@@ -279,28 +270,11 @@ describe('settings-loaded barrier', () => {
 
     expect(appService['uploadBook']).toHaveBeenCalledTimes(1);
   });
-
-  test('replica transfers are not stalled by the barrier', async () => {
-    settingsNotLoaded();
-    const appService = makeAppService();
-    await initManager(appService);
-
-    transferManager.queueReplicaDownload(
-      'font',
-      'font-1',
-      'A Font',
-      [{ logical: 'font.ttf', lfp: '/tmp/font.ttf', byteSize: 10 }],
-      'Data' as never,
-    );
-    await flushAsync();
-
-    expect(appService['downloadReplicaFile']).toHaveBeenCalled();
-  });
 });
 
 describe('policy cancellation on restore/reconcile', () => {
   test('pre-switch pending book uploads are policy-cancelled on restore; downloads and replicas survive', async () => {
-    webdavSelected();
+    noProviderSelected();
     const persisted = {
       transfers: {
         up1: makeTransferItem({ id: 'up1' }),
@@ -327,7 +301,7 @@ describe('policy cancellation on restore/reconcile', () => {
     expect(transfers['up1']?.status).toBe('cancelled');
     expect(transfers['up1']?.cancelReason).toBe('policy');
     expect(transfers['down1']?.status).toBe('pending');
-    expect(transfers['rep1']?.status).toBe('pending');
+    expect(transfers['rep1']).toBeUndefined();
   });
 
   test('switching providers after init policy-cancels pending book uploads', async () => {
@@ -335,7 +309,7 @@ describe('policy cancellation on restore/reconcile', () => {
     useTransferStore.getState().pauseQueue();
     const id = transferManager.queueUpload(makeBook())!;
 
-    webdavSelected();
+    noProviderSelected();
     await flushAsync();
 
     const transfer = useTransferStore.getState().transfers[id];
@@ -395,7 +369,7 @@ describe('cancelled bucket accounting', () => {
   });
 
   test('retryAllFailed does not resurrect policy-cancelled rows', async () => {
-    webdavSelected();
+    noProviderSelected();
     await initManager();
     useTransferStore.setState({
       transfers: {
@@ -410,7 +384,7 @@ describe('cancelled bucket accounting', () => {
   });
 
   test('retryTransfer no-ops on a policy-cancelled row', async () => {
-    webdavSelected();
+    noProviderSelected();
     await initManager();
     useTransferStore.setState({
       transfers: {
@@ -437,7 +411,7 @@ describe('cancelled bucket accounting', () => {
   });
 
   test('gate-off reconcile settles: a force-pended policy row is re-cancelled without looping', async () => {
-    webdavSelected();
+    noProviderSelected();
     await initManager();
     useTransferStore.setState({
       transfers: {

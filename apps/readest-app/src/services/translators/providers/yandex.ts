@@ -34,7 +34,6 @@ const TRANSPORT_TIMEOUT_MS = 15_000;
 const MAX_RATE_LIMIT_RETRIES = 3;
 const DEFAULT_RETRY_AFTER_MS = 5_000;
 const MAX_RETRY_AFTER_MS = 60_000;
-const PROXY_URL = '/api/yandex-translate';
 
 interface YandexSession {
   id: string;
@@ -94,26 +93,13 @@ async function withRequestLimit<T>(task: () => Promise<T>, signal?: AbortSignal)
   }
 }
 
-const getRequestTarget = (endpoint: 'session' | 'translate', token?: string | null) => {
-  if (isTauriAppPlatform()) {
-    return {
-      fetchImpl: tauriFetch,
-      url: endpoint === 'session' ? YANDEX_SESSION_URL : YANDEX_TRANSLATE_URL,
-      headers: YANDEX_REQUEST_HEADERS,
-      direct: true,
-    };
-  }
-  if (!token) {
-    throw new Error('yandex translate requires authentication in web builds');
-  }
+const getRequestTarget = (endpoint: 'session' | 'translate') => {
+  if (!isTauriAppPlatform()) throw new Error('This translator requires the installed app');
   return {
-    fetchImpl: window.fetch.bind(window),
-    url: `${PROXY_URL}?endpoint=${endpoint}`,
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Bearer ${token}`,
-    },
-    direct: false,
+    fetchImpl: tauriFetch,
+    url: endpoint === 'session' ? YANDEX_SESSION_URL : YANDEX_TRANSLATE_URL,
+    headers: YANDEX_REQUEST_HEADERS,
+    direct: true,
   };
 };
 
@@ -181,8 +167,8 @@ const baseParams = () => ({
   yum: genYandexMetrikaUID(),
 });
 
-async function createSession(token?: string | null): Promise<string> {
-  const { fetchImpl, url, headers, direct } = getRequestTarget('session', token);
+async function createSession(): Promise<string> {
+  const { fetchImpl, url, headers, direct } = getRequestTarget('session');
   const params = new URLSearchParams(baseParams());
   const data = await withRequestSignal(direct, undefined, async (signal) => {
     const response = await withRequestLimit(
@@ -214,12 +200,12 @@ async function createSession(token?: string | null): Promise<string> {
   return session.id;
 }
 
-async function getSession(token?: string | null, signal?: AbortSignal): Promise<string> {
+async function getSession(_token?: string | null, signal?: AbortSignal): Promise<string> {
   signal?.throwIfAborted();
   if (cachedSession && cachedSession.expiresAt > Date.now()) {
     return cachedSession.id;
   }
-  sessionPromise ??= createSession(token).finally(() => {
+  sessionPromise ??= createSession().finally(() => {
     sessionPromise = null;
   });
   if (!signal) return sessionPromise;
@@ -260,7 +246,7 @@ async function translateChunk(
     ['text', text],
   ]);
 
-  const { fetchImpl, url, headers, direct } = getRequestTarget('translate', token);
+  const { fetchImpl, url, headers, direct } = getRequestTarget('translate');
   const { response, data } = await withRequestSignal(direct, signal, async (transportSignal) => {
     const response = await withRequestLimit(
       () =>
@@ -314,7 +300,8 @@ async function translateChunk(
 export const yandexProvider: TranslationProvider = {
   name: 'yandex',
   label: _('Yandex Translate'),
-  get authRequired() {
+  requiresApp: true,
+  get disabled() {
     return !isTauriAppPlatform();
   },
   translate: async (

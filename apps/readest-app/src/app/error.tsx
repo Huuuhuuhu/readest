@@ -1,6 +1,5 @@
 'use client';
 
-import posthog from 'posthog-js';
 import { useEffect, useState } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -22,7 +21,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
   }, [appService]);
 
   useEffect(() => {
-    posthog.captureException(error);
+    console.error('Application error:', error);
     handleGlobalError(error);
   }, [appService, error]);
 

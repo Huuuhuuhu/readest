@@ -61,14 +61,6 @@ vi.mock('@/context/EnvContext', () => ({
   }),
 }));
 
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ token: 'token', user: null }),
-}));
-
-vi.mock('@/utils/access', () => ({
-  isCustomTranslatorAllowed: () => platform.premium,
-}));
-
 vi.mock('@/hooks/useFileSelector', () => ({
   useFileSelector: () => ({ selectFiles: mocks.selectFiles }),
 }));
