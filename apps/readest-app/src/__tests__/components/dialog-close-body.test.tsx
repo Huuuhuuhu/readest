@@ -10,6 +10,7 @@
 
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
+import { installTVInput } from '@/utils/tvInput';
 
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (value: string) => value,
@@ -47,6 +48,34 @@ afterEach(() => {
 });
 
 describe('Dialog close', () => {
+  it('opens a TV dialog on its primary action instead of the close button', async () => {
+    vi.useRealTimers();
+    vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue(new DOMRect(0, 0, 100, 40));
+    const originalScroll = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    const stop = installTVInput();
+    try {
+      render(
+        <Dialog isOpen title='Reading menu' onClose={vi.fn()}>
+          <button data-tv-initial-focus>Table of Contents</button>
+        </Dialog>,
+      );
+      await act(async () => {});
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Table of Contents' }),
+      );
+    } finally {
+      cleanup();
+      stop();
+      rect.mockRestore();
+      HTMLElement.prototype.scrollIntoView = originalScroll;
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('keeps focus on a control used before the opening focus timer runs', () => {
     render(
       <Dialog isOpen title='Manage Bookshelves' onClose={vi.fn()}>

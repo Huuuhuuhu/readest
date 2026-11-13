@@ -103,7 +103,13 @@ const Dialog: React.FC<DialogProps> = ({
   const [isContentHeightSheet, setIsContentHeightSheet] = useState(false);
   const [isRtl] = useState(() => getDirFromUILanguage() === 'rtl');
   const dialogRef = useRef<HTMLDialogElement>(null);
-  useTVScope(dialogRef, isOpen, { priority: 100, onBack: onClose, onMenu: onClose });
+  useTVScope(dialogRef, isOpen, {
+    priority: 100,
+    initialFocus: () =>
+      dialogRef.current?.querySelector<HTMLElement>('[data-tv-initial-focus]') ?? null,
+    onBack: onClose,
+    onMenu: onClose,
+  });
   // Where the finger sits relative to the sheet's top edge, so the sheet slides
   // with it instead of snapping its top edge under it — the drag handle sits at
   // that edge, the body does not.

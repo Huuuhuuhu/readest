@@ -61,7 +61,11 @@ vi.mock('react-virtuoso', async () => {
   return {
     Virtuoso: ReactMod.forwardRef(
       (
-        props: { scrollerRef?: (el: HTMLElement | Window | null) => void },
+        props: {
+          scrollerRef?: (el: HTMLElement | Window | null) => void;
+          totalCount?: number;
+          itemContent?: (index: number) => React.ReactNode;
+        },
         ref: React.Ref<unknown>,
       ) => {
         ReactMod.useImperativeHandle(ref, () => ({
@@ -70,7 +74,13 @@ vi.mock('react-virtuoso', async () => {
         ReactMod.useEffect(() => {
           props.scrollerRef?.(document.createElement('div'));
         }, []);
-        return null;
+        return (
+          <div>
+            {Array.from({ length: Math.min(10, props.totalCount ?? 0) }, (_, index) => (
+              <ReactMod.Fragment key={index}>{props.itemContent?.(index)}</ReactMod.Fragment>
+            ))}
+          </div>
+        );
       },
     ),
   };
@@ -124,6 +134,21 @@ afterEach(() => {
 
 describe('TV TOC jump controls', () => {
   beforeEach(() => vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true'));
+
+  it('returns to reading after confirming a chapter, even with a pinned sidebar', () => {
+    render(<TOCView bookKey='book1' bookDoc={bookDoc} toc={makeFlatToc(3)} />);
+    fireEvent.click(screen.getByRole('treeitem', { name: 'Chapter 1, 2' }));
+    expect(goTo).toHaveBeenCalledWith('ch1.html');
+    expect(setSideBarVisible).toHaveBeenCalledWith(false);
+  });
+
+  it('keeps the existing desktop sidebar behavior outside TV mode', () => {
+    vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'false');
+    render(<TOCView bookKey='book1' bookDoc={bookDoc} toc={makeFlatToc(3)} />);
+    fireEvent.click(screen.getByRole('treeitem', { name: 'Chapter 1, 2' }));
+    expect(goTo).toHaveBeenCalledWith('ch1.html');
+    expect(setSideBarVisible).not.toHaveBeenCalled();
+  });
 
   it('finds chapters inside collapsed volumes without changing the reading location', () => {
     const chapters = makeFlatToc(2000);

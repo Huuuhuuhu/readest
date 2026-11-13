@@ -59,7 +59,7 @@ export default function TVReadingMenu({
       <div className='settings-content mx-auto w-full max-w-2xl space-y-3 p-4'>
         <p>{_('Up/Down: choose · Left/Right: adjust · Back: read')}</p>
         <BoxedList>
-          <button className={actionClass} onClick={() => openSidebar(false)}>
+          <button data-tv-initial-focus className={actionClass} onClick={() => openSidebar(false)}>
             {_('Table of Contents')}
           </button>
           <NumberInput

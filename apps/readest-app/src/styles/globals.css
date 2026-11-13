@@ -20,6 +20,12 @@
 [data-tv-mode='true'] .btn {
   min-height: 44px;
 }
+/* A remote needs a visible target as soon as a dialog owns its keys. */
+[data-tv-mode='true'] .modal,
+[data-tv-mode='true'] .modal-box {
+  transition: none !important;
+  animation: none !important;
+}
 @plugin '@tailwindcss/typography';
 @plugin 'daisyui' {
   themes:

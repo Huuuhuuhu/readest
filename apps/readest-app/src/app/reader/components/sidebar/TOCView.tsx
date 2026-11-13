@@ -376,6 +376,7 @@ const TOCView: React.FC<{
       eventDispatcher.dispatch('navigate', { bookKey, href: item.href });
       if (item.href) {
         getView(bookKey)?.goTo(item.href);
+        if (isTVMode()) useSidebarStore.getState().setSideBarVisible(false);
       }
     },
     [bookKey, getView],
@@ -385,6 +386,7 @@ const TOCView: React.FC<{
     (page: number) => {
       eventDispatcher.dispatch('navigate', { bookKey, index: page });
       getView(bookKey)?.goTo(page);
+      if (isTVMode()) useSidebarStore.getState().setSideBarVisible(false);
     },
     [bookKey, getView],
   );
@@ -394,6 +396,7 @@ const TOCView: React.FC<{
     if (!location) return;
     eventDispatcher.dispatch('navigate', { bookKey, cfi: location });
     getView(bookKey)?.goTo(location);
+    if (isTVMode()) useSidebarStore.getState().setSideBarVisible(false);
   }, [bookKey, getView, getProgress]);
 
   useEffect(() => {
