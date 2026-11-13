@@ -10,6 +10,20 @@ vi.mock('@/hooks/useTranslation', () => ({
 afterEach(cleanup);
 
 describe('NumberInput', () => {
+  it('adjusts a focused TV row with left/right without entering text editing', () => {
+    const onChange = vi.fn();
+    render(<NumberInput label='Columns' value={2} min={1} max={4} onChange={onChange} />);
+    const field = screen.getByDisplayValue('2');
+    field.dispatchEvent(
+      new CustomEvent('tv-navigate', {
+        detail: { key: 'ArrowLeft' },
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(onChange).toHaveBeenCalledWith(1);
+  });
+
   const defaultProps = {
     label: 'Font Size',
     value: 16,

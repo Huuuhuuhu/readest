@@ -2,7 +2,10 @@
 
 import clsx from 'clsx';
 import * as React from 'react';
-import { useEffect, Suspense } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
+import { useTVScope } from '@/hooks/useTVScope';
+import { isTVMode } from '@/utils/tvInput';
+import TVReadingMenu from './TVReadingMenu';
 import { useRouter } from 'next/navigation';
 
 import { useEnv } from '@/context/EnvContext';
@@ -56,6 +59,8 @@ Z-Index Layering Guide:
 */
 
 const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
+  const readerRef = useRef<HTMLDivElement>(null);
+  const [tvMenuOpen, setTVMenuOpen] = useState(false);
   const router = useRouter();
   const { appService } = useEnv();
   const { settings } = useSettingsStore();
@@ -158,8 +163,21 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoveredBookKey]);
 
+  useTVScope(readerRef, libraryLoaded && !!settings.globalReadSettings, {
+    id: 'reader',
+    reading: true,
+    onMenu: () => setTVMenuOpen(true),
+    onBack: () => {
+      if (getIsNotebookVisible()) setNotebookVisible(false);
+      else void eventDispatcher.dispatch('close-reader', { onClose: () => router.back() });
+    },
+  });
+
   return libraryLoaded && settings.globalReadSettings ? (
     <div
+      ref={readerRef}
+      tabIndex={isTVMode() ? -1 : undefined}
+      data-tv-reading='true'
       className={clsx(
         'reader-page bg-base-100 text-base-content full-height select-none overflow-hidden',
         appService?.hasRoundedWindow && isRoundedWindow && 'window-border rounded-window',
@@ -167,6 +185,17 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
     >
       <Suspense fallback={<div className='full-height'></div>}>
         <ReaderContent ids={ids} settings={settings} />
+        {isTVMode() && sideBarBookKey && (
+          <TVReadingMenu
+            bookKey={sideBarBookKey}
+            open={tvMenuOpen}
+            onClose={() => setTVMenuOpen(false)}
+            onLibrary={() => {
+              setTVMenuOpen(false);
+              void eventDispatcher.dispatch('close-reader', { onClose: () => router.back() });
+            }}
+          />
+        )}
         <AboutWindow />
         <ReadingStatsDialog />
         <VocabularyDialog />

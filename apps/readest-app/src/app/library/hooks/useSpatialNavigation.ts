@@ -39,9 +39,11 @@ export function useSpatialNavigation(containerRef: React.RefObject<HTMLElement |
     const container = containerRef.current;
     if (!container) return;
     let frame = 0;
-    const navigate = (e: KeyboardEvent) => {
+    const navigate = (e: KeyboardEvent | CustomEvent<{ key: string }>) => {
+      const tv = e instanceof CustomEvent;
+      const key = tv ? e.detail.key : e.key;
       if (
-        !ARROW_KEYS.has(e.key) ||
+        !ARROW_KEYS.has(key) ||
         e.defaultPrevented ||
         editable(e.target) ||
         document.querySelector('dialog[open]')
@@ -50,7 +52,7 @@ export function useSpatialNavigation(containerRef: React.RefObject<HTMLElement |
       const items = getItems(container);
       if (!items.length) return;
       const active = document.activeElement as HTMLElement;
-      if (!container.contains(active) && e.key !== 'ArrowDown') return;
+      if (!container.contains(active) && key !== 'ArrowDown') return;
       const current = items.indexOf(active);
       // Focus resting on a non-navigable control inside the shelf (a carousel
       // scroller, its arrows) belongs to that control: arrow keys must keep
@@ -62,21 +64,22 @@ export function useSpatialNavigation(containerRef: React.RefObject<HTMLElement |
           : spatialTarget(
               items.map((item) => item.getBoundingClientRect()),
               current,
-              e.key,
+              key,
             );
       if (next >= 0) {
         items[next]!.focus({ preventScroll: true });
         items[next]!.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         e.preventDefault();
-      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      } else if (key === 'ArrowDown' || key === 'ArrowUp') {
         // Ask the one vertical scroller to mount the next virtual row, then
         // choose by the old focus geometry. No global column-count assumption.
         const scroller = container.querySelector<HTMLElement>('[data-virtuoso-scroller]');
         if (!scroller) return;
         const origin = active.getBoundingClientRect();
         const before = scroller.scrollTop;
-        scroller.scrollTop += (e.key === 'ArrowDown' ? 1 : -1) * Math.max(120, origin.height);
+        scroller.scrollTop += (key === 'ArrowDown' ? 1 : -1) * Math.max(120, origin.height);
         const moved = scroller.scrollTop - before;
+        if (tv && moved === 0) return;
         frame = requestAnimationFrame(() => {
           const mounted = getItems(container);
           const positions = [
@@ -88,14 +91,17 @@ export function useSpatialNavigation(containerRef: React.RefObject<HTMLElement |
             },
             ...mounted.map((item) => item.getBoundingClientRect()),
           ];
-          const target = spatialTarget(positions, 0, e.key);
+          const target = spatialTarget(positions, 0, key);
           if (target > 0) mounted[target - 1]?.focus({ preventScroll: true });
         });
         e.preventDefault();
       }
     };
+    const tvNavigate = (event: Event) => navigate(event as CustomEvent<{ key: string }>);
+    container.addEventListener('tv-navigate', tvNavigate);
     window.addEventListener('keydown', navigate);
     return () => {
+      container.removeEventListener('tv-navigate', tvNavigate);
       window.removeEventListener('keydown', navigate);
       cancelAnimationFrame(frame);
     };

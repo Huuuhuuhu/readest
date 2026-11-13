@@ -2753,5 +2753,16 @@
   "Books uploaded": "已上傳書籍",
   "Reset Counts": "重設計數",
   "Reset the counts and sync history on this device?": "要重設此裝置上的計數和同步紀錄嗎？",
-  "Folder not available": "資料夾無法使用"
+  "Folder not available": "資料夾無法使用",
+  "Reading menu": "閱讀選單",
+  "Up/Down: choose · Left/Right: adjust · Back: read": "上下選擇 · 左右調整 · 返回繼續閱讀",
+  "Could not save settings": "設定儲存失敗",
+  "Back to Library": "返回書庫",
+  "Current Chapter": "回目前章節",
+  "Chapter number": "章節序號",
+  "Page number": "頁碼",
+  "Enter a valid number": "請輸入有效數字",
+  "Enter a value from 0 to 100": "請輸入 0 到 100 之間的進度",
+  "Chapter number is out of range": "章節序號超出範圍",
+  "Page number is out of range": "頁碼超出範圍"
 }

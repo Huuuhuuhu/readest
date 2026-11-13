@@ -1,0 +1,82 @@
+name: Readest TV Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['tv/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tv-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - run: git submodule update --init --depth 1 packages/foliate-js packages/simplecc-wasm packages/js-mdict packages/qcms
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @readest/readest-app setup-vendors
+      - run: pnpm --filter @readest/readest-app test --run
+      - run: pnpm lint
+      - run: pnpm --filter @readest/readest-app format:check
+  armv7:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Initialize pinned source dependencies
+        run: git submodule update --init --depth 1 packages/tauri packages/foliate-js packages/simplecc-wasm packages/js-mdict packages/qcms apps/readest-app/src-tauri/plugins/tauri-plugin-turso apps/readest-app/src-tauri/plugins/tauri-plugin-webview-upgrade
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: zulu
+          java-version: '17'
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'ndk;28.2.13676358' 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
+        with:
+          toolchain: stable
+          targets: armv7-linux-androideabi
+      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31
+        with:
+          workspaces: apps/readest-app/src-tauri
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @readest/readest-app setup-vendors
+      - name: Build armv7 APK
+        working-directory: apps/readest-app
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          mv src-tauri/gen/android "$RUNNER_TEMP/readest-android-tracked"
+          pnpm tauri android init
+          pnpm tauri icon ../../data/icons/readest-book.png
+          # Init scaffolds untracked Gradle files. Restore this commit's tracked
+          # Android customizations, including the TV key and IME bridge.
+          git restore --source=HEAD -- src-tauri/gen/android
+          pnpm tauri android build --target armv7 --apk
+      - name: Native remote key tests
+        working-directory: apps/readest-app/src-tauri/gen/android
+        run: ./gradlew app:testUniversalReleaseUnitTest
+      - name: Upload unsigned APK and build identity
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: readest-tv-armv7-${{ github.sha }}
+          path: apps/readest-app/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error

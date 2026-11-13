@@ -2,7 +2,8 @@
 
 import '@/utils/polyfill';
 import i18n from '@/i18n/i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
+import { installTVInput } from '@/utils/tvInput';
 import { IconContext } from 'react-icons';
 import { AuthProvider } from '@/context/AuthContext';
 import { useEnv } from '@/context/EnvContext';
@@ -112,6 +113,7 @@ const finalizeTelemetryDecision = ({
 };
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
+  useLayoutEffect(() => installTVInput(), []);
   const { envConfig, appService } = useEnv();
   const { applyUILanguage } = useSettingsStore();
   const { applyBackgroundTexture } = useBackgroundTexture();

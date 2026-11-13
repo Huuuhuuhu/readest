@@ -31,27 +31,36 @@ export const useKeyDownActions = ({
     if (!enabled) return;
 
     const handleKeyDown = (event: KeyboardEvent | CustomEvent) => {
+      if (event.defaultPrevented) return false;
       if (event instanceof CustomEvent) {
         if (event.detail.keyName === 'Back') {
           onCancelRef.current?.();
           return true;
         }
       } else {
+        if (event.isComposing || event.repeat) return false;
         if (event.key === 'Escape') {
           onCancelRef.current?.();
         } else if (event.key === 'Enter') {
+          const target = event.target instanceof Element ? event.target : document.activeElement;
+          if (
+            target?.closest(
+              'button, a, input, textarea, select, [contenteditable], [role="button"], [role="menuitem"], [role="treeitem"]',
+            )
+          )
+            return false;
           onConfirmRef.current?.();
-        }
-        event.stopPropagation();
+        } else return false;
+        event.preventDefault();
+        event.stopImmediatePropagation();
       }
       return false;
     };
 
     window.addEventListener('keydown', handleKeyDown);
 
-    if (elementRef.current) {
-      elementRef.current.addEventListener('keydown', handleKeyDown);
-    }
+    const element = elementRef.current;
+    element?.addEventListener('keydown', handleKeyDown);
 
     if (appService?.isAndroidApp) {
       acquireBackKeyInterception?.();
@@ -60,6 +69,7 @@ export const useKeyDownActions = ({
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      element?.removeEventListener('keydown', handleKeyDown);
 
       if (appService?.isAndroidApp) {
         releaseBackKeyInterception?.();

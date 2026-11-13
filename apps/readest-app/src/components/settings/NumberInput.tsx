@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FiMinus, FiPlus } from 'react-icons/fi';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SettingLabel } from './primitives';
@@ -34,6 +34,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
   const _ = useTranslation();
   const [displayValue, setDisplayValue] = useState(String(value));
   const numberStep = step || 1;
+  const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setDisplayValue(String(value));
@@ -64,8 +65,21 @@ const NumberInput: React.FC<NumberInputProps> = ({
     (document.activeElement as HTMLElement)?.blur();
   };
 
+  useEffect(() => {
+    const row = rowRef.current;
+    const navigate = (event: Event) => {
+      const { key } = (event as CustomEvent<{ key: string }>).detail;
+      if (disabled || (key !== 'ArrowLeft' && key !== 'ArrowRight')) return;
+      event.preventDefault();
+      commitValue(currentNumericValue + (key === 'ArrowRight' ? numberStep : -numberStep));
+    };
+    row?.addEventListener('tv-navigate', navigate);
+    return () => row?.removeEventListener('tv-navigate', navigate);
+  }, [currentNumericValue, numberStep, min, max, disabled, onChange]);
+
   return (
     <div
+      ref={rowRef}
       className={clsx('flex h-14 items-center justify-between pe-4', className)}
       data-setting-id={settingId}
     >
@@ -74,6 +88,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
       <div className='text-base-content flex items-center gap-2'>
         <form onSubmit={handleSubmit}>
           <input
+            aria-label={label}
             type='text'
             inputMode='decimal'
             disabled={disabled}

@@ -1,0 +1,336 @@
+export interface TVScope {
+  element: HTMLElement;
+  id?: string;
+  priority?: number;
+  reading?: boolean;
+  initialFocus?: () => HTMLElement | null;
+  onBack?: () => void;
+  onMenu?: () => void;
+}
+
+export const isTVMode = () =>
+  typeof window !== 'undefined' &&
+  (process.env['NEXT_PUBLIC_TV_MODE'] === 'true' || /ReadestTV/.test(navigator.userAgent));
+
+type TextField = HTMLInputElement | HTMLTextAreaElement;
+type FieldState = { readOnly: boolean; inputMode: string };
+const scopes: TVScope[] = [];
+const fields = new Map<TextField, FieldState>();
+const rememberedFocus = new Map<string, string>();
+let revision = 0;
+let editing: TextField | null = null;
+const controls =
+  'button, a[href], input:not([type="hidden"]), textarea, select, [tabindex], [role="button"], [role="treeitem"], [role="menuitem"]';
+const directions = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
+
+declare global {
+  interface Window {
+    onTVRemoteKey?: (key: string, phase: 'keydown' | 'keyup', repeat: boolean) => string;
+    onTVKeyboardHidden?: () => void;
+  }
+}
+
+export const getTVScope = () =>
+  scopes
+    .filter((scope) => scope.element.isConnected)
+    .reduce<TVScope | undefined>(
+      (top, scope) => (!top || (scope.priority ?? 0) >= (top.priority ?? 0) ? scope : top),
+      undefined,
+    );
+
+const textField = (element: Element | null): element is TextField =>
+  !!element &&
+  (element.tagName === 'TEXTAREA' ||
+    (element.tagName === 'INPUT' &&
+      /^(text|search|email|url|password|tel|number)$/.test((element as HTMLInputElement).type)));
+
+const prepareField = (element: TextField) => {
+  if (!fields.has(element))
+    fields.set(element, { readOnly: element.readOnly, inputMode: element.inputMode });
+  if (element !== editing && !element.readOnly) element.readOnly = true;
+  if (element !== editing && element.inputMode !== 'none') element.inputMode = 'none';
+};
+
+export const isTVVisible = (element: HTMLElement) => {
+  if (
+    !element.isConnected ||
+    element.closest(
+      '[inert], [hidden], [aria-hidden="true"], [aria-disabled="true"], .btn-disabled',
+    ) ||
+    element.matches(':disabled')
+  )
+    return false;
+  for (let node: HTMLElement | null = element; node; node = node.parentElement) {
+    const style = getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')
+      return false;
+  }
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+};
+
+export const getTVControls = (root: HTMLElement) =>
+  Array.from(root.querySelectorAll<HTMLElement>(controls)).filter(
+    (element) => element.tabIndex >= 0 && isTVVisible(element),
+  );
+
+const identity = (element: HTMLElement) =>
+  element.dataset['bookHash'] ||
+  element.dataset['groupName'] ||
+  element.dataset['tvId'] ||
+  element.closest<HTMLElement>('[data-setting-id]')?.dataset['settingId'] ||
+  element.id;
+
+export const focusTV = (element: HTMLElement | null | undefined) => {
+  if (!element) return;
+  if (textField(element)) prepareField(element);
+  element.focus({ preventScroll: true });
+  element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+};
+
+const focusScope = (scope: TVScope) => {
+  const saved = scope.id ? rememberedFocus.get(scope.id) : undefined;
+  const target =
+    scope.initialFocus?.() ||
+    (saved && getTVControls(scope.element).find((el) => identity(el) === saved));
+  if (target) focusTV(target);
+  else if (scope.reading) focusTV(scope.element);
+  else focusTV(getTVControls(scope.element)[0] ?? scope.element);
+};
+
+export const registerTVScope = (scope: TVScope): (() => void) => {
+  if (!isTVMode()) return () => {};
+  const previous = scope.element.ownerDocument.activeElement as HTMLElement | null;
+  scopes.push(scope);
+  revision++;
+  // Layout effects may register before the new surface has its final geometry.
+  queueMicrotask(() => {
+    if (getTVScope() === scope) focusScope(scope);
+  });
+  return () => {
+    const active = scope.element.ownerDocument.activeElement as HTMLElement | null;
+    if (scope.id && active && scope.element.contains(active) && identity(active))
+      rememberedFocus.set(scope.id, identity(active)!);
+    const wasTop = getTVScope() === scope;
+    const index = scopes.indexOf(scope);
+    if (index >= 0) scopes.splice(index, 1);
+    revision++;
+    if (!wasTop) return;
+    queueMicrotask(() => {
+      const top = getTVScope();
+      if (
+        previous?.isConnected &&
+        isTVVisible(previous) &&
+        (!top || top.element.contains(previous))
+      )
+        focusTV(previous);
+      else if (top) focusScope(top);
+    });
+  };
+};
+
+const endEditing = () => {
+  const field = editing;
+  if (!field) return;
+  editing = null;
+  // Blurring closes the IME. Refocus as read-only navigation in the same turn;
+  // the field's value is its draft, not a form submission.
+  field.blur();
+  prepareField(field);
+  delete field.dataset['tvEditing'];
+  if (field.isConnected) focusTV(field);
+};
+
+const beginEditing = (field: TextField) => {
+  prepareField(field);
+  const original = fields.get(field)!;
+  if (original.readOnly || field.disabled) return;
+  editing = field;
+  field.readOnly = false;
+  field.inputMode = original.inputMode;
+  field.dataset['tvEditing'] = 'true';
+  // Chromium must recreate its input connection after a read-only focus.
+  field.blur();
+  field.focus({ preventScroll: true });
+};
+
+export const installTVInput = (doc: Document = document): (() => void) => {
+  if (!isTVMode()) return () => {};
+  const win = doc.defaultView!;
+  doc.documentElement.dataset['tvMode'] = 'true';
+  let held: {
+    target: HTMLElement;
+    scope: TVScope | undefined;
+    revision: number;
+    long: boolean;
+    timer?: ReturnType<typeof setTimeout>;
+  } | null = null;
+  const cancelHold = () => {
+    if (held?.timer) clearTimeout(held.timer);
+    held = null;
+  };
+  const consume = (event: KeyboardEvent) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  };
+  const prepare = () => {
+    if (editing && !editing.isConnected) {
+      delete editing.dataset['tvEditing'];
+      editing = null;
+    }
+    doc.querySelectorAll('input, textarea').forEach((el) => {
+      if (textField(el)) prepareField(el);
+    });
+    for (const el of fields.keys()) if (!el.isConnected) fields.delete(el);
+  };
+  prepare();
+  const observer = new MutationObserver(prepare);
+  observer.observe(doc.body, { childList: true, subtree: true });
+  const onFocus = (event: FocusEvent) => {
+    const target = event.target as HTMLElement;
+    if (textField(target)) prepareField(target);
+    const scope = getTVScope();
+    if (scope?.id && scope.element.contains(target) && identity(target))
+      rememberedFocus.set(scope.id, identity(target)!);
+  };
+  const navigate = (target: HTMLElement, scope: TVScope | undefined, key: string) => {
+    const custom = new CustomEvent('tv-navigate', {
+      detail: { key },
+      bubbles: true,
+      cancelable: true,
+    });
+    if (!target.dispatchEvent(custom)) return;
+    const root = scope?.element ?? doc.body;
+    const items = getTVControls(root);
+    const origin = target.getBoundingClientRect();
+    const horizontal = key === 'ArrowLeft' || key === 'ArrowRight';
+    const sign = key === 'ArrowLeft' || key === 'ArrowUp' ? -1 : 1;
+    let best: HTMLElement | undefined;
+    let score = Infinity;
+    for (const item of items) {
+      if (item === target || item.contains(target) || target.contains(item)) continue;
+      const rect = item.getBoundingClientRect();
+      const dx = rect.left + rect.width / 2 - origin.left - origin.width / 2;
+      const dy = rect.top + rect.height / 2 - origin.top - origin.height / 2;
+      const forward = (horizontal ? dx : dy) * sign;
+      const sideways = Math.abs(horizontal ? dy : dx);
+      if (forward <= 2) continue;
+      const candidateScore = forward + sideways * 4;
+      if (candidateScore < score) {
+        best = item;
+        score = candidateScore;
+      }
+    }
+    if (best) focusTV(best);
+    else if (!root.contains(target) || target === root) focusTV(items[0]);
+  };
+  const onKey = (event: KeyboardEvent) => {
+    if (
+      event.defaultPrevented ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      event.isComposing
+    )
+      return;
+    const scope = getTVScope();
+    const target = doc.activeElement as HTMLElement | null;
+    if (!target) return;
+    if (editing) {
+      if (event.key === 'Escape') {
+        consume(event);
+        if (event.type === 'keydown') endEditing();
+      }
+      return;
+    }
+    if (event.key === 'Enter') {
+      consume(event);
+      if (event.type === 'keydown') {
+        if (event.repeat || held) return;
+        held = { target, scope, revision, long: false };
+        if (target.dataset['tvLongPress'] === 'true') {
+          held.timer = setTimeout(() => {
+            if (!held || held.revision !== revision || !target.isConnected) return;
+            held.long = true;
+            const rect = target.getBoundingClientRect();
+            target.dispatchEvent(
+              new MouseEvent('contextmenu', {
+                bubbles: true,
+                cancelable: true,
+                clientX: rect.left + rect.width / 2,
+                clientY: rect.top + rect.height / 2,
+              }),
+            );
+          }, 600);
+        }
+      } else {
+        const press = held;
+        cancelHold();
+        if (
+          !press ||
+          press.long ||
+          press.revision !== revision ||
+          press.scope !== scope ||
+          press.target !== target ||
+          !target.isConnected
+        )
+          return;
+        if (textField(target)) beginEditing(target);
+        else if (scope?.reading) scope.onMenu?.();
+        else if (isTVVisible(target)) target.click();
+      }
+      return;
+    }
+    if (event.key === 'ContextMenu' || event.key === 'Menu') {
+      consume(event);
+      if (event.type === 'keydown' && !event.repeat) {
+        cancelHold();
+        if (scope?.onMenu) scope.onMenu();
+        else if (target.dataset['tvLongPress'] === 'true')
+          target.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+      }
+      return;
+    }
+    if (event.key === 'Escape' && scope?.onBack) {
+      consume(event);
+      if (event.type === 'keydown' && !event.repeat) {
+        cancelHold();
+        scope.onBack();
+      }
+      return;
+    }
+    if (directions.has(event.key) && !scope?.reading) {
+      consume(event);
+      if (event.type === 'keydown') navigate(target, scope, event.key);
+    }
+  };
+  const onBlur = () => cancelHold();
+  win.addEventListener('keydown', onKey, true);
+  win.addEventListener('keyup', onKey, true);
+  win.addEventListener('blur', onBlur);
+  doc.addEventListener('focusin', onFocus, true);
+  win.onTVKeyboardHidden = endEditing;
+  win.onTVRemoteKey = (key, phase, repeat) => {
+    const event = new KeyboardEvent(phase, { key, repeat, bubbles: true, cancelable: true });
+    (doc.activeElement ?? doc.body).dispatchEvent(event);
+    return editing ? 'editing' : event.defaultPrevented ? 'handled' : 'unhandled';
+  };
+  return () => {
+    cancelHold();
+    observer.disconnect();
+    win.removeEventListener('keydown', onKey, true);
+    win.removeEventListener('keyup', onKey, true);
+    win.removeEventListener('blur', onBlur);
+    doc.removeEventListener('focusin', onFocus, true);
+    delete win.onTVRemoteKey;
+    delete win.onTVKeyboardHidden;
+    delete doc.documentElement.dataset['tvMode'];
+    editing = null;
+    for (const [field, original] of fields) {
+      field.readOnly = original.readOnly;
+      field.inputMode = original.inputMode;
+      delete field.dataset['tvEditing'];
+    }
+    fields.clear();
+  };
+};

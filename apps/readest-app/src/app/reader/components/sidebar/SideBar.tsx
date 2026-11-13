@@ -15,6 +15,7 @@ import { usePanelResize } from '@/hooks/usePanelResize';
 import { useThemeStore } from '@/store/themeStore';
 import { Overlay } from '@/components/Overlay';
 import useShortcuts from '@/hooks/useShortcuts';
+import { useTVScope } from '@/hooks/useTVScope';
 import SidebarHeader from './Header';
 import SidebarContent from './Content';
 import BookCard from './BookCard';
@@ -116,6 +117,15 @@ const SideBar = ({}) => {
   const handleClickOverlay = () => {
     setSideBarVisible(false);
   };
+
+  useTVScope(sidebarRef, isSideBarVisible, {
+    id: 'reader-sidebar',
+    priority: 40,
+    onBack: handleClickOverlay,
+    onMenu: handleClickOverlay,
+    initialFocus: () =>
+      sidebarRef.current?.querySelector<HTMLElement>('[aria-current="page"]') ?? null,
+  });
 
   const handleToggleSearchBar = () => {
     if (isSearchBarVisible) {

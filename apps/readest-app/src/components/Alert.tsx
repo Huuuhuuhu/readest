@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import React from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useKeyDownActions } from '@/hooks/useKeyDownActions';
+import { useTVScope } from '@/hooks/useTVScope';
 
 const Alert: React.FC<{
   title: string;
@@ -28,6 +29,7 @@ const Alert: React.FC<{
   const _ = useTranslation();
   const [isProcessing, setIsProcessing] = React.useState(false);
   const divRef = useKeyDownActions({ onCancel, onConfirm });
+  useTVScope(divRef, true, { priority: 200, onBack: onCancel });
 
   return (
     // `w-full` is load-bearing: every call site mounts this as the lone child
@@ -83,6 +85,7 @@ const Alert: React.FC<{
             {_('Cancel')}
           </button>
           <button
+            disabled={isProcessing}
             className={clsx('btn btn-sm', confirmButtonClassName, { 'btn-disabled': isProcessing })}
             onClick={() => {
               setIsProcessing(true);

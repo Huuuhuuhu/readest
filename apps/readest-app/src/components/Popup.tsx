@@ -3,6 +3,7 @@ import { Position, isPointInRect } from '@/utils/sel';
 import { useEffect, useRef, useState } from 'react';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import { useKeyDownActions } from '@/hooks/useKeyDownActions';
+import { useTVScope } from '@/hooks/useTVScope';
 
 const getTriangleStyles = (
   trianglePosition: Position | undefined,
@@ -73,6 +74,7 @@ const Popup = ({
   onDismiss?: () => void;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  useTVScope(containerRef, isOpen, { priority: 120, onBack: onDismiss, onMenu: onDismiss });
   const [adjustedPosition, setAdjustedPosition] = useState(position);
   const [childrenHeight, setChildrenHeight] = useState(height || minHeight || 0);
 

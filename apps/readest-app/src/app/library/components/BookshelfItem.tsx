@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { isTVMode } from '@/utils/tvInput';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -393,8 +394,8 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleContextMenu = useCallback(
     throttle(async (position: { x: number; y: number }) => {
-      if (!appService?.hasContextMenu) return;
-      if (appService.isLinuxApp) {
+      if (!appService?.hasContextMenu && !isTVMode()) return;
+      if (appService?.isLinuxApp || isTVMode()) {
         setInAppMenuPosition(position);
         return;
       }
@@ -418,7 +419,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
         handleOpenItem();
       },
       onContextMenu: (e) => {
-        if (appService?.hasContextMenu) {
+        if (appService?.hasContextMenu || isTVMode()) {
           handleContextMenu({ x: e.clientX, y: e.clientY });
         } else if (appService?.isAndroidApp) {
           handleSelectItem();
@@ -466,6 +467,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
           pressing && mode === 'grid' ? 'not-eink:scale-95' : 'scale-100',
         )}
         role='button'
+        data-tv-long-press='true'
         tabIndex={0}
         aria-label={
           'format' in item

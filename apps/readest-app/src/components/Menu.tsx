@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import React, { useRef } from 'react';
 import { useKeyDownActions } from '@/hooks/useKeyDownActions';
+import { useTVScope } from '@/hooks/useTVScope';
 
 interface MenuProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface MenuProps {
 
 const Menu: React.FC<MenuProps> = ({ children, className, style, onCancel }) => {
   const menuRef = useRef<HTMLDivElement | null>(null);
+  useTVScope(menuRef, true, { priority: 130, onBack: onCancel, onMenu: onCancel });
 
   useKeyDownActions({ onCancel, elementRef: menuRef });
 

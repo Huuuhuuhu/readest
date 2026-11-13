@@ -8,6 +8,8 @@ import { BookProgress } from '@/types/book';
 import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { eventDispatcher } from '@/utils/event';
+import { focusTV, getTVScope, isTVMode } from '@/utils/tvInput';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useTextTranslation } from '../../hooks/useTextTranslation';
 import {
   buildTOCDisplayItems,
@@ -71,6 +73,12 @@ const TOCView: React.FC<{
   bookDoc: BookDoc;
   toc: TOCItem[];
 }> = ({ bookKey, bookDoc, toc }) => {
+  const _ = useTranslation();
+  const [chapterNumber, setChapterNumber] = useState('');
+  const [jumpError, setJumpError] = useState('');
+  const pendingTVIndex = useRef<number | null>(null);
+  const pendingTVChapter = useRef<TOCItem | null>(null);
+  const tvInitialFocusDone = useRef(false);
   const { getView, getViewSettings, getProgress } = useReaderStore();
   const { sideBarBookKey, isSideBarVisible } = useSidebarStore();
   const progress = getProgress(bookKey);
@@ -81,6 +89,18 @@ const TOCView: React.FC<{
   // under each TOC item, unless the reader turned them off for this book.
   const showThumbnails = !!bookDoc.getPageThumbnail && viewSettings?.showTOCThumbnails !== false;
   const totalPages = bookDoc.sections.length;
+  const hasFixedPages = !!bookDoc.getPageThumbnail;
+  const chapters = useMemo(() => {
+    const result: TOCItem[] = [];
+    const visit = (items: TOCItem[]) => {
+      for (const item of items) {
+        if (item.href) result.push(item);
+        if (item.subitems) visit(item.subitems);
+      }
+    };
+    visit(toc);
+    return result;
+  }, [toc]);
   const pageRanges = useMemo(
     () => (showThumbnails ? computeTOCPageRanges(toc, totalPages) : undefined),
     [showThumbnails, toc, totalPages],
@@ -237,6 +257,107 @@ const TOCView: React.FC<{
   currentPageRef.current = currentPage;
   displayItemsRef.current = displayItems;
 
+  const focusTVIndex = useCallback((index: number) => {
+    if (index < 0 || index >= displayItemsRef.current.length) return;
+    pendingTVIndex.current = index;
+    userInputRef.current = true;
+    userScrolledRef.current = true;
+    pendingScrollRef.current = false;
+    virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'auto' });
+    const focusMounted = () => {
+      const row = containerRef.current?.querySelector<HTMLElement>(
+        `[data-tv-toc-index="${index}"]`,
+      );
+      const target = row?.querySelector<HTMLElement>('[role="treeitem"],button');
+      if (target && getTVScope()?.element.contains(target)) {
+        pendingTVIndex.current = null;
+        focusTV(target);
+      }
+    };
+    requestAnimationFrame(focusMounted);
+  }, []);
+
+  const revealTVChapter = useCallback(
+    (item: TOCItem) => {
+      pendingTVChapter.current = item;
+      setExpandedItems((previous) => new Set([...previous, ...computeExpandedSet(toc, item.href)]));
+    },
+    [toc],
+  );
+
+  useEffect(() => {
+    if (!isTVMode()) return;
+    if (!isSideBarVisible || sideBarBookKey !== bookKey) {
+      tvInitialFocusDone.current = false;
+      pendingTVIndex.current = null;
+      pendingTVChapter.current = null;
+      return;
+    }
+    const pending = pendingTVChapter.current;
+    const index = pending
+      ? displayItems.findIndex((row) => 'item' in row && row.item === pending)
+      : findActiveRowIndex(displayItems, activeHref, currentPage);
+    if (index >= 0 && (pending || !tvInitialFocusDone.current)) {
+      pendingTVChapter.current = null;
+      tvInitialFocusDone.current = true;
+      focusTVIndex(index);
+    }
+  }, [
+    displayItems,
+    activeHref,
+    currentPage,
+    isSideBarVisible,
+    sideBarBookKey,
+    bookKey,
+    focusTVIndex,
+  ]);
+
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root || !isTVMode()) return;
+    const observer = new MutationObserver(() => {
+      const index = pendingTVIndex.current;
+      if (index !== null) {
+        const target = root.querySelector<HTMLElement>(
+          `[data-tv-toc-index="${index}"] [role="treeitem"], [data-tv-toc-index="${index}"] button`,
+        );
+        if (target && getTVScope()?.element.contains(target)) {
+          pendingTVIndex.current = null;
+          focusTV(target);
+        }
+      }
+    });
+    observer.observe(root, { childList: true, subtree: true });
+    const navigate = (event: Event) => {
+      tvInitialFocusDone.current = true;
+      const source = (event.target as HTMLElement)?.closest<HTMLElement>('[data-tv-toc-index]');
+      if (!source) return;
+      const index = Number(source.dataset['tvTocIndex']);
+      const key = (event as CustomEvent<{ key: string }>).detail.key;
+      if (key === 'ArrowUp' || key === 'ArrowDown') {
+        const next = index + (key === 'ArrowUp' ? -1 : 1);
+        if (next >= 0 && next < displayItemsRef.current.length) {
+          event.preventDefault();
+          focusTVIndex(next);
+        }
+        // At the top, ordinary spatial navigation reaches the jump controls/tabs.
+      } else if (key === 'ArrowLeft' || key === 'ArrowRight') {
+        const item = source.querySelector<HTMLElement>('[aria-expanded]');
+        if (item) {
+          event.preventDefault();
+          const expanded = item.getAttribute('aria-expanded') === 'true';
+          if (expanded !== (key === 'ArrowRight'))
+            item.querySelector<HTMLButtonElement>('button')?.click();
+        }
+      }
+    };
+    root.addEventListener('tv-navigate', navigate);
+    return () => {
+      observer.disconnect();
+      root.removeEventListener('tv-navigate', navigate);
+    };
+  }, [focusTVIndex]);
+
   const handleToggleExpand = useCallback((item: TOCItem) => {
     const itemId = getItemIdentifier(item);
     setExpandedItems((prev) => {
@@ -338,6 +459,72 @@ const TOCView: React.FC<{
 
   return (
     <div ref={containerRef} className='toc-list rounded-sm' role='tree'>
+      {isTVMode() && (
+        <div className='flex flex-wrap items-center gap-2 p-2'>
+          <button
+            className='btn btn-ghost'
+            onClick={() => {
+              const chapter = chapters.find((item) => item.href === activeHref);
+              if (chapter) revealTVChapter(chapter);
+              else
+                focusTVIndex(
+                  Math.max(0, findActiveRowIndex(displayItems, activeHref, currentPage)),
+                );
+            }}
+          >
+            {_('Current Chapter')}
+          </button>
+          <input
+            aria-label={
+              chapters.length
+                ? _('Chapter number')
+                : hasFixedPages
+                  ? _('Page number')
+                  : _('Reading progress (%)')
+            }
+            inputMode='numeric'
+            value={chapterNumber}
+            onChange={(e) => setChapterNumber(e.target.value)}
+            className='input w-24'
+          />
+          <button
+            className='btn btn-contrast'
+            onClick={() => {
+              const number = Number(chapterNumber);
+              if (!chapterNumber.trim() || !Number.isFinite(number)) {
+                setJumpError(_('Enter a valid number'));
+                return;
+              }
+              if (!chapters.length && !hasFixedPages) {
+                if (number < 0 || number > 100) {
+                  setJumpError(_('Enter a value from 0 to 100'));
+                  return;
+                }
+                void getView(bookKey)?.goToFraction(number / 100);
+                useSidebarStore.getState().setSideBarVisible(false);
+              } else if (!chapters.length) {
+                if (!Number.isInteger(number) || number < 1 || number > totalPages) {
+                  setJumpError(_('Page number is out of range'));
+                  return;
+                }
+                handlePageClick(number - 1);
+                useSidebarStore.getState().setSideBarVisible(false);
+              } else {
+                const chapter = Number.isInteger(number) ? chapters[number - 1] : undefined;
+                if (!chapter) {
+                  setJumpError(_('Chapter number is out of range'));
+                  return;
+                }
+                revealTVChapter(chapter);
+              }
+              setJumpError('');
+            }}
+          >
+            {_('Go')}
+          </button>
+          {jumpError && <p role='status'>{jumpError}</p>}
+        </div>
+      )}
       <div ref={osRootRef} data-overlayscrollbars-initialize='' style={{ height: containerHeight }}>
         <Virtuoso
           ref={virtuosoRef}
@@ -372,34 +559,40 @@ const TOCView: React.FC<{
             const row = displayItems[index]!;
             if (isPageThumbnailsItem(row)) {
               return (
-                <PageThumbnailsRow
-                  bookKey={bookKey}
-                  bookDoc={bookDoc}
-                  depth={row.depth}
-                  pages={row.pages}
-                  columns={thumbnailsPerRow}
-                  currentPage={currentPage}
-                  onPageClick={handlePageClick}
-                />
+                <div data-tv-toc-index={index}>
+                  <PageThumbnailsRow
+                    bookKey={bookKey}
+                    bookDoc={bookDoc}
+                    depth={row.depth}
+                    pages={row.pages}
+                    columns={thumbnailsPerRow}
+                    currentPage={currentPage}
+                    onPageClick={handlePageClick}
+                  />
+                </div>
               );
             }
             if (isCurrentPositionItem(row)) {
               return (
-                <CurrentPositionRow
-                  depth={row.depth}
-                  page={row.page}
-                  onClick={handleCurrentPositionClick}
-                />
+                <div data-tv-toc-index={index}>
+                  <CurrentPositionRow
+                    depth={row.depth}
+                    page={row.page}
+                    onClick={handleCurrentPositionClick}
+                  />
+                </div>
               );
             }
             return (
-              <StaticListRow
-                bookKey={bookKey}
-                flatItem={row}
-                activeHref={activeHref}
-                onToggleExpand={handleToggleExpand}
-                onItemClick={handleItemClick}
-              />
+              <div data-tv-toc-index={index}>
+                <StaticListRow
+                  bookKey={bookKey}
+                  flatItem={row}
+                  activeHref={activeHref}
+                  onToggleExpand={handleToggleExpand}
+                  onItemClick={handleItemClick}
+                />
+              </div>
             );
           }}
           overscan={500}

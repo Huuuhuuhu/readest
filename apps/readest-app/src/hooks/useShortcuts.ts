@@ -18,7 +18,12 @@ const isInteractiveTarget = (target: EventTarget | null): boolean => {
 
 const isNativeActivation = (event: KeyboardEvent): boolean => {
   const target = event.target as HTMLElement | null;
-  return /^(A|BUTTON)$/.test(target?.tagName ?? '') && (event.key === 'Enter' || event.key === ' ');
+  return (
+    !!target?.closest?.(
+      'a, button, [role="button"], [role="treeitem"], [role="menuitem"], [role="tab"]',
+    ) &&
+    (event.key === 'Enter' || event.key === ' ')
+  );
 };
 
 const useShortcuts = (
@@ -75,6 +80,7 @@ const useShortcuts = (
   };
 
   const unifiedHandleKeyDown = (event: KeyboardEvent | MessageEvent) => {
+    if (event.defaultPrevented) return;
     if (document.querySelector('[data-shortcut-recording="true"]')) return;
 
     // Check if the key is typed in an input, textarea, or contenteditable
@@ -163,6 +169,7 @@ const useShortcuts = (
   const handleIframeMouseUp = (customEvent: CustomEvent) => {
     const detail = customEvent.detail as { bookKey?: string; event?: MouseEvent } | undefined;
     if (!detail?.event) return false;
+    if (detail.event.defaultPrevented) return false;
     const eventLike = getMouseEventLike(detail.event);
     if (!eventLike) return false;
     const message = new MessageEvent('iframe-mouseup', {

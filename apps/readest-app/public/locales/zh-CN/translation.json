@@ -2753,5 +2753,16 @@
   "Books uploaded": "已上传书籍",
   "Reset Counts": "重置计数",
   "Reset the counts and sync history on this device?": "要重置此设备上的计数和同步记录吗？",
-  "Folder not available": "文件夹不可用"
+  "Folder not available": "文件夹不可用",
+  "Reading menu": "阅读菜单",
+  "Up/Down: choose · Left/Right: adjust · Back: read": "上下选择 · 左右调整 · 返回继续阅读",
+  "Could not save settings": "设置保存失败",
+  "Back to Library": "返回书库",
+  "Current Chapter": "回当前章",
+  "Chapter number": "章节序号",
+  "Page number": "页码",
+  "Enter a valid number": "请输入有效数字",
+  "Enter a value from 0 to 100": "请输入 0 到 100 之间的进度",
+  "Chapter number is out of range": "章节序号超出范围",
+  "Page number is out of range": "页码超出范围"
 }

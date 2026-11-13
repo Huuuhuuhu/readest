@@ -3,6 +3,7 @@
 import BookshelvesDialog from './components/BookshelvesDialog';
 
 import clsx from 'clsx';
+import { useTVScope } from '@/hooks/useTVScope';
 import * as React from 'react';
 import { MdChevronRight } from 'react-icons/md';
 import { useState, useRef, useEffect, Suspense, useCallback } from 'react';
@@ -214,7 +215,7 @@ const LibraryPageWithSearchParams = () => {
 const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchParams | null }) => {
   const router = useAppRouter();
   const { envConfig, appService } = useEnv();
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const {
     library: libraryBooks,
     libraryLoaded: libraryLoadedFromDisk,
@@ -493,6 +494,17 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   handleBackUpOneGroupLevelRef.current = handleBackUpOneGroupLevel;
   const triggerBackUpOneGroupLevel = useCallback(() => handleBackUpOneGroupLevelRef.current(), []);
 
+  useTVScope(pageRef, libraryLoaded, {
+    id: 'library',
+    onBack: isSelectMode
+      ? () => setIsSelectMode(false)
+      : librarySearchQuery
+        ? () => handleSearchQueryChange('')
+        : currentGroupPath
+          ? triggerBackUpOneGroupLevel
+          : undefined,
+  });
+
   useKeyDownActions({
     onCancel: triggerBackUpOneGroupLevel,
     enabled: !!appService?.isAndroidApp && !!currentGroupPath,
@@ -749,20 +761,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     if (isInitiating.current) return;
     isInitiating.current = true;
 
-    const initLogin = async () => {
-      const appService = await envConfig.getAppService();
-      const settings = await appService.loadSettings();
-      if (token && user) {
-        if (!settings.keepLogin) {
-          settings.keepLogin = true;
-          setSettings(settings);
-          saveSettings(envConfig, settings);
-        }
-      } else if (settings.keepLogin) {
-        router.push('/auth');
-      }
-    };
-
     // Reuse the in-store library only when it was actually loaded from disk.
     // Gating on `length > 0` was unsafe: a transient "Open with" entry made the
     // store non-empty before any disk load, so this skipped loadLibraryBooks and
@@ -853,7 +851,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       });
     };
 
-    initLogin().catch((error) => console.error('Failed to initialize login:', error));
     initLibrary().catch(recoverFromInitFailure);
     return () => {
       setCheckOpenWithBooks(false);

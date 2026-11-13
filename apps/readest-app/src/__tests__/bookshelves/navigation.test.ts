@@ -32,6 +32,39 @@ describe('mixed shelf spatial navigation', () => {
   });
 });
 describe('library arrow-key focus handling', () => {
+  it('lets the unified TV router move between mounted book cards', () => {
+    const container = mount();
+    container.innerHTML =
+      '<div role="button" tabindex="0" id="first"></div><div role="button" tabindex="0" id="second"></div>';
+    const first = container.querySelector<HTMLElement>('#first')!;
+    const second = container.querySelector<HTMLElement>('#second')!;
+    first.getBoundingClientRect = () => ({
+      ...rect(0, 0),
+      x: 0,
+      y: 0,
+      right: 100,
+      bottom: 100,
+      toJSON: () => ({}),
+    });
+    second.getBoundingClientRect = () => ({
+      ...rect(110, 0),
+      x: 110,
+      y: 0,
+      right: 210,
+      bottom: 100,
+      toJSON: () => ({}),
+    });
+    first.focus();
+    const event = new CustomEvent('tv-navigate', {
+      detail: { key: 'ArrowRight' },
+      bubbles: true,
+      cancelable: true,
+    });
+    first.dispatchEvent(event);
+    expect(document.activeElement).toBe(second);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   let unmount = () => {};
   // jsdom has no scrollIntoView; the hook only uses it to reveal the target.
   Element.prototype.scrollIntoView = () => {};

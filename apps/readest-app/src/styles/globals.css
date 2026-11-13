@@ -1,4 +1,25 @@
 @import 'tailwindcss' source('../');
+
+/* A TV is viewed from across the room: use a solid, theme-aware focus edge. */
+[data-tv-mode='true'] :focus {
+  outline: 3px solid var(--color-base-content) !important;
+  outline-offset: -3px !important;
+}
+[data-tv-mode='true'] [data-tv-reading='true']:focus {
+  outline: none !important;
+}
+[data-tv-mode='true'] input[data-tv-editing='true'],
+[data-tv-mode='true'] textarea[data-tv-editing='true'] {
+  outline-style: double !important;
+  outline-width: 5px !important;
+}
+[data-tv-mode='true'] .settings-content,
+[data-tv-mode='true'] .menu-container {
+  font-size: 20px;
+}
+[data-tv-mode='true'] .btn {
+  min-height: 44px;
+}
 @plugin '@tailwindcss/typography';
 @plugin 'daisyui' {
   themes:

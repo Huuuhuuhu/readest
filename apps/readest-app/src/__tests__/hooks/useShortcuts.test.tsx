@@ -25,6 +25,28 @@ const keyboardEventFor = (target: HTMLElement, init: KeyboardEventInit) => {
 };
 
 describe('useShortcuts input handling', () => {
+  it('does not turn the book for a key already handled by a panel', () => {
+    const onGoRight = vi.fn();
+    render(<ShortcutHarness actions={{ onGoRight }} />);
+    const event = new KeyboardEvent('keydown', { key: 'ArrowRight', cancelable: true });
+    event.preventDefault();
+    window.dispatchEvent(event);
+    expect(onGoRight).not.toHaveBeenCalled();
+  });
+
+  it('does not toggle the reading toolbar when a tree item handles Enter', () => {
+    const onToggleToolbar = vi.fn();
+    render(<ShortcutHarness actions={{ onToggleToolbar }} />);
+    const item = document.createElement('div');
+    item.setAttribute('role', 'treeitem');
+    item.tabIndex = 0;
+    document.body.append(item);
+    item.focus();
+    fireEvent.keyDown(item, { key: 'Enter' });
+    item.remove();
+    expect(onToggleToolbar).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     localStorage.clear();
   });

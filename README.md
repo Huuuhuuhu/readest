@@ -1,3 +1,8 @@
+> **Readest TV fork — work in progress, based on v0.12.20.** Development is on
+> [`tv/0.12.20`](https://github.com/Huuuhuuhu/readest/tree/tv/0.12.20).
+> See [TV implementation and verification status](apps/readest-app/docs/android-tv.md).
+> The account-free core, independent services, and phone portal are not yet complete.
+
 <div align="center">
   <a href="https://readest.com?utm_source=github&utm_medium=referral&utm_campaign=readme" target="_blank">
     <img src="https://github.com/readest/readest/blob/main/apps/readest-app/src-tauri/icons/icon.png?raw=true" alt="Readest Logo" width="20%" />

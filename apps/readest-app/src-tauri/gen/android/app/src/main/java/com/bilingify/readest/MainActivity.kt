@@ -11,7 +11,11 @@ import android.util.Log
 import android.content.Intent
 import android.graphics.Color
 import android.app.ActivityManager
+import android.view.inputmethod.InputMethodManager
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import android.content.res.Configuration
+import android.content.pm.PackageManager
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.enableEdgeToEdge
@@ -37,6 +41,43 @@ internal fun shouldCaptureNativeLearnKey(keyCode: Int): Boolean = when (keyCode)
 }
 
 class MainActivity : TauriActivity(), KeyDownInterceptor {
+    private val isTVDevice: Boolean
+        get() = (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION ||
+            packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+    private val tvOwnedKeys = mutableSetOf<Int>()
+    private var tvImeBackInFlight = false
+    private var tvImeWasVisible = false
+
+    private fun tvImeVisible(): Boolean = wv?.let {
+        ViewCompat.getRootWindowInsets(it)?.isVisible(WindowInsetsCompat.Type.ime())
+    } ?: false
+
+    private fun notifyTVKeyboardHidden() {
+        wv?.evaluateJavascript("window.onTVKeyboardHidden && window.onTVKeyboardHidden()", null)
+    }
+
+    private fun forwardTVKey(key: String, phase: String, repeat: Boolean = false) {
+        val webView = wv ?: return
+        webView.evaluateJavascript(
+            "window.onTVRemoteKey ? window.onTVRemoteKey(\"$key\", \"$phase\", $repeat) : \"unhandled\""
+        ) { result ->
+            if (result == "\"editing\"" && key == "Enter" && phase == "keyup") {
+                webView.requestFocus()
+                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                    .showSoftInput(webView, InputMethodManager.SHOW_IMPLICIT)
+            } else if (key == "Escape" && phase == "keydown" && result == "\"unhandled\"") {
+                moveTaskToBack(true)
+            }
+        }
+    }
+
+    private fun handleTVBack() {
+        if (tvImeVisible()) {
+            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+                .hideSoftInputFromWindow(wv?.windowToken, 0)
+            notifyTVKeyboardHidden()
+        } else forwardTVKey("Escape", "keydown")
+    }
     private var wv: WebView? = null
     private var interceptVolumeKeysEnabled = false
     private var interceptBackKeyEnabled = false
@@ -55,6 +96,14 @@ class MainActivity : TauriActivity(), KeyDownInterceptor {
 
     override fun onWebViewCreate(webView: WebView) {
         wv = webView
+        if (isTVDevice) {
+            webView.settings.userAgentString += " ReadestTV"
+            webView.viewTreeObserver.addOnGlobalLayoutListener {
+                val visible = tvImeVisible()
+                if (tvImeWasVisible && !visible) notifyTVKeyboardHidden()
+                tvImeWasVisible = visible
+            }
+        }
         // requestFocus() out of touch mode (after a hardware page-turn key)
         // otherwise focuses the page's first focusable node, the a11y skip link
         // at the section start, and scrolls the reader there on every wake (#6967).
@@ -79,6 +128,11 @@ class MainActivity : TauriActivity(), KeyDownInterceptor {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        hasWindowFocus = hasFocus
+        if (!hasFocus && isTVDevice) {
+            tvOwnedKeys.clear()
+            tvImeBackInFlight = false
+        }
         if (hasFocus) {
             hasWindowFocus = true
             ensureInitialPaint()
@@ -196,6 +250,35 @@ class MainActivity : TauriActivity(), KeyDownInterceptor {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (isTVDevice) {
+            val key = tvRemoteKeyName(event.keyCode)
+            if (key != null) {
+                if (event.keyCode == KeyEvent.KEYCODE_BACK && tvImeBackInFlight) {
+                    if (event.action == KeyEvent.ACTION_UP) tvImeBackInFlight = false
+                    return true
+                }
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    if (tvImeVisible() && event.keyCode !in tvOwnedKeys) {
+                        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+                            tvImeBackInFlight = true
+                            handleTVBack()
+                            return true
+                        }
+                        return super.dispatchKeyEvent(event)
+                    }
+                    tvOwnedKeys.add(event.keyCode)
+                    forwardTVKey(key, "keydown", event.repeatCount > 0)
+                    return true
+                }
+                if (event.action == KeyEvent.ACTION_UP && tvOwnedKeys.remove(event.keyCode)) {
+                    forwardTVKey(key, "keyup")
+                    return true
+                }
+            }
+            // Keep volume and all other system keys with Android, regardless
+            // of a phone/e-ink page-turn binding imported in the settings file.
+            return super.dispatchKeyEvent(event)
+        }
         if (event.action == KeyEvent.ACTION_DOWN) {
             val keyCode = event.keyCode
 
@@ -232,6 +315,7 @@ class MainActivity : TauriActivity(), KeyDownInterceptor {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (isTVDevice) return super.onKeyDown(keyCode, event)
         val keyName = keyEventMap[keyCode]
         if (keyName != null) {
             wv?.evaluateJavascript(
@@ -290,6 +374,10 @@ class MainActivity : TauriActivity(), KeyDownInterceptor {
             onBackInvokedDispatcher.registerOnBackInvokedCallback(
                 OnBackInvokedDispatcher.PRIORITY_DEFAULT,
                 OnBackInvokedCallback {
+                    if (isTVDevice) {
+                        handleTVBack()
+                        return@OnBackInvokedCallback
+                    }
                     Log.d("MainActivity", "Back invoked callback triggered ${interceptBackKeyEnabled}")
                     if (interceptBackKeyEnabled) {
                         Log.d("MainActivity", "Back intercepted (OnBackInvokedCallback)")
@@ -307,6 +395,10 @@ class MainActivity : TauriActivity(), KeyDownInterceptor {
         onBackPressedDispatcher.addCallback(this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    if (isTVDevice) {
+                        handleTVBack()
+                        return
+                    }
                     if (interceptBackKeyEnabled) {
                         Log.d("MainActivity", "Back intercepted (OnBackPressedDispatcher)")
                         wv?.evaluateJavascript(

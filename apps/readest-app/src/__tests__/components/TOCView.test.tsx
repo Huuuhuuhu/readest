@@ -1,4 +1,4 @@
-import { render, act, cleanup } from '@testing-library/react';
+import { render, act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { BookDoc, TOCItem } from '@/libs/document';
@@ -15,11 +15,14 @@ let capturedInitialized:
   | ((instance: { elements: () => { viewport: HTMLElement } }) => void)
   | undefined;
 let mockProgress: { sectionHref: string; location: string } | null;
+const goTo = vi.fn();
+const goToFraction = vi.fn();
+const setSideBarVisible = vi.fn();
 
 // ---------- Mocks ----------
 vi.mock('@/store/readerStore', () => {
   const state = {
-    getView: () => undefined,
+    getView: () => ({ goTo, goToFraction }),
     getViewSettings: () => ({ isEink: false }),
     getProgress: () => mockProgress,
   };
@@ -29,16 +32,21 @@ vi.mock('@/store/readerStore', () => {
 });
 
 vi.mock('@/store/sidebarStore', () => ({
-  useSidebarStore: () => ({ sideBarBookKey: 'book1', isSideBarVisible: true }),
+  useSidebarStore: Object.assign(() => ({ sideBarBookKey: 'book1', isSideBarVisible: true }), {
+    getState: () => ({ setSideBarVisible }),
+  }),
 }));
-
-vi.mock('@/services/nav', () => ({ findParentPath: () => [] }));
 
 vi.mock('@/utils/event', () => ({
   eventDispatcher: { dispatch: vi.fn(), on: vi.fn(), off: vi.fn() },
 }));
 
-vi.mock('@/utils/misc', () => ({ getContentMd5: (s: string) => s }));
+vi.mock('@/services/nav', async () => import('@/services/nav/lookup'));
+
+vi.mock('@/utils/misc', () => ({
+  getContentMd5: (s: string) => s,
+  stubTranslation: (s: string) => s,
+}));
 
 vi.mock('@/context/EnvContext', () => ({ useEnv: () => ({ appService: null }) }));
 
@@ -110,6 +118,46 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.clearAllMocks();
+});
+
+describe('TV TOC jump controls', () => {
+  beforeEach(() => vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true'));
+
+  it('finds chapters inside collapsed volumes without changing the reading location', () => {
+    const chapters = makeFlatToc(2000);
+    const toc = [
+      { id: 3000, label: 'Volume one', href: '', subitems: chapters.slice(0, 1000) },
+      { id: 3001, label: 'Volume two', href: '', subitems: chapters.slice(1000) },
+    ] as TOCItem[];
+    render(<TOCView bookKey='book1' bookDoc={bookDoc} toc={toc} />);
+    fireEvent.change(screen.getByLabelText('Chapter number'), { target: { value: '1500' } });
+    fireEvent.click(screen.getByText('Go'));
+    expect(screen.queryByText('Chapter number is out of range')).toBeNull();
+    // First volume remains collapsed; second volume expands to reveal chapter 1500.
+    expect(scrollToIndexSpy).toHaveBeenCalledWith(expect.objectContaining({ index: 501 }));
+    expect(goTo).not.toHaveBeenCalled();
+  });
+
+  it('uses page numbers for a PDF with no outline, including with thumbnails disabled', () => {
+    const pdf = { ...bookDoc, getPageThumbnail: vi.fn(), sections: Array(20).fill({}) } as BookDoc;
+    render(<TOCView bookKey='book1' bookDoc={pdf} toc={[]} />);
+    fireEvent.change(screen.getByLabelText('Page number'), { target: { value: '12' } });
+    fireEvent.click(screen.getByText('Go'));
+    expect(goTo).toHaveBeenCalledWith(11);
+  });
+
+  it('offers progress for a TXT with no chapters and rejects invalid percentages', () => {
+    render(<TOCView bookKey='book1' bookDoc={bookDoc} toc={[]} />);
+    fireEvent.change(screen.getByLabelText('Reading progress (%)'), { target: { value: '101' } });
+    fireEvent.click(screen.getByText('Go'));
+    expect(goToFraction).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Reading progress (%)'), { target: { value: '35' } });
+    fireEvent.click(screen.getByText('Go'));
+    expect(goToFraction).toHaveBeenCalledWith(0.35);
+    expect(setSideBarVisible).toHaveBeenCalledWith(false);
+  });
 });
 
 describe('TOCView — OverlayScrollbars init does not rewind the TOC to the top', () => {
