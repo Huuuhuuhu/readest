@@ -47,6 +47,21 @@ afterEach(() => {
 });
 
 describe('TV remote input ownership', () => {
+  it('keeps a dialog focused when background narration tries to focus the book', async () => {
+    const dialog = document.createElement('section');
+    dialog.innerHTML = '<button>Pause narration</button><button>Voice</button>';
+    document.body.append(dialog);
+    const close = registerTVScope({ element: dialog, priority: 100 });
+    await Promise.resolve();
+    const voice = dialog.querySelectorAll('button')[1]!;
+    voice.focus();
+    document.querySelector('input')!.focus();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(voice);
+    close();
+    dialog.remove();
+  });
+
   it('adjusts a transparent range with left/right while up/down still navigates', () => {
     const range = document.querySelector('input')!;
     range.type = 'range';

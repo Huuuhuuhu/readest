@@ -36,7 +36,6 @@ import {
   OneDriveSettings,
   ICloudSettings,
 } from '@/types/settings';
-import { UserStorageQuota, UserDailyTranslationQuota, UserDailyTTSQuota } from '@/types/quota';
 import { getDefaultMaxBlockSize, getDefaultMaxInlineSize } from '@/utils/config';
 import { stubTranslation as _ } from '@/utils/misc';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
@@ -988,28 +987,9 @@ export const BOOK_IDS_SEPARATOR = '+';
 export const DOWNLOAD_READEST_URL = 'https://github.com/Huuuhuuhu/readest/releases';
 
 export const READEST_WEB_BASE_URL = 'https://web.readest.com';
-export const READEST_NODE_BASE_URL = 'https://node.readest.com';
 
 export const SHARE_BASE_URL = `${READEST_WEB_BASE_URL}/s`;
-export const SHARE_EXPIRATION_DAYS = [1, 3, 7] as const;
-
-// Send to Readest — the domain inbound capture emails are addressed to, the
-// R2 bucket holding raw inbound payloads, and the per-user cap on undrained
-// inbox items (defense against a leaked address).
-export const SEND_EMAIL_DOMAIN = 'readest.com';
-export const SEND_INBOX_BUCKET = 'readest-send-inbox';
-export const SEND_INBOX_PENDING_LIMIT = 50;
-// Hard cap on the size of a single uploaded EPUB the browser extension can
-// drop into the inbox. 30 MB is the same total-asset cap the client-side
-// bundler enforces — plus a bit of head-room for chapter HTML / structural
-// overhead. Beyond this size a clipped article is almost certainly an
-// over-illustrated page that would never read well in the EPUB anyway.
-export const SEND_INBOX_FILE_MAX_BYTES = 40 * 1024 * 1024;
-export const SHARE_DEFAULT_EXPIRATION_DAYS = 3;
-export const SHARE_MAX_PER_USER = 50;
 export const SHARE_TOKEN_LENGTH = 22;
-export const SHARE_PRESIGN_TTL_SECONDS = 300;
-export const SHARE_CFI_MAX_LENGTH = 512;
 
 const LATEST_DOWNLOAD_BASE_URL = 'https://github.com/Huuuhuuhu/readest/releases/latest/download';
 
@@ -1059,32 +1039,8 @@ export const AUTO_SCROLL_SPEED_STEP = 25;
 
 export const SHOW_UNREAD_STATUS_BADGE = false;
 
-export const DEFAULT_STORAGE_QUOTA: UserStorageQuota = {
-  free: 500 * 1024 * 1024,
-  plus: 5 * 1024 * 1024 * 1024,
-  pro: 20 * 1024 * 1024 * 1024,
-  purchase: 0,
-};
-
-export const DEFAULT_DAILY_TRANSLATION_QUOTA: UserDailyTranslationQuota = {
-  free: 10 * 1024,
-  plus: 100 * 1024,
-  pro: 500 * 1024,
-  purchase: 0,
-};
-
-export const DEFAULT_DAILY_TTS_QUOTA: UserDailyTTSQuota = {
-  free: 0,
-  plus: 500_000,
-  pro: 1_000_000,
-  purchase: 0,
-};
-
-// Readest Voice previews: one sample of at most this many characters, open to
-// any signed-in reader, within this daily allowance when their plan's quota is
-// smaller (about 30 typical samples).
-export const READEST_VOICE_PREVIEW_MAX_CHARS = 400;
-export const READEST_VOICE_PREVIEW_DAILY_CHARS = 6_000;
+// Limit preview text for every speech engine; this is not an account quota.
+export const VOICE_PREVIEW_MAX_CHARS = 400;
 
 export const DOUBLE_CLICK_INTERVAL_THRESHOLD_MS = 250;
 export const DISABLE_DOUBLE_CLICK_ON_MOBILE = true;

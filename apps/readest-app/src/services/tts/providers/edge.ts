@@ -1,4 +1,4 @@
-// Edge (Microsoft) speech as a SpeechProvider. Pure re-homing: the WS/HTTP
+// Edge (Microsoft) speech as a SpeechProvider. The direct Microsoft WebSocket
 // transport, LRU + inflight caches, and voice list all stay in
 // EdgeSpeechTTS (@/libs/edgeTTS); this adapter owns the contract-level
 // concerns — the rate-1.0 invariant and permanent-error classification.
@@ -20,10 +20,7 @@ export class EdgeSpeechProvider implements SpeechProvider {
 
   #tts: EdgeSpeechTTS | null = null;
 
-  // The wss transport is free but intermittently blocked; the https fallback
-  // goes through the authenticated proxy route. The Edge client owns the
-  // fallback policy (auth state lives there); the provider just takes the
-  // protocol to probe with.
+  // Microsoft only. A failed connection never falls back to a Readest proxy.
   async init(protocol: EDGE_TTS_PROTOCOL = 'wss'): Promise<boolean> {
     this.#tts = new EdgeSpeechTTS(protocol);
     let timeout: ReturnType<typeof setTimeout> | undefined;

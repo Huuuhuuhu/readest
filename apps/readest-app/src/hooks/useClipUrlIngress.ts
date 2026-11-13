@@ -82,7 +82,7 @@ async function convertSharedHtml(url: string, htmlFile: string): Promise<Convert
  * Filter rules — only act on URLs that are:
  *   - http(s) (not file://, content://, readest://, blob:, data:)
  *   - NOT an annotation deep link (those go to useOpenLaunchLinks)
- *   - NOT a reader sign-in link (those go to useOpenDeviceLink)
+ *   - NOT an obsolete Readest sign-in link (ignored by this account-free fork)
  *
  * Failures surface as toasts. Successful clips show "Saving article…"
  * then "Saved to your library." once `ingestFile` completes.
@@ -236,8 +236,7 @@ export function useClipUrlIngress() {
       // share landing URL is run through the article clipper instead of
       // importing the shared book.
       if (parseShareDeepLink(url)) return;
-      // Reader sign-in links (https://web.readest.com/link?code=…) open the
-      // /link page; useOpenDeviceLink owns that path.
+      // Ignore obsolete Readest sign-in links; do not import them as articles.
       if (parseDeviceLinkDeepLink(url)) return;
       void clipAndImport(url);
     };

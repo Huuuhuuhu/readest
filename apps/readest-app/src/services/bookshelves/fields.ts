@@ -165,7 +165,6 @@ export const BOOKSHELF_FIELDS: BookshelfField[] = [
     kind: 'text',
     choices: [
       { value: 'local', label: _('On this device') },
-      { value: 'cloud', label: _('In Readest Cloud') },
       { value: 'streaming', label: _('Streaming') },
       { value: 'unavailable', label: _('Unavailable') },
     ],
@@ -174,11 +173,9 @@ export const BOOKSHELF_FIELDS: BookshelfField[] = [
         ? 'local'
         : AUDIO_FORMATS.includes(b.format)
           ? 'streaming'
-          : b.uploadedAt
-            ? 'cloud'
-            : b.filePath
-              ? 'local'
-              : 'unavailable',
+          : b.filePath
+            ? 'local'
+            : 'unavailable',
   },
   { id: 'duration', label: _('Audio duration (seconds)'), kind: 'number', read: (b) => b.duration },
   { id: 'episodes', label: _('Episodes'), kind: 'number', read: (b) => b.episodeCount },
@@ -188,7 +185,6 @@ export const BOOKSHELF_FIELDS: BookshelfField[] = [
     kind: 'boolean',
     read: (b) => !!(b.downloadedAt || b.absDownloadedAt),
   },
-  { id: 'uploaded', label: _('In Readest Cloud'), kind: 'boolean', read: (b) => !!b.uploadedAt },
   {
     id: 'downloadStatus',
     label: _('Download status'),
@@ -196,7 +192,7 @@ export const BOOKSHELF_FIELDS: BookshelfField[] = [
     choices: [
       { value: 'localOnly', label: _('Local only') },
       { value: 'downloaded', label: _('Downloaded') },
-      { value: 'cloudOnly', label: _('Cloud only') },
+      { value: 'cloudOnly', label: _('Remote only') },
     ],
     read: (b) => {
       // Streaming formats keep a server URL in filePath, not a local file.
@@ -205,8 +201,9 @@ export const BOOKSHELF_FIELDS: BookshelfField[] = [
         b.absDownloadedAt ||
         (b.filePath && !AUDIO_FORMATS.includes(b.format))
       );
-      if (!b.uploadedAt) return local ? 'localOnly' : undefined;
-      return local ? 'downloaded' : 'cloudOnly';
+      if (b.downloadedAt || b.absDownloadedAt) return 'downloaded';
+      if (local) return 'localOnly';
+      return b.url ? 'cloudOnly' : undefined;
     },
   },
 ];

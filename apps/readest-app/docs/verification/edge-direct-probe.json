@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-13T19:10:56.982Z",
+  "destination": "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1",
+  "bytes": 17424,
+  "boundaries": 5,
+  "readestProxy": false
+}

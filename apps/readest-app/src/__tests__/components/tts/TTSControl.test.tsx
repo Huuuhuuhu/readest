@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (key: string) => key,
@@ -71,6 +71,7 @@ vi.mock('@/app/reader/components/tts/TTSPlayerSheet', () => ({
     ) : null,
 }));
 
+import { eventDispatcher } from '@/utils/event';
 import TTSControl from '@/app/reader/components/tts/TTSControl';
 
 const gridInsets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -111,6 +112,36 @@ describe('TTSControl', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+  });
+
+  test('TV entry starts an idle session and opens the player without needing a mouse', async () => {
+    ttsState['showIndicator'] = false;
+    const start = vi.fn();
+    eventDispatcher.on('tts-speak', start);
+    render(<TTSControl bookKey='b1' gridInsets={gridInsets} />);
+    await act(async () => {
+      await eventDispatcher.dispatch('tv-open-tts', { bookKey: 'b1' });
+    });
+    expect(screen.getByTestId('player-sheet')).toBeTruthy();
+    expect(start).toHaveBeenCalledOnce();
+    eventDispatcher.off('tts-speak', start);
+  });
+
+  test('TV entry does not resume or pause an already active session', async () => {
+    const start = vi.fn();
+    eventDispatcher.on('tts-speak', start);
+    render(<TTSControl bookKey='b1' gridInsets={gridInsets} />);
+    await act(async () => {
+      await eventDispatcher.dispatch('tv-open-tts', { bookKey: 'other' });
+    });
+    expect(screen.queryByTestId('player-sheet')).toBeNull();
+    await act(async () => {
+      await eventDispatcher.dispatch('tv-open-tts', { bookKey: 'b1' });
+    });
+    expect(screen.getByTestId('player-sheet')).toBeTruthy();
+    expect(start).not.toHaveBeenCalled();
+    expect(ttsState['handleTogglePlay']).not.toHaveBeenCalled();
+    eventDispatcher.off('tts-speak', start);
   });
 
   test('mounts the mini player while a session is active', () => {

@@ -356,11 +356,12 @@ describe('bookshelf evaluation', () => {
     expect(matchBookshelfFilter(pushed, tbr)).toBe(true);
     expect(matchBookshelfFilter(book('other'), tbr)).toBe(false);
   });
-  it('filters by download status: local only, downloaded, or cloud only', () => {
+  it('filters local files and independent downloads without official upload markers', () => {
     const books = [
-      { ...book('local'), downloadedAt: 1 },
+      { ...book('local'), filePath: '/books/local.epub' },
       { ...book('downloaded'), downloadedAt: 1, uploadedAt: 1 },
-      { ...book('cloud'), uploadedAt: 1 },
+      { ...book('remote'), url: 'https://library.example.test/book.epub' },
+      { ...book('obsolete-official'), uploadedAt: 1 },
       { ...book('abs'), format: 'ABS' as const, absDownloadedAt: 1, uploadedAt: 1 },
       { ...book('streaming'), format: 'ABS' as const, filePath: 'abs://server/item' },
       { ...book('referenced'), filePath: '/books/referenced.epub' },
@@ -384,7 +385,7 @@ describe('bookshelf evaluation', () => {
         .map((b) => b.hash);
     expect(matching('localOnly')).toEqual(['local', 'referenced']);
     expect(matching('downloaded')).toEqual(['downloaded', 'abs']);
-    expect(matching('cloudOnly')).toEqual(['cloud']);
+    expect(matching('cloudOnly')).toEqual(['remote']);
   });
   it('collects the library values of list-like fields for the value picker', () => {
     const books = [

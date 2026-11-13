@@ -53,6 +53,27 @@ describe('iframeEventHandlers click gestures', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    delete window.onTVRemoteKey;
+  });
+
+  test('TV iframe keys reach the same owner once, including OK release, without legacy page-turn messages', async () => {
+    vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
+    const { handleKeydown, handleKeyup } = await importHandlers();
+    const forward = vi.fn(() => 'handled');
+    window.onTVRemoteKey = forward;
+    const down = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true });
+    const up = new KeyboardEvent('keyup', { key: 'Enter', cancelable: true });
+    handleKeydown('book', down);
+    handleKeyup('book', up);
+    expect(forward.mock.calls).toEqual([
+      ['Enter', 'keydown', false],
+      ['Enter', 'keyup', false],
+    ]);
+    expect(down.defaultPrevented).toBe(true);
+    expect(up.defaultPrevented).toBe(true);
+    expect(postedTypes(postSpy)).not.toContain('iframe-keydown');
+    expect(postedTypes(postSpy)).not.toContain('iframe-keyup');
   });
 
   test('double-click then drag (button held) does not post iframe-single-click (#4524)', async () => {

@@ -47,12 +47,14 @@ import Menu from '@/components/Menu';
 
 interface ViewMenuProps {
   bookKey: string;
+  embedded?: boolean;
   setIsDropdownOpen?: (open: boolean) => void;
   onShowMetaHashDialog?: () => void;
 }
 
 const ViewMenu: React.FC<ViewMenuProps> = ({
   bookKey,
+  embedded = false,
   setIsDropdownOpen,
   onShowMetaHashDialog,
 }) => {
@@ -306,13 +308,20 @@ const ViewMenu: React.FC<ViewMenuProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rtlSpread]);
 
+  const Container = embedded ? 'div' : Menu;
   return (
-    <Menu
+    <Container
       className={clsx(
-        'view-menu dropdown-content dropdown-right no-triangle z-20 mt-1.5 border',
-        'bgcolor-base-200 shadow-2xl',
+        'view-menu',
+        embedded
+          ? 'w-full'
+          : 'dropdown-content dropdown-right no-triangle z-20 mt-1.5 border bgcolor-base-200 shadow-2xl',
       )}
-      style={{ marginRight: appService?.isMobile || window.innerWidth < 640 ? '-36px' : 0 }}
+      style={
+        embedded
+          ? undefined
+          : { marginRight: appService?.isMobile || window.innerWidth < 640 ? '-36px' : 0 }
+      }
       onCancel={() => setIsDropdownOpen?.(false)}
     >
       {bookData.bookDoc?.rendition?.layout === 'pre-paginated' && (
@@ -559,7 +568,7 @@ const ViewMenu: React.FC<ViewMenuProps> = ({
             title={_('Sync Info')}
             className='hover:bg-base-300 text-base-content/70 mx-1 rounded-md px-2'
             onClick={() => {
-              setIsDropdownOpen?.(false);
+              if (!embedded) setIsDropdownOpen?.(false);
               onShowMetaHashDialog?.();
             }}
           >
@@ -598,7 +607,7 @@ const ViewMenu: React.FC<ViewMenuProps> = ({
       <MenuItem label={_('Vocabulary')} Icon={PiCardsThree} onClick={openVocabulary} />
       <MenuItem label={_('Settings')} Icon={PiGear} onClick={openSettingsDialog} />
       <hr aria-hidden='true' className='border-base-300 my-1' />
-    </Menu>
+    </Container>
   );
 };
 

@@ -3,7 +3,6 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 // ── Mocks for constants ──────────────────────────────────────────
 vi.mock('@/services/constants', () => ({
   READEST_WEB_BASE_URL: 'https://web.readest.com',
-  READEST_NODE_BASE_URL: 'https://node.readest.com',
 }));
 
 // We need to reset modules between tests to pick up env var changes,
@@ -136,21 +135,6 @@ describe('environment', () => {
     });
   });
 
-  // ── getNodeBaseUrl ─────────────────────────────────────────────
-  describe('getNodeBaseUrl', () => {
-    test('returns NEXT_PUBLIC_NODE_BASE_URL when set', async () => {
-      env['NEXT_PUBLIC_NODE_BASE_URL'] = 'https://custom-node.example.com';
-      const { getNodeBaseUrl } = await import('@/services/environment');
-      expect(getNodeBaseUrl()).toBe('https://custom-node.example.com');
-    });
-
-    test('falls back to READEST_NODE_BASE_URL when env var not set', async () => {
-      delete env['NEXT_PUBLIC_NODE_BASE_URL'];
-      const { getNodeBaseUrl } = await import('@/services/environment');
-      expect(getNodeBaseUrl()).toBe('https://node.readest.com');
-    });
-  });
-
   // ── isMacPlatform ──────────────────────────────────────────────
   describe('isMacPlatform', () => {
     test('returns true when navigator.platform contains Mac', async () => {
@@ -228,43 +212,6 @@ describe('environment', () => {
       delete env['NEXT_PUBLIC_API_BASE_URL'];
       const { getAPIBaseUrl } = await import('@/services/environment');
       expect(getAPIBaseUrl()).toBe('https://web.readest.com/api');
-    });
-  });
-
-  // ── getReadestVoiceAPIBaseUrl ──────────────────────────────────
-  describe('getReadestVoiceAPIBaseUrl', () => {
-    test('uses the production Web API even in web development mode', async () => {
-      env['NODE_ENV'] = 'development';
-      env['NEXT_PUBLIC_APP_PLATFORM'] = 'web';
-      delete env['NEXT_PUBLIC_API_BASE_URL'];
-      const { getReadestVoiceAPIBaseUrl } = await import('@/services/environment');
-      expect(getReadestVoiceAPIBaseUrl()).toBe('https://web.readest.com/api');
-    });
-  });
-
-  // ── getNodeAPIBaseUrl ──────────────────────────────────────────
-  describe('getNodeAPIBaseUrl', () => {
-    test('returns /api in web development mode', async () => {
-      env['NODE_ENV'] = 'development';
-      env['NEXT_PUBLIC_APP_PLATFORM'] = 'web';
-      const { getNodeAPIBaseUrl } = await import('@/services/environment');
-      expect(getNodeAPIBaseUrl()).toBe('/api');
-    });
-
-    test('returns full node URL in production', async () => {
-      env['NODE_ENV'] = 'production';
-      env['NEXT_PUBLIC_APP_PLATFORM'] = 'web';
-      delete env['NEXT_PUBLIC_NODE_BASE_URL'];
-      const { getNodeAPIBaseUrl } = await import('@/services/environment');
-      expect(getNodeAPIBaseUrl()).toBe('https://node.readest.com/api');
-    });
-
-    test('returns full node URL for tauri platform even in development', async () => {
-      env['NODE_ENV'] = 'development';
-      env['NEXT_PUBLIC_APP_PLATFORM'] = 'tauri';
-      delete env['NEXT_PUBLIC_NODE_BASE_URL'];
-      const { getNodeAPIBaseUrl } = await import('@/services/environment');
-      expect(getNodeAPIBaseUrl()).toBe('https://node.readest.com/api');
     });
   });
 

@@ -79,7 +79,20 @@ const TTSControl: React.FC<TTSControlProps> = ({ bookKey, gridInsets }) => {
     setShowPlayerSheet(true);
   };
 
+  useEffect(() => {
+    const openFromTV = (event: CustomEvent<{ bookKey: string }>) => {
+      if (event.detail.bookKey !== bookKey) return;
+      tts.refreshTtsLang();
+      setShowPlayerSheet(true);
+      // Opening controls must not toggle or resume an existing paused session.
+      if (!tts.showIndicator) void eventDispatcher.dispatch('tts-speak', { bookKey });
+    };
+    eventDispatcher.on('tv-open-tts', openFromTV);
+    return () => eventDispatcher.off('tv-open-tts', openFromTV);
+  }, [bookKey, tts.refreshTtsLang, tts.showIndicator]);
+
   const handleStop = () => {
+    setShowPlayerSheet(false);
     eventDispatcher.dispatch('tts-stop', { bookKey });
   };
 
@@ -144,6 +157,7 @@ const TTSControl: React.FC<TTSControlProps> = ({ bookKey, gridInsets }) => {
           timeoutTimestamp={tts.timeoutTimestamp}
           chapterRemainingSec={tts.chapterRemainingSec}
           onClose={() => setShowPlayerSheet(false)}
+          onStop={handleStop}
           onTogglePlay={tts.handleTogglePlay}
           onBackward={tts.handleBackward}
           onForward={tts.handleForward}

@@ -1,19 +1,17 @@
-# TV fork completion checklist
+# TV fork completion record
 
-Baseline for this implementation: `9dd95e7` (upstream 0.12.20 plus P1).
-The owner authorized completing all phases and publishing a signed armv7 APK.
-No new design approval round is required. Device-only checks remain explicitly unverified.
+Baseline: upstream 0.12.20 plus P1. The owner authorized completing all stages and publishing a signed armv7 APK, without a new design approval round.
 
-- [ ] Remove Readest authentication, purchases, entitlement code and telemetry from the application and its dependencies.
-- [ ] Keep direct Microsoft/system/local TTS; open self-configured TTS and independent services without account gates or official fallback.
-- [ ] Keep optional public samples/fonts/Word Lens; explicit remote-accessible downloads, persistent local resources and bounded failure behavior.
-- [ ] Preserve independent sync/integrations, removing official cloud channels and replacing required official relays.
-- [ ] Add the TV LAN portal: TXT/book upload and shared service configuration, testing/preview, persistence, short-lived authorization, actual interface addresses and network changes.
-- [ ] Complete remote navigation, input, special reading modes, selection, modal ownership and focus restoration against the agreed state table.
-- [ ] Verify local boot with official services unavailable, independent networking, cache/restart, portal failure/security states and browser remote workflows.
-- [ ] Run full unit/type/lint/format checks, Rust checks, Android build and native key tests; address failures without suppressing them.
-- [ ] Audit the final network manifest and remove credentials from logs/artifacts.
-- [ ] Push as Huuuhuuhu, sign with the existing TV release key, verify APK identity/signature and publish the final release with clear remaining hardware checks.
+- [x] Remove Readest authentication, purchases, entitlement/quota code, telemetry and executable dependencies; do not simulate membership.
+- [x] Keep direct Microsoft/system/local/custom TTS and independent services without account gates or official fallback.
+- [x] Keep explicit public samples/fonts/Word Lens, local resource persistence and bounded failures.
+- [x] Preserve independent sync/integrations; remove official cloud channels and required relays.
+- [x] Implement the TV LAN portal: book batches, shared TTS/WebDAV/OPDS configuration, preview, persistence, expiring authorization, actual private IPv4/port and network changes.
+- [x] Complete remote entry points, navigation, confirm-to-edit, special reading modes, selection, modal ownership and focus restoration. Browser walkthroughs led to additional iframe/rename/reader-tool/TTS-entry/focus-steal regressions.
+- [x] Run frontend regression/type checks and prior complete CI; Rust fmt/clippy/tests and Android build/native key tests passed at cff6bb2. The release workflow must also be green for the final code commit.
+- [x] Record actual Microsoft synthesis and anonymous public-resource probes, distinguishing them from mock-backed regressions and physical-device tests.
+- [x] Replace the obsolete phase-1 documents with final implementation, network manifest and device acceptance instructions.
+- [ ] Final commit CI, matching signed APK verification and publication (recorded in the GitHub release and build identity).
+- [ ] Physical TV/phone checks: Android IME, OEM remote keys, foreground/restart/network changes, complete phone upload/configuration and blocked-official-domain fresh APK boot. No hardware is connected; these cannot honestly be checked by this implementation session.
 
-Scope reference: [network manifest](android-tv-network.md), [TV implementation](android-tv.md),
-and the existing local `Readest-TV-完整设计-v2.html` v2.2 state tables.
+Documents: [implementation](android-tv.md), [network manifest](android-tv-network.md), [device acceptance](android-tv-acceptance.md).

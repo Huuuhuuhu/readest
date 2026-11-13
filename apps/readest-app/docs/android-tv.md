@@ -1,87 +1,63 @@
-# Readest TV implementation
+# Readest TV 0.12.20-tv.2
 
-Baseline: upstream v0.12.20 (`28aab23e039a23511bc478c23bf5278daa43cc68`).
-This branch is an incremental implementation, not a finished TV release.
+本 fork 基于上游 0.12.20，应用 ID 为 `com.bilingify.readest.tv`，可以与原版并存。电视版有自己的书库和设置；升级此前 TV 测试版会保留数据。最低 Android 8（API 26），本次发布 ARMv7 APK。包版本码 12021。
 
-## First implementation slice
+四个实现阶段已合并：遥控器基础、独立服务与公共资源、局域网手机助手、高级交互与发布验证。硬件相关验收见末尾，不能把浏览器/单元测试写成电视实测。
 
-- A native Android TV bridge routes D-pad, OK, Menu and Back once. System volume,
-  Home, Power and voice-assistant keys remain with Android.
-- A shared input controller gives the top dialog/sidebar ownership of navigation.
-  OK activates the focused control on release; a long OK on a book opens actions
-  without also opening the book. A held OK cannot activate a newly opened dialog.
-- Focusing a text field does not enter editing. One OK enables editing; one Back
-  returns to navigation on the same field with its draft. Android IME dismissal
-  notifies the same controller. Native IME behavior still needs device verification.
-- Body OK and Menu open the same reading menu. It offers contents, font size,
-  maximum columns, day/night theme, scrolling mode, bookmark, TTS, search,
-  further settings and the library. Font size and columns adjust with Left/Right
-  and save through the original settings implementation.
-- Contents owns D-pad navigation, including virtualized rows. Chapter-number
-  lookup includes collapsed volumes. Number lookup reveals a chapter; OK on that
-  chapter performs the reading jump. PDFs without an outline use page numbers;
-  texts without chapters use percentage progress.
-- The existing `maxColumnCount = 1` setting provides single-column rendering.
-  Turn Scrolled Mode off for paginated reading. No replacement renderer is used.
-- A stale `keepLogin` flag no longer redirects library startup to the login page.
-  Complete account and official-service removal is a separate, pending slice.
-- The Android application ID is `com.bilingify.readest.tv`, allowing side-by-side
-  installation with the original app. Local books/settings are separate.
+## 日常按键
 
-## Verification
+| 场景 | 方向 / 确认 | 菜单 / 返回 |
+| --- | --- | --- |
+| 书架 | 方向选择；短按确认打开；长按确认打开书籍操作且取消短按 | 菜单打开书架操作；返回逐层关闭，最后交还系统 |
+| 正文 | 方向翻页；确认打开阅读菜单 | 菜单打开同一菜单；返回书库 |
+| 阅读菜单 | 上下选项；字号、分栏数左右直接调整并保存 | 再按菜单或返回关闭 |
+| 目录 / 搜索 | 目录默认当前章；方向只操作面板；确认章节才跳转并回正文 | 返回正文；未确认时不改变阅读位置 |
+| 输入框 | 聚焦只显示边框；一次确认进入编辑和输入法 | 一次返回结束编辑并保留文字，方向立即可移动；表单明确保存 |
+| 设置和弹窗 | 方向选择、确认当前控件；取消不会执行删除 | 返回关闭当前层并恢复来源焦点 |
+| 自动滚动 | 确认暂停/继续；左右调速；上键进入控制栏 | 控制栏返回到滚动；再返回停止，停在当前阅读位置 |
+| 快读 RSVP | 确认播放/暂停；左右调速；上键进入控制栏 | 返回逐层取消进度预览、关闭子页/控制栏、退出快读 |
+| 朗读 | 阅读菜单的朗读打开完整播放器；首次启动朗读；已有播放或暂停状态保持 | 子页返回播放器；播放器返回正文但不改变播放；“结束朗读”停止 |
+| 图片 | 控件可调缩放、进入平移；平移时方向移动图片 | 确认/返回退出平移，再返回关闭图片 |
+| 选文 | 选文与段落阅读提供整段、精确起止、跨段起止、文本滚动与朗读 | 批注工具、精确选择、段落模式逐层返回；不误翻正文 |
+| 手机助手 | 确认开启，选择地址，批准/拒绝整批，查看状态，停止接收或取消传输 | 返回只收起；关闭入口会撤销全部授权 |
 
-Run `pnpm test --run` and `pnpm lint` from this app directory. New regression tests
-cover focused Cancel, editing/IME dismissal, removed forms, held OK across a modal,
-long OK, input ownership, number adjustment, shelf boundaries and chapter/page jumps.
-The TV Android workflow builds armv7 and runs native key-mapping tests. Build artifacts
-are development artifacts; an unsigned APK is not an installable release.
+确认键在松开时激活；长按成立后取消短按；同一次按压不能跨窗口再次触发。原生 Android 和书页 iframe 的事件都交给同一个焦点控制器。音量、Home、电源、系统语音键留给系统。
 
-Before accepting this slice on a television, verify using only D-pad/OK/Back:
+## 常用路径和高级操作
 
-1. Open a book, open contents, select a chapter, return to the body.
-2. Adjust font size and columns to 1; close/reopen the app and check persistence.
-3. Focus search without an IME; press OK once, type, then Back once and move to
-   another control. Repeat in a note and a service configuration form.
-4. Open book actions by long OK; focus Cancel in a deletion dialog and press OK.
-5. Repeat with and without the Menu button; check system volume/Home still work.
-6. Open a several-thousand-chapter book, reveal a chapter in a collapsed volume,
-   and confirm that browsing never turns the body page before selecting a chapter.
+- 阅读菜单第一层提供目录、字号、分栏数、主题、滚动模式、书签、朗读、选文、搜索。更多设置复用原设置页。
+- 单栏：阅读菜单 → 分栏数 → 左键到 1；滚动模式关闭时为分页。复用 Foliate/Readest 原渲染器，没有移植另一个 TXT 渲染器。
+- 更多阅读工具复用原 ViewMenu：进度确认跳转、返回上一阅读位置/前进、全文翻译、自动滚动、快读、PDF/漫画缩放与跨页、同步信息、统计、生词本等。自动滚动要求先开启滚动模式。
+- 目录提供回当前章、章节序号查找和卷折叠；查找会展开相关卷，确认才跳转。无目录 PDF 用页码，普通文本用百分比替代。浏览目录与“返回上一阅读位置”是两件不同的事。
+- 笔记本与 AI 有独立入口和焦点范围。输入法收起不丢草稿；笔记文档沿用原版自动保存，也有显式保存按钮。书架重命名在 TV 上必须明确保存。
+- 原拖动排序增加前移/后移按钮，覆盖书架、OPDS、自定义词典、批注工具顺序。原生下拉框可左右换值，也可确认打开电视选项列表。
+- 精确选文按 Unicode 字位处理，支持同一章节跨段/跨页；跨章节不连选，界面明确提示。选定后复用复制、高亮、批注、词典、翻译、朗读等现有工具。手绘仍需要触摸/指针。
+- 播放进度先预览、确认后提交，返回放弃；字体/速度等设置即时保存。打开目录、设置、手机助手不会自动恢复用户暂停的朗读。上传请求只提示，不抢焦点，完成不自动开书。
 
-Browser/unit checks cannot establish Android IME behavior, remote key codes,
-readability at television viewing distance, or external file-picker navigation.
+## 手机助手
 
-## Remaining phases
+书架菜单或阅读菜单 → 手机助手。遥控器开启后显示二维码和完整地址。手机与电视在同一局域网，用普通浏览器扫描即可。
 
-2. Remove Readest account/payment/entitlement/telemetry code and account-dependent
-   official services; detach local and self-configured functions from them. Keep
-   optional public sample books, fonts and Word Lens packs, including verified
-   anonymous resources hosted by Readest. Classify calls by service, path and purpose,
-   not hostname. Preserve direct Edge TTS, Android/local TTS and independent services
-   without official fallback. See [the network scope and evidence](android-tv-network.md).
-3. Add the TV-hosted mobile browser portal for file upload and service configuration,
-   shared persistent configuration, temporary device authorization, real LAN address
-   selection and network/port changes. Implement independently; do not copy code from
-   TVBookReader without an applicable license.
-4. Finish advanced reading/playback/selection/form interactions and combined-state
-   checks, complete the network manifest, then publish a signed armv7 release.
+- 上传 TXT、EPUB、PDF、MOBI、AZW3、FB2、CBZ；最多 20 本/批、100 MB/本、500 MB/批。电视每批批准一次。直接导入电视本地书库。
+- TTS 添加/修改/删除、地址、API Key、模型、音色、风格、格式、停用、连接与试听、保存。试听使用草稿且不自动保存，由电视直连配置的服务。
+- WebDAV 和 OPDS 复用同一网页配置入口、同一电视设置数据和持久化。既有密钥/密码不回传手机；空值保留或明确选择清除。
+- 本地服务仅按需运行，默认尝试 8765，冲突时选择实际可用端口。二维码使用活动 Wi-Fi/有线网卡的真实私有 IPv4 和实际端口；多个地址可切换。没有地址时不生成二维码。当前不提供纯 IPv6 网络入口。
+- 15 分钟随机授权放在 URL fragment，页面载入后从地址栏移除，请求用 Authorization header。它不是账号。API Key 不进入二维码、URL 或日志。
+- 网络指纹变化会更新地址并撤销旧授权和未完成请求；关闭入口/到期同样失效。隐藏页面继续传输；停止新接收保留已批准的传输；取消当前批次与关闭入口是独立操作。
+- Host/Origin 校验、大小/并发/超时限制、路径隔离、传输中取消、导入结果回执和凭据错误脱敏已有自动化覆盖。手机助手使用局域网 HTTP，适用于可信局域网；电视应用需保持前台，不承诺被系统后台终止后继续传输。
 
-The complete account-free/offline/phone-portal acceptance criteria remain outstanding.
-Do not label an intermediate build as satisfying them.
+## 无账号与可选联网
 
-## Phase 2: public-resource scope correction
+登录注册、个人中心、会员、购买、权益缓存/校验、官方云副本、Readest Voice、官方 TTS/翻译中转、遥测及其可执行依赖已移除。不是隐藏按钮或伪造会员。独立服务、设备 PIN、本地文档和自配凭据保留。
 
-Blocking all official services is a fault-injection acceptance condition, not a
-production domain denylist. Local startup/reading/settings must still work; explicitly
-requested public downloads may fail locally. Restoring the network must allow a manual
-retry, without login, unlocking or automatic background retry loops. No central network
-policy framework is needed for this correction.
+微软 Edge 直连、系统 TTS、本地媒体朗读、自定义 TTS 不依赖 Readest 身份。字体、示例书和 Word Lens 的匿名公共下载保留，默认界面与阅读不等待它们。详细目的地、触发、凭据、失败影响及验证程度见 [联网清单](android-tv-network.md)。更新入口只指向本 fork 的 GitHub Releases。
 
-The first change keeps Word Lens downloads and removes their dependency on the
-authenticated cloud-storage module. Cached catalogs/packs work without a network probe;
-disabling automatic downloads includes the catalog; failed automatic pack downloads
-stop until an explicit retry. The existing Word Lens page now offers Refresh without
-enabling automatic downloads. Sample-book TV entry points, optional font persistence,
-the remaining account/service removal and device-level network validation are pending.
-The Word Lens subpage owns TV navigation/Back, enters with visible focus, and restores
-focus to its entry in Language settings when closed. Browser keyboard verification
-covered this path and a failed public download without losing the reading position.
+## 验证与真实边界
+
+自动化覆盖输入/焦点/长按、取消与删除、目录跳转、单栏渲染即时更新、播放器进度、段落选文、独立同步/TTS、公共资源缓存失败、手机表单/RPC/持久化、Rust 实际 HTTP 传输/撤销/校验，以及 Android 原生按键映射。GitHub workflow 运行完整前端测试、类型/格式/静态检查、Rust fmt/clippy/test、ARMv7 编译和原生 JUnit。
+
+浏览器已按遥控器键验证正文 → 菜单 → 目录 → 选章、字号/单栏、搜索与批注一次确认编辑/一次返回、段落选择、笔记输入、快读控制/退出。直接微软语音探测成功，匿名公共资源探测记录随源码保存。
+
+仍需实物确认：电视厂商键码、Android IME 一次返回、观看距离上的易读性、系统文件选择器/第三方 OAuth 页、系统声音、手机到电视完整传输、Wi-Fi/有线切换、重启持久化、屏蔽全部官方域名后的全新 APK 冷启动。没有实物时不将这些写成通过，不阻塞代码与签名 APK 交付。
+
+电视验收步骤见 [android-tv-acceptance.md](android-tv-acceptance.md)。

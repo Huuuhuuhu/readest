@@ -1,3 +1,4 @@
+import { isTVMode } from '@/utils/tvInput';
 import clsx from 'clsx';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -255,7 +256,7 @@ const SideBar = ({}) => {
             isMobile && 'hidden',
           )}
           role='slider'
-          tabIndex={0}
+          tabIndex={isTVMode() ? -1 : 0}
           aria-label={_('Resize Sidebar')}
           aria-orientation='horizontal'
           aria-valuenow={parseFloat(sideBarWidth)}
@@ -267,7 +268,7 @@ const SideBar = ({}) => {
           {isMobile && (
             <div
               role='slider'
-              tabIndex={0}
+              tabIndex={isTVMode() ? -1 : 0}
               aria-label={_('Resize Sidebar')}
               aria-orientation='vertical'
               aria-valuenow={sidebarHeight.current}

@@ -1,3 +1,4 @@
+import { isTVMode } from '@/utils/tvInput';
 import { DOUBLE_CLICK_INTERVAL_THRESHOLD_MS, LONG_HOLD_THRESHOLD } from '@/services/constants';
 import { eventDispatcher } from '@/utils/event';
 import type { ImageViewerGesture, ViewSettings } from '@/types/book';
@@ -292,7 +293,36 @@ const getKeyStatus = (event?: MouseEvent | WheelEvent | TouchEvent) => {
   };
 };
 
+const forwardTVFrameKey = (event: KeyboardEvent, phase: 'keydown' | 'keyup') => {
+  if (
+    !isTVMode() ||
+    !window.onTVRemoteKey ||
+    event.ctrlKey ||
+    event.altKey ||
+    event.metaKey ||
+    event.isComposing ||
+    ![
+      'Enter',
+      'Escape',
+      'Menu',
+      'ContextMenu',
+      'ArrowUp',
+      'ArrowDown',
+      'ArrowLeft',
+      'ArrowRight',
+    ].includes(event.key)
+  )
+    return false;
+  // Book iframes are separate event roots. Physical keyboards must use the
+  // same owner as native Android remote events, never the legacy shortcuts too.
+  window.onTVRemoteKey(event.key, phase, event.repeat);
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  return true;
+};
+
 export const handleKeydown = (bookKey: string, event: KeyboardEvent) => {
+  if (forwardTVFrameKey(event, 'keydown')) return;
   const target = event.target as HTMLElement | null;
   const interactiveTarget =
     !!target?.isContentEditable ||
@@ -353,6 +383,7 @@ export const handleKeydown = (bookKey: string, event: KeyboardEvent) => {
 };
 
 export const handleKeyup = (bookKey: string, event: KeyboardEvent) => {
+  if (forwardTVFrameKey(event, 'keyup')) return;
   keyboardState = {
     key: '',
     code: '',

@@ -22,7 +22,7 @@ const rememberedFocus = new Map<string, string>();
 let revision = 0;
 let editing: TextField | null = null;
 const controls =
-  'button, a[href], input:not([type="hidden"]), textarea, select, [tabindex], [role="button"], [role="treeitem"], [role="menuitem"]';
+  'button, summary, a[href], input:not([type="hidden"]), textarea, select, [tabindex], [role="button"], [role="treeitem"], [role="menuitem"]';
 const directions = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 
 declare global {
@@ -215,10 +215,24 @@ export const installTVInput = (doc: Document = document): (() => void) => {
   prepare();
   const observer = new MutationObserver(prepare);
   observer.observe(doc.body, { childList: true, subtree: true });
+  const scopeFocus = new WeakMap<TVScope, HTMLElement>();
   const onFocus = (event: FocusEvent) => {
     const target = event.target as HTMLElement;
     if (textField(target)) prepareField(target);
     const scope = getTVScope();
+    if (scope && !scope.reading && !scope.element.contains(target)) {
+      // Narration/renderer position updates must not steal a panel's focus.
+      // Wait for the current commit so a newly opened higher scope can take over.
+      queueMicrotask(() => {
+        if (getTVScope() !== scope || scope.element.contains(doc.activeElement)) return;
+        const previous = scopeFocus.get(scope);
+        if (previous && scope.element.contains(previous) && isTVVisible(previous))
+          focusTV(previous);
+        else focusScope(scope);
+      });
+      return;
+    }
+    if (scope) scopeFocus.set(scope, target);
     if (scope?.id && scope.element.contains(target) && identity(target))
       rememberedFocus.set(scope.id, identity(target)!);
   };

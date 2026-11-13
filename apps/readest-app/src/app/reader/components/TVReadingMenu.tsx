@@ -8,6 +8,8 @@ import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useNotebookStore } from '@/store/notebookStore';
+import TVReadingTools from './TVReadingTools';
 import { useThemeStore } from '@/store/themeStore';
 import { saveViewSettings } from '@/helpers/settings';
 import { getMaxInlineSize } from '@/utils/config';
@@ -33,6 +35,7 @@ export default function TVReadingMenu({
   const viewSettings = getViewSettings(bookKey);
   const theme = useThemeStore((state) => state.themeMode);
   const [error, setError] = useState('');
+  const [toolsOpen, setToolsOpen] = useState(false);
   const saveQueue = useRef(Promise.resolve());
   const save = <K extends keyof ViewSettings>(key: K, value: ViewSettings[K]) => {
     // Serialize quick repeats so a slow disk write cannot overwrite the latest setting.
@@ -68,6 +71,7 @@ export default function TVReadingMenu({
       .catch(() => setError(_('Could not save settings')));
   };
   const openSidebar = (search: boolean) => {
+    useNotebookStore.getState().setNotebookVisible(false);
     const sidebar = useSidebarStore.getState();
     const books = useBookDataStore.getState();
     const config = books.getConfig(bookKey);
@@ -80,93 +84,126 @@ export default function TVReadingMenu({
   };
   const actionClass = 'btn btn-ghost w-full justify-start rounded-none px-4 text-start';
   return (
-    <Dialog isOpen={open} title={_('Reading menu')} onClose={onClose}>
-      <div className='settings-content mx-auto w-full max-w-2xl space-y-3 p-4'>
-        <p>{_('Up/Down: choose · Left/Right: adjust · Back: read')}</p>
-        <BoxedList>
-          <button
-            className={actionClass}
-            onClick={() => {
-              onClose();
-              eventDispatcher.dispatch('open-tv-portal');
-            }}
-          >
-            手机助手 · 扫码上传与配置
-          </button>
-          <button data-tv-initial-focus className={actionClass} onClick={() => openSidebar(false)}>
-            {_('Table of Contents')}
-          </button>
-          <NumberInput
-            label={_('Font Size')}
-            value={viewSettings?.defaultFontSize ?? 16}
-            min={MIN_FONT_SIZE}
-            max={MAX_FONT_SIZE}
-            step={FONT_SIZE_STEP}
-            onChange={(value) => save('defaultFontSize', value)}
-          />
-          <NumberInput
-            label={_('Maximum Number of Columns')}
-            value={viewSettings?.maxColumnCount ?? 2}
-            min={1}
-            max={4}
-            onChange={(value) => save('maxColumnCount', value)}
-          />
-          <button
-            className={actionClass}
-            onClick={() =>
-              useThemeStore.getState().setThemeMode(theme === 'dark' ? 'light' : 'dark')
-            }
-          >
-            {_('Theme')}: {theme === 'dark' ? _('Dark') : _('Light')}
-          </button>
-          <button className={actionClass} onClick={() => save('scrolled', !viewSettings?.scrolled)}>
-            {_('Scrolled Mode')}: {viewSettings?.scrolled ? _('On') : _('Off')}
-          </button>
-          <button
-            className={actionClass}
-            onClick={() => {
-              void eventDispatcher.dispatch('toggle-bookmark', { bookKey });
-            }}
-          >
-            {_('Toggle Bookmark')}
-          </button>
-          <button
-            className={actionClass}
-            onClick={() => {
-              onClose();
-              void eventDispatcher.dispatch('tts-toggle-play', { bookKey });
-            }}
-          >
-            {_('Read Aloud')}
-          </button>
-          <button
-            className={actionClass}
-            onClick={() => {
-              onClose();
-              eventDispatcher.dispatch('toggle-paragraph-mode', { bookKey });
-            }}
-          >
-            选文与段落阅读
-          </button>
-          <button className={actionClass} onClick={() => openSidebar(true)}>
-            {_('Search in Book')}
-          </button>
-          <button
-            className={actionClass}
-            onClick={() => {
-              const settings = useSettingsStore.getState();
-              settings.setSettingsDialogBookKey(bookKey);
-              settings.setSettingsDialogOpen(true);
-            }}
-          >
-            {_('More Settings')}
-          </button>
-          <button className={actionClass} onClick={onLibrary}>
-            {_('Back to Library')}
-          </button>
-        </BoxedList>
-        {error && <p role='status'>{error}</p>}
-      </div>
-    </Dialog>
+    <>
+      <Dialog isOpen={open} title={_('Reading menu')} onClose={onClose}>
+        <div className='settings-content mx-auto w-full max-w-2xl space-y-3 p-4'>
+          <p>{_('Up/Down: choose · Left/Right: adjust · Back: read')}</p>
+          <BoxedList>
+            <button
+              className={actionClass}
+              onClick={() => {
+                onClose();
+                eventDispatcher.dispatch('open-tv-portal');
+              }}
+            >
+              手机助手 · 扫码上传与配置
+            </button>
+            <button
+              data-tv-initial-focus
+              className={actionClass}
+              onClick={() => openSidebar(false)}
+            >
+              {_('Table of Contents')}
+            </button>
+            <NumberInput
+              label={_('Font Size')}
+              value={viewSettings?.defaultFontSize ?? 16}
+              min={MIN_FONT_SIZE}
+              max={MAX_FONT_SIZE}
+              step={FONT_SIZE_STEP}
+              onChange={(value) => save('defaultFontSize', value)}
+            />
+            <NumberInput
+              label={_('Maximum Number of Columns')}
+              value={viewSettings?.maxColumnCount ?? 2}
+              min={1}
+              max={4}
+              onChange={(value) => save('maxColumnCount', value)}
+            />
+            <button
+              className={actionClass}
+              onClick={() =>
+                useThemeStore.getState().setThemeMode(theme === 'dark' ? 'light' : 'dark')
+              }
+            >
+              {_('Theme')}: {theme === 'dark' ? _('Dark') : _('Light')}
+            </button>
+            <button
+              className={actionClass}
+              onClick={() => save('scrolled', !viewSettings?.scrolled)}
+            >
+              {_('Scrolled Mode')}: {viewSettings?.scrolled ? _('On') : _('Off')}
+            </button>
+            <button
+              className={actionClass}
+              onClick={() => {
+                void eventDispatcher.dispatch('toggle-bookmark', { bookKey });
+              }}
+            >
+              {_('Toggle Bookmark')}
+            </button>
+            <button
+              className={actionClass}
+              onClick={() => {
+                onClose();
+                void eventDispatcher.dispatch('tv-open-tts', { bookKey });
+              }}
+            >
+              {_('Read Aloud')}
+            </button>
+            <button
+              className={actionClass}
+              onClick={() => {
+                onClose();
+                eventDispatcher.dispatch('toggle-paragraph-mode', { bookKey });
+              }}
+            >
+              选文与段落阅读
+            </button>
+            <button className={actionClass} onClick={() => openSidebar(true)}>
+              {_('Search in Book')}
+            </button>
+            <button
+              className={actionClass}
+              onClick={() => {
+                useSidebarStore.getState().setSideBarVisible(false);
+                useSidebarStore.getState().setSideBarBookKey(bookKey);
+                useNotebookStore.getState().setNotebookVisible(true);
+                onClose();
+              }}
+            >
+              笔记本与 AI
+            </button>
+            <button className={actionClass} onClick={() => setToolsOpen(true)}>
+              更多阅读工具
+            </button>
+            <button
+              className={actionClass}
+              onClick={() => {
+                const settings = useSettingsStore.getState();
+                settings.setSettingsDialogBookKey(bookKey);
+                settings.setSettingsDialogOpen(true);
+              }}
+            >
+              {_('More Settings')}
+            </button>
+            <button className={actionClass} onClick={onLibrary}>
+              {_('Back to Library')}
+            </button>
+          </BoxedList>
+          {error && <p role='status'>{error}</p>}
+        </div>
+      </Dialog>
+      {open && toolsOpen && (
+        <TVReadingTools
+          bookKey={bookKey}
+          onBack={() => setToolsOpen(false)}
+          onDone={() => {
+            setToolsOpen(false);
+            onClose();
+          }}
+        />
+      )}
+    </>
   );
 }

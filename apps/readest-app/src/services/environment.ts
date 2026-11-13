@@ -1,5 +1,5 @@
 import { AppService } from '@/types/system';
-import { READEST_NODE_BASE_URL, READEST_WEB_BASE_URL } from './constants';
+import { READEST_WEB_BASE_URL } from './constants';
 import { getRuntimeConfig } from './runtimeConfig';
 import { getOSPlatform } from '@/utils/misc';
 
@@ -18,8 +18,6 @@ export const getBaseUrl = () =>
   process.env['API_BASE_URL'] ??
   process.env['NEXT_PUBLIC_API_BASE_URL'] ??
   READEST_WEB_BASE_URL;
-export const getNodeBaseUrl = () =>
-  process.env['NEXT_PUBLIC_NODE_BASE_URL'] ?? READEST_NODE_BASE_URL;
 
 /**
  * Whether window move/resize has to be driven from JS with pointer events.
@@ -43,14 +41,6 @@ const isWebDevMode = () => process.env['NODE_ENV'] === 'development' && isWebApp
 // with command `pnpm dev-web`
 // for production build or tauri app use the production Web API
 export const getAPIBaseUrl = () => (isWebDevMode() ? '/api' : `${getBaseUrl()}/api`);
-
-// Readest Voice synthesizes on the production GPU service, which a local dev
-// server cannot reach: its routes use the production Web API even under
-// `pnpm dev-web` (a self-hosted apiBaseUrl still applies).
-export const getReadestVoiceAPIBaseUrl = () => `${getBaseUrl()}/api`;
-
-// For Node.js API that currently not supported in some edge runtimes
-export const getNodeAPIBaseUrl = () => (isWebDevMode() ? '/api' : `${getNodeBaseUrl()}/api`);
 
 export interface EnvConfigType {
   getAppService: () => Promise<AppService>;

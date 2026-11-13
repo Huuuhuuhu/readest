@@ -1,3 +1,4 @@
+import { isTVMode } from '@/utils/tvInput';
 import TVReorderControls from '@/components/TVReorderControls';
 import {
   useCallback,
@@ -144,23 +145,40 @@ function BookshelfTab({
       style={{ transform: CSS.Translate.toString(transform), zIndex: isDragging ? 1 : undefined }}
     >
       {editing ? (
-        <input
-          ref={inputRef}
-          aria-label={_('Bookshelf name')}
-          className='input eink-bordered h-11 w-52 min-w-0 text-sm font-semibold'
-          maxLength={120}
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          onBlur={finishRename}
-          onKeyDownCapture={(e) => {
-            if (e.nativeEvent.isComposing || !['Enter', 'Escape'].includes(e.key)) return;
-            if (e.key === 'Enter') finishRename();
-            else setEditing(false);
-            e.preventDefault();
-            e.stopPropagation();
-            requestAnimationFrame(() => buttonRef.current?.focus());
-          }}
-        />
+        <>
+          <input
+            ref={inputRef}
+            aria-label={_('Bookshelf name')}
+            className='input eink-bordered h-11 w-52 min-w-0 text-sm font-semibold'
+            maxLength={120}
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onBlur={isTVMode() ? undefined : finishRename}
+            onKeyDownCapture={(e) => {
+              if (isTVMode() || e.nativeEvent.isComposing || !['Enter', 'Escape'].includes(e.key))
+                return;
+              if (e.key === 'Enter') finishRename();
+              else setEditing(false);
+              e.preventDefault();
+              e.stopPropagation();
+              requestAnimationFrame(() => buttonRef.current?.focus());
+            }}
+          />
+          {isTVMode() && (
+            <>
+              <button
+                className='btn btn-contrast'
+                aria-label={_('Save bookshelf name')}
+                onClick={finishRename}
+              >
+                {_('Save')}
+              </button>
+              <button className='btn' onClick={() => setEditing(false)}>
+                {_('Cancel')}
+              </button>
+            </>
+          )}
+        </>
       ) : (
         <>
           <button

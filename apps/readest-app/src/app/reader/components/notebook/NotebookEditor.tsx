@@ -134,6 +134,13 @@ const NotebookEditor: React.FC<NotebookEditorProps> = ({
           <PiNotePencil size={16} />
           {_('All notes')}
         </button>
+        <button
+          type='button'
+          className='btn btn-contrast'
+          onClick={() => void flushNotebookDocument(bookKey)}
+        >
+          {_('Save')}
+        </button>
         <span className='text-error flex-1'>
           {session.error === 'size-limit'
             ? _('Notebook is too large to save. Copy or remove some text to continue.')

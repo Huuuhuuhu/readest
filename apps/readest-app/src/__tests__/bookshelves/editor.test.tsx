@@ -118,6 +118,7 @@ afterEach(async () => {
   localStorage.removeItem('i18nextLng');
   localStorage.removeItem('lastBookshelfTab');
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 describe('bookshelf editor', () => {
   it('shows the shelf tabs in the dialog header in place of a title', async () => {
@@ -996,4 +997,21 @@ describe('bookshelf editor', () => {
     expect(screen.queryByRole('button', { name: 'Move up' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Move down' })).toBeNull();
   });
+});
+
+it('TV bookshelf rename keeps the draft on IME blur and requires Save', async () => {
+  vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
+  render(<BookshelvesEditor />);
+  fireEvent.click(screen.getByRole('button', { name: 'Default' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Rename bookshelf' }));
+  const input = screen.getByLabelText('Bookshelf name');
+  fireEvent.change(input, { target: { value: 'TV Library' } });
+  fireEvent.blur(input);
+  expect(screen.getByLabelText('Bookshelf name')).toBe(input);
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Save bookshelf name' }));
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  expect(
+    (save.mock.calls.at(-1)![2] as BookshelfDefinition[]).find((s) => s.id === 'default')?.name,
+  ).toBe('TV Library');
 });

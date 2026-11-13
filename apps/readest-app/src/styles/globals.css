@@ -1,5 +1,18 @@
 @import 'tailwindcss' source('../');
 
+/* Keep reading text at its saved size; enlarge the surrounding TV interface. */
+[data-tv-mode='true'] {
+  font-size: 20px;
+}
+[data-tv-mode='true'] kbd {
+  display: none;
+}
+[data-tv-mode='true'] [role='menuitem'] {
+  min-height: 44px;
+}
+[data-tv-mode='true'] [role='menuitem'] .text-pretty {
+  font-size: 1rem;
+}
 /* A TV is viewed from across the room: use a solid, theme-aware focus edge. */
 [data-tv-mode='true'] :focus {
   outline: 3px solid var(--color-base-content) !important;
@@ -18,6 +31,7 @@
   font-size: 20px;
 }
 [data-tv-mode='true'] .btn {
+  font-size: inherit;
   min-height: 44px;
 }
 /* A remote needs a visible target as soon as a dialog owns its keys. */

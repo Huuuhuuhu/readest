@@ -1,6 +1,8 @@
+import { isTVMode } from '@/utils/tvInput';
 import clsx from 'clsx';
 import React, { useCallback, useEffect, useState } from 'react';
 
+import { useTVScope } from '@/hooks/useTVScope';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
@@ -74,6 +76,13 @@ const Notebook: React.FC = () => {
     panelHeight: notebookHeight,
     handleVerticalDragStart,
   } = useSwipeToDismiss(hideNotebook, (data) => setIsFullHeightInMobile(data.clientY < 44));
+
+  useTVScope(notebookRef, isNotebookVisible, {
+    priority: 45,
+    initialFocus: () => notebookRef.current?.querySelector<HTMLElement>('button') ?? null,
+    onBack: hideNotebook,
+    onMenu: hideNotebook,
+  });
 
   const handleHideNotebookShortcut = useCallback(() => {
     if (!isNotebookVisible || isNotebookPinned) return false;
@@ -233,7 +242,7 @@ const Notebook: React.FC = () => {
             isMobile && 'hidden',
           )}
           role='slider'
-          tabIndex={0}
+          tabIndex={isTVMode() ? -1 : 0}
           aria-label={_('Resize Notebook')}
           aria-orientation='horizontal'
           aria-valuenow={parseFloat(notebookWidth)}
@@ -245,7 +254,7 @@ const Notebook: React.FC = () => {
           {isMobile && (
             <div
               role='slider'
-              tabIndex={0}
+              tabIndex={isTVMode() ? -1 : 0}
               aria-label={_('Resize Notebook')}
               aria-orientation='vertical'
               aria-valuenow={notebookHeight.current}

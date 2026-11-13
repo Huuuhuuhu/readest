@@ -223,8 +223,12 @@ setInterval(() => {
       .catch((error) => {
         statusFailures++;
         if (!token) fail(error);
-        else if (statusFailures === 3)
-          message('暂时无法连接电视。请检查网络；入口到期或网络切换后需要重新扫码。', true);
+        else if (statusFailures >= 3) {
+          connected = false;
+          token = '';
+          sessionStorage.removeItem('tv-capability');
+          message('与电视的连接已中断。入口到期或网络切换后请重新扫码。', true);
+        }
       });
 }, 2000);
 

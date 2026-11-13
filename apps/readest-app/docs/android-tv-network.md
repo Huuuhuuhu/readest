@@ -1,76 +1,56 @@
-# Readest TV 联网范围与验证记录
+# Readest TV 联网清单
 
-更新：2026-11-13。适用于 `Huuuhuuhu/readest` 的 `tv/0.12.20` 分支。
-这是阶段 2 的实现清单；P1 APK 仍包含上游账号和官方服务代码，不能据此文档宣称已完成去依赖。
-原遥控器、单栏、确认后编辑、无应用账号、独立 TTS、扫码上传/手机配置要求继续有效。
+更新：2026-11-14，适用于 `tv/0.12.20` / `0.12.20-tv.2`。目的地由调用链核实；“源码/回归验证”不代表已经使用真实第三方账号联调，也不代表 ARMv7 真机抓包通过。
 
-## 判断规则
+本地启动、界面、默认字体、解析器、书库、阅读和设置均随 APK 提供。没有 Readest 登录、权益获取或官方云初始化。没有按域名一刀切的网络封锁；下面的公共下载仍可按需访问。
 
-- 本地启动、默认字体、界面、书库、阅读、设置和解析资源必须离线可用，不等待在线资源。
-- 保留经核实免 **Readest** 登录/会员的公共资源，包括官方托管的资源。明确入口、按需获取、优先本地缓存。
-- 独立第三方及自配服务可以要求其自己的账号、API Key 或费用；凭据不能绑定 Readest 身份或权益缓存。
-- 真正删除 Readest 登录、订阅购买、权益校验、遥测、官方账号云服务、Readest Voice 和官方翻译/TTS 中转。不能伪造高级会员或仅隐藏按钮。
-- 按服务、路径、用途检查调用链。保留 `cdn.readest.com/wordlens/` 不放开账号 API；移除账号存储也不删除 `storage.readest.com/public/font/dist/`。
-- 不在产品中统一阻断 Readest 域名，也不为这次修正增加统一 NetworkPolicy/ServiceRegistry。全域名屏蔽只用于故障验收。
-- 对性质不明的资源先保留待核实记录，不直接删除。更新仅使用本 fork 的发布渠道。
+## 公共资源
 
-## 已核实的公共资源
-
-匿名探测不发送 Cookie、Authorization、Readest token 或 API Key。下面的 HTTP 验证是本机经网络代理直接请求资源，**不是电视 APK 抓包或可用性验收**。可访问性不等于重新打包分发的许可。
-
-| 功能与目的地 | 用途、触发条件 | 凭据 | 缓存与失败影响 | 验证和实现状态 |
-| --- | --- | --- | --- | --- |
-| 示例书：`https://cdn.readest.com/books/`；原版 en/zh JSON 中的 8 个 EPUB 地址 | 书库显式选书并下载导入；不在冷启动自动导入 | 无 | 导入完成按普通本地书保存；失败仅该下载报错，不能挡住导入自己的书 | 8/8 匿名范围 GET 返回 206、ZIP 文件头正确；未完整下载全部书，未验证新 TV 入口。现有 `useDemoBooks` 只在 Web 自动导入，Android 的明确入口待补 |
-| 官方字体：`https://storage.readest.com/public/font/dist/{family}/result.css` 与其 WOFF2 分片；Huiwen-MinchoGBK、KingHwa_OldSong、Source Han Serif CN、GuanKiapTsingKhai-T | 用户选择公共字体后下载；默认 UI/阅读字体使用本地资源 | 无 | 目标为下载后本地使用，失败回本地字体且保留当前阅读位置；不为每段/每页重复请求 | 4/4 CSS 完整匿名 GET 200，每套抽查一个 WOFF2 分片返回 206、签名正确；未验证全部分片、CORS/Android 渲染及分发许可。现有自动挂载远程样式需改为显式下载并持久化，不能删掉字体功能 |
-| Word Lens：`https://cdn.readest.com/wordlens/manifest.json` 与其中 `{pair}.json?v={sha前8位}` | 打开词包管理页获取清单、显式刷新/下载；只有启用 Word Lens 自动下载后才可在缺包时获取 | 无 | 清单、JSON 词包及 SHA sidecar 存在电视 Data/wordlens；本地优先；失败只影响提示词包，不影响正文；失败自动下载在当前进程内停止，用户可手动重试 | 清单 200，17/17 词包完整匿名 GET 200，长度与 SHA-256 均匹配。此批已修复缓存优先、禁止下载时不取清单、重复失败不随章节重试、手动刷新入口及下载脱离账号存储；Android 真机待验 |
-| 其他公共字体：Google Fonts/gstatic、jsDelivr、cdnjs 等现有来源 | 明确选择对应资源后获取 | 原调用无 Readest 凭据 | 不得成为默认字体或启动的必要条件；缓存/本地导入保留 | 已发现 `styles/fonts.ts` 的调用线索，逐资源匿名访问、许可、持久化及 TV 入口尚未验证；不得仅凭域名删掉 |
-| 用户提供的 Readest 公开分享链接：`/api/share/{token}`、`/download`、`/cover` | 仅用户打开有效分享链接时读取元数据/下载到本地 | 有效分享链接本身的访问凭证，不是 Readest 账号；不记录原始 token | 过期/撤销/服务不可达只影响该链接，已导入书籍保持本地可用 | 服务端 GET 调用链已核实为公开读取；没有有效分享链接可做在线验证。原 `POST /import` 是账号云端复制，必须删除；不得把公开 GET 和账号创建/导入一起误删，也不应恢复云端导入流程 |
-
-来源：[示例书清单](../src/data/demo/library.zh.json)、[示例书调用](../src/app/library/hooks/useDemoBooks.ts)、[字体](../src/styles/fonts.ts)、[Word Lens 下载](../src/services/wordlens/glossPacks.ts)、[词包设置页](../src/components/settings/WordLensPanel.tsx)。
-匿名验证明细见 [public-resource-probes.json](verification/public-resource-probes.json)。书籍和字体只做的范围抽查，不应写成全量内容验证。
-
-## 保留的独立服务与集成
-
-以下为既定保留范围。目的地来自原源码/前期审计；除另有说明，**尚未完成去账号调用链、实际请求和 ARMv7 真机验证**。用户自配地址、重定向和系统 TTS 引擎的目的地须在最终验收补齐。
-
-| 功能 | 目的地 | 触发条件与凭据 | 失败影响 / 当前待办 |
+| 功能与目的地 | 触发/凭据 | 缓存与失败影响 | 验证 |
 | --- | --- | --- | --- |
-| Edge TTS | 微软 `speech.platform.bing.com` 的 read-aloud WebSocket | 用户选择 Edge 朗读/试听/词语发音；无需 Readest 账号 | 仅朗读错误或使用已缓存音频；保留直接微软路径，删除 Web/试听/词语发音中的官方 HTTP fallback 和 `tts-need-auth` 事件。未在本批实际合成验证 |
-| Android 系统 TTS / 本地朗读 | 本地 Android TTS 引擎、本地录音/媒体叠层/音频缓存；在线系统声音由其引擎决定 | 用户选择播放；系统引擎自身可能需联网/安装声音 | 无声音时提示引擎问题，不影响阅读；不能承诺所有系统声音都离线。设备验证待用户测试 |
-| 自配 TTS | 用户保存的接口地址、模型/音色目录与合成路径 | 添加/测试/试听/朗读时；仅给该服务 API Key | 只影响该服务；去掉 `isCustomTTSAllowed(getAccessToken())`、Readest Voice 及自动代理；保留现有兼容客户端。待独立配置/错误回归 |
-| 翻译与在线词典 | Google/Bing(Yandex) 等原生直连、Wiktionary/Wikipedia、自配 DeepL/兼容接口或词典 | 用户查询或开启全文翻译；提供方要求时使用其 key | 本地词典和阅读继续；移除官方翻译中转及账号门槛，不因保留公共资源而放回中转。各提供方逐项待验证 |
-| AI | 用户选择的模型提供方地址或自建 Ollama/兼容接口 | 用户发送查询/测试/使用 AI 功能；相应服务 key（如需要） | 仅 AI 任务失败；不请求 Readest 权益或改变本地功能。网络出口与凭据隔离待验证 |
-| OPDS / 公共书源 / 网页小说 / RSS / 播客 | 用户所选目录、来源及其明确链接的下载/封面/音频 URL | 浏览/搜索/下载/播放；自动更新需单独开启；来源可有自己的账号 | 已下载书籍离线可读；本地书库可返回；Android 保留原生直连，官方 Web 代理需拆除。公共预设逐项核实 |
-| 元数据 / 封面 | 计划直接使用 `openlibrary.org`、`covers.openlibrary.org`、Google Books 或用户配置服务 | 明确搜索/确认批量补全；提供方需要时用其 key | 保留手工编辑和已有封面；原 `/metadata/search` 官方中转需替换，不能随书架渲染反复查询。直连替换待实现 |
-| WebDAV / S3 / KOSync | 用户服务器、桶端点；KOSync 公共服务可作明确预设 | 测试、手动同步；显式启用后自动同步；该服务用户名/密码/key | 只报同步失败，本地数据保留；删除官方默认回落、账号副本通道和客户端会员限制。自有凭据不上传官方 |
-| Google Drive / OneDrive | Google OAuth/Drive 与 Microsoft OAuth/Graph 及文件下载地址 | 用户主动连接与同步；其 OAuth 凭据，自动刷新仅限已配置连接 | 仅该连接失效；核对可独立使用的 OAuth client/回跳配置，不冒用上游应用注册，不与 Readest 登录绑定。待核实 |
-| Audiobookshelf / BookOrbit / Grimmory | 用户自有服务器和其媒体主机 | 用户配置后浏览、播放、下载、同步；该服务凭据 | 缓存内容/本地书仍可用；去除 Readest 会员门槛、官方代理；真实服务待联调 |
-| Readwise / Notion / Hardcover / Pagebound | 对应独立服务 API 与授权端点；Pagebound 还包括其 Firebase 身份和搜索端点 | 用户分别配置后导出/查询/同步；各自 token/账号 | 仅该集成失败；第三方身份不是应用账号。OAuth 依赖及所有动态目的地待核实 |
-| Anki / Obsidian | 本地文件，或用户 AnkiConnect/同步地址 | 用户导出或显式启用同步；端点所需凭据 | 本地导出开放，网络导出失败不锁本地功能；待移除权益判断 |
-| 手机协助 / LocalSend | 电视实际 LAN IP:实际端口 `/assist/`；另有用户开启的 LocalSend 局域网发现/传输 | 遥控器显式开启；短期设备授权，无应用账号；手机表单凭据只保存电视并发给所属服务 | 关闭/过期/网络变化撤销；已导入文件与已保存配置保留。依原阶段 3 实现；本批不增加新协议层 |
-| 本 fork 更新 | `github.com/Huuuhuuhu/readest/releases`、`api.github.com` 及发布资产重定向地址 | 手动检查、确认下载；无需 GitHub 登录 | 失败保留当前版本，不回退上游。P1 已从此渠道发布，应用内 updater 替换尚未完成 |
-| 书内远程资源 / 外链 | 该书引用或用户确认打开的具体 URL | 明确启用该书的远程资源，或确认外链；不携带服务密钥 | 缺失资源提示局限于该书；核心渲染仍本地。按用途核实，不能统一排除 Readest 托管的公共资源 |
+| 示例书 `cdn.readest.com/books/*` | 书库明确选择示例书下载；无需凭据 | 按普通本地书导入；失败只影响该次下载 | 8 个地址匿名范围 GET 206、ZIP 头；调用和显式入口回归；未全量下载所有书 |
+| 公共字体 `storage.readest.com/public/font/dist/*`、`fonts.googleapis.com`/`fonts.gstatic.com`、`cdn.jsdelivr.net`、`cdnjs.cloudflare.com` | 字体设置的公共字体下载入口；无需 Readest 身份 | CSS 和字体分片下载到本地；打开书只挂载已缓存资源；失败保留本地默认字体 | 4 套官方 CSS 200，每套抽查 WOFF2；持久化/离线加载回归；未遍历所有第三方字体及分片 |
+| Word Lens `cdn.readest.com/wordlens/manifest.json` 和词包 JSON | 设置 → 语言 → Word Lens；手动刷新/下载，或用户开启自动下载后缺包时获取；无需凭据 | 清单/词包/SHA 本地保存，缓存优先；关闭自动下载不请求清单；失败不逐章重试，手动可重试 | 17/17 词包完整 GET、SHA 和长度匹配；缓存、关闭下载、超时/失败回归 |
+| 公开分享 `web.readest.com/api/share/{token}`、`/download`、`/cover` 及返回资源地址 | 用户打开有效分享链接；仅链接自身的访问凭证，无 Readest 账号 | 下载导入本地；失效只影响该链接；无账号云端复制/创建/管理 | 公开只读调用链已核实；没有有效分享链接做线上端到端测试 |
 
-## 删除/替换的调用关系
+探测不发送 Cookie、Authorization、Readest token 或用户 API Key，见 [public-resource-probes.json](verification/public-resource-probes.json)。在线可访问不等于重新分发许可；额外字体继续由用户按需下载，没有打包第三方资源全集。
 
-| 模块 | 实际要删除/替换的内容 | 保留边界 |
-| --- | --- | --- |
-| 身份、权益、支付 | AuthProvider/Supabase 会话刷新、登录注册/个人中心、套餐/配额/entitlement 缓存与校验、Stripe/商店购买及 BILLING 权限 | 本地记录、设备 PIN、独立服务连接凭据 |
-| 官方云/私有对象存储 | Readest cloud provider、账号 replica、用户私有 signed-URL 查询、官方收件箱/设备授权、分享创建/管理和账号云端导入及后台任务 | WebDAV/S3 等自配同步、本地序列化/导出、公共下载；公开分享只读路径单独核实，不能复用云端导入。Word Lens 本批已不再导入 `libs/storage` |
-| 语音/翻译 | Readest Voice、官方 Edge HTTP proxy、官方翻译中转、自配服务的会员判断与 auth 事件 | 直接微软、系统 TTS、本地音频、自配/独立第三方接口 |
-| 遥测/远程配置 | PostHog、Sentry 的可执行 SDK/自动初始化/上传、账号与官方付费 API 配置 | 本地日志、主动导出的脱敏诊断；公共资源 URL 本身允许保留 |
-| 更新 | `download.readest.com` 上游 stable/nightly 清单与安装包、官方更新 fallback | 本 fork 的签名 APK 和发布渠道 |
+## 独立服务和自配连接
 
-上述删除仍按阶段 2 逐模块实现；本批没有把登录按钮隐藏或伪造会员，也没有声称整个应用已经停止官方后台调用。
+| 功能 | 目的地 | 触发和凭据 | 失败影响/验证 |
+| --- | --- | --- | --- |
+| Edge TTS | `wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1` | 选择 Edge 朗读/试听/发音；使用原客户端的公开协议参数，无 Readest 身份 | 只影响朗读，绝无 Readest HTTP fallback。实际合成中文得到 17,424 字节音频、5 个词边界；见 [直接连接探测](verification/edge-direct-probe.json)。测试经本机代理连接微软，未测电视网络 |
+| Android 系统 TTS、本地朗读 | 系统安装的语音引擎；本地录音、EPUB 媒体叠层、下载音频 | 用户播放；系统在线音色由该引擎决定目的地/授权 | 本地阅读不受影响；离线引擎初始化回归，实物声音未测 |
+| 自配 TTS | 保存的接口根地址及 `/audio/speech` 等兼容路径；支持 OpenAI 兼容/MiMo | 手机或电视测试/试听/朗读；API Key 只发该服务，支持无需 key 的本地服务 | 401/限额/超时局部报错，响应正文不回显凭据；持久化、回滚、草稿试听、音频格式、删改回归；未使用用户真实服务凭据 |
+| 翻译 | `translate.googleapis.com`、`www.bing.com`、`translate.yandex.ru`/`.net`；`api-free.deepl.com`/`api.deepl.com`；自配兼容地址 | 用户查询/开启全文翻译；DeepL/自配服务可有自己的 key | 只影响翻译；官方代理删除；直连调用及适配器回归，未逐一线上联调 |
+| 词典/网页搜索 | Wiktionary/Wikipedia 各语言站点；自配字典 URL；用户选择的 Google、Merriam-Webster、Urban Dictionary、Goodreads 等搜索页 | 查询词语/打开搜索；来源需要时使用自己的凭据 | 本地词典/阅读继续；源码/回归核实，未遍历所有网站 |
+| AI | `openrouter.ai/api/v1`、Vercel AI Gateway、用户 Ollama/兼容地址（默认 Ollama 为本机 11434，电视可修改） | 用户发送/测试/启用 AI 功能；该服务 API Key | AI 任务局部失败，不校验 Readest 会员；源码/回归，未使用真实付费账户 |
+| OPDS / 网页小说 / RSS / 播客 | 用户选择的目录、来源及返回的下载/封面/音频 URL | 浏览/搜索/下载/播放；自动更新需开启；来源可有自己账号 | 已下载书离线可读；原生直连、去代理、表单保存回归；未遍历各公共目录 |
+| 元数据和封面 | `openlibrary.org`、`covers.openlibrary.org`；`www.googleapis.com/books/v1`；用户打开的 Bing/Google/DuckDuckGo 封面搜索 | 明确查找/批量补全；Google Books 如配置则带自己的 key | 手工编辑、现有封面继续；OpenLibrary 直连替换官方中转，适配器回归；未逐条验证所有书目 |
+| WebDAV / S3 | 用户服务器或桶端点 | 测试/手动同步；启用后按原设置自动同步；该服务用户名/密码/key | 本地数据保留，状态显示同步失败；独立同步、完整刷新、手机保存回归；真实服务器未联调 |
+| Google Drive | Google OAuth、`oauth2.googleapis.com`、`www.googleapis.com`、文件下载主机 | 主动连接后同步/令牌刷新；用户的 Google 授权 | 无 Readest 会话/权益依赖；保留原公开 OAuth 客户端和构建时替换入口，注册/第三方回跳规则仍可能限制可用性；未真实授权联调 |
+| OneDrive | `login.microsoftonline.com`、`graph.microsoft.com` 及下载主机 | 主动连接后同步/刷新；Microsoft 授权 | 同上；可用 `NEXT_PUBLIC_MICROSOFT_CLIENT_ID` 构建自己的客户端，未真实授权联调 |
+| KOSync | 用户地址，预设 `sync.koreader.rocks`/`kosync.ak-team.com` | 配置并连接/同步；该服务账号 | 仅同步失败；直连/配置回归，未真实账号验证 |
+| Audiobookshelf / BookOrbit / Grimmory | 用户服务器及其媒体主机 | 配置后浏览、播放、下载、同步；该服务凭据 | 缓存/本地书可用；直连、独立账号、去官方门槛回归，未真实服务器联调 |
+| Readwise / Notion / Hardcover | `readwise.io`、`api.notion.com`、`api.hardcover.app` 及 Hardcover 授权端点 | 用户配置后导出/查询/同步；各自 token/OAuth | 集成局部失败；无 Readest 账号绑定；Hardcover 保留公开 OAuth 客户端及独立 API token 方式；未真实账号联调 |
+| Pagebound | `pagebound.co`、`prod-pagebound-api.onrender.com`、`identitytoolkit.googleapis.com`、`securetoken.googleapis.com`、其 Typesense 搜索主机 | 用户主动连接 Pagebound/查询/同步；Pagebound 账号 | 此第三方身份独立于应用；源码/回归，未真实账号联调 |
+| Anki / Obsidian | 用户 AnkiConnect 地址（默认本机 8765）/本地文件 | 明确导出或开启集成；如配置则用该端点凭据 | 本地导出保留；去门槛与源码/回归，未 Anki 实机联调 |
+| LocalSend | 本地发现与选中设备的局域网 HTTPS | 用户开启/选择设备并确认；无 Readest 身份 | 只影响本次局域网传输；保留证书/设备确认，未两台实机测试 |
+| 手机助手 | 电视当前私有 IPv4:实际端口 `/`、`/api/*` | 遥控器开启后 15 分钟随机能力授权；二维码 fragment 不含服务 key | 无网络/关闭/过期/网络变更使旧授权无效；Rust 实际 HTTP、手机表单和电视 RPC 分层验证，未手机→电视完整实物测试 |
+| 本 fork 更新 | `github.com/Huuuhuuhu/readest/releases` 及 GitHub 资产重定向主机 | 关于页面主动打开发布页/下载；无需应用账号 | 无自动上游检查/回落，失败保留当前安装；发布流水线和签名验证 |
+| 书内远程资源 / 外链 | 书籍引用或用户确认的 URL及其重定向目标 | 明确允许该书远程资源、或用户打开外链；不附带应用服务密钥 | 只缺少相关外部资源，核心渲染本地；源码/既有回归 |
 
-## 受影响的验收
+Google/OneDrive 的公开 OAuth client ID 不是用户密钥，也不是 Readest 登录凭据；依赖第三方应用注册可用性。自行构建可设置 `NEXT_PUBLIC_GOOGLE_CLIENT_ID`、`NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID`、`NEXT_PUBLIC_MICROSOFT_CLIENT_ID`，Google 原生回跳 scheme 须与自己的 client ID 同步注册。不能把未实际授权的 OAuth 流程声称为已验证。
 
-1. **全新安装、全官方阻断**：无缓存/无 Readest 登录，DNS 失败、拒绝连接、超时分别测试。启动、本地管理/阅读/设置、独立自配服务可用，默认字体和解析不等远端。
-2. **主动公共下载失败**：上述阻断下分别请求示例书、公共字体、Word Lens；仅对应下载报错，无登录/会员提示、回锁或持续后台重试。浏览/翻页和设置保持可用。
-3. **网络恢复后显式重试**：刷新清单、选书/字体/词包下载；请求无 Readest token，不能因此恢复官方云或付费代理；完成后不抢阅读焦点。
-4. **缓存与重启**：完成下载后重启、断网再使用书籍/字体/词包。Word Lens 的本地读取不能等待另一窗口未结束的网络请求；网络下载关闭时连清单都不得下载。
-5. **独立服务失败**：Edge、自配 TTS、翻译/词典等分别 401/限额/超时，局部报错；绝不 fallback Readest。第三方自己的账号/费用不应被误删。
-6. **遥控可达**：用方向/确认/返回完成公共资源入口、选择、刷新/重试、下载状态查看和返回；确认后编辑和不穿透正文继续适用。Word Lens 已有设置页复用，示例书/字体的明确入口还待实现和电视走查。
-7. **发布证据**：联网表逐行记录最终 commit/APK、目的地、用途、触发、凭据、失败影响、实际验证方式和未测部分；静态字符串、匿名 HTTP 和真机抓包分别记载。
+用户自配 URL、书内链接、OPDS/播客返回的媒体 URL 会决定额外主机，因此不存在固定的全主机白名单。第三方服务自身的费用和账号政策不由这个 fork 绕过。
 
-此批的 Word Lens 回归涵盖本地优先、失败后显式重试、关闭下载时不取清单、不等待在途下载、词包校验和设置页刷新。最终 APK 的冷启动流量、电视按键及独立服务联调仍待后续阶段验收。
+## 已删除或替换
+
+- Auth/Supabase、登录/注册/个人中心、套餐/配额/权益、购买和商店 BILLING、Stripe/Apple 服务端 SDK、PostHog/Sentry 初始化和依赖。
+- 官方账号云 provider、replica 后台通道、私有 signed URL、Readest 收件箱/设备登录、分享创建管理和账号云端复制。旧同步队列不会恢复官方上传。
+- Readest Voice、Edge 官方代理 fallback、官方翻译中转、元数据代理、自配功能会员限制。元数据改独立查询，独立同步不等待登录。
+- 官方更新 URL。无新应用账号，无伪造高级身份。
+
+## 故障验收边界
+
+默认启动不发官方账号请求，公共资源默认按需并优先本地。缓存、失败隔离、无隐式官方后端、无会员状态的服务调用已有回归。**全新 APK + 在电视网络屏蔽全部 Readest 域名**、网络恢复后公共资源下载、重启/切网及实际系统 TTS 尚需实物验收；公共资源被屏蔽时下载失败属于预期，本地功能不得跟随失效。

@@ -1,3 +1,4 @@
+import { isTVMode } from '@/utils/tvInput';
 import clsx from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -88,6 +89,7 @@ type TTSPlayerSheetProps = {
   timeoutTimestamp: number;
   chapterRemainingSec: number | null;
   onClose: () => void;
+  onStop?: () => void;
   onTogglePlay: () => void;
   onBackward: (byMark: boolean) => void;
   onForward: (byMark: boolean) => void;
@@ -137,6 +139,7 @@ const TTSPlayerSheet = ({
   timeoutTimestamp,
   chapterRemainingSec,
   onClose,
+  onStop,
   onTogglePlay,
   onBackward,
   onForward,
@@ -435,7 +438,7 @@ const TTSPlayerSheet = ({
         view === 'voice' ? 'sm:h-[var(--tts-player-h,85%)]!' : 'sm:h-[var(--tts-player-h,auto)]!',
       )}
       contentClassName='px-4! sm:px-4! mt-[-4px]'
-      onClose={onClose}
+      onClose={() => (view === 'main' ? onClose() : setView('main'))}
     >
       {view === 'main' && (
         // sm:pt-4 keeps the cover clear of the box's rounded top edge on
@@ -708,6 +711,11 @@ const TTSPlayerSheet = ({
             </button>
           )}
         </div>
+      )}
+      {view === 'main' && isTVMode() && onStop && (
+        <button className='btn m-4' onClick={onStop}>
+          结束朗读
+        </button>
       )}
       {view === 'chapters' && (
         <TTSChaptersView
