@@ -5,6 +5,7 @@ if (location.hash) {
   sessionStorage.setItem('tv-capability', token);
   history.replaceState(null, '', '/');
 }
+let statusFailures = 0;
 let services = [],
   connected = true,
   uploadController,
@@ -61,7 +62,8 @@ async function status() {
 function showTab(tab) {
   $('books').hidden = tab !== 'books';
   $('tts').hidden = tab !== 'tts';
-  for (const id of ['books', 'tts'])
+  $('library').hidden = tab !== 'library';
+  for (const id of ['books', 'tts', 'library'])
     $(`${id}-tab`).setAttribute('aria-pressed', String(id === tab));
 }
 $('books-tab').onclick = () => showTab('books');
@@ -214,7 +216,96 @@ status()
   .catch(fail);
 setInterval(() => {
   if (connected && token)
-    status().catch((error) => {
-      if (!token) fail(error);
-    });
+    status()
+      .then(() => {
+        statusFailures = 0;
+      })
+      .catch((error) => {
+        statusFailures++;
+        if (!token) fail(error);
+        else if (statusFailures === 3)
+          message('暂时无法连接电视。请检查网络；入口到期或网络切换后需要重新扫码。', true);
+      });
 }, 2000);
+
+let catalogs = [];
+const webdavForm = $('webdav-form');
+const opdsForm = $('opds-form');
+const element = (form, name) => form.elements.namedItem(name);
+function fillCatalog() {
+  const catalog = catalogs.find((item) => item.id === $('catalogs').value);
+  opdsForm.reset();
+  for (const name of ['name', 'url', 'username'])
+    element(opdsForm, name).value = catalog?.[name] ?? '';
+  element(opdsForm, 'allowSelfSignedCert').checked = !!catalog?.allowSelfSignedCert;
+  element(opdsForm, 'password').placeholder = catalog?.hasPassword
+    ? '已有密码，留空保留'
+    : '无需密码可留空';
+  $('delete-catalog').disabled = !catalog;
+}
+async function loadConnections() {
+  const data = await rpc('getConfig');
+  webdavForm.reset();
+  for (const name of ['serverUrl', 'username', 'rootPath'])
+    element(webdavForm, name).value = data.webdav[name];
+  element(webdavForm, 'enabled').checked = data.webdav.enabled;
+  element(webdavForm, 'password').placeholder = data.webdav.hasPassword
+    ? '已有密码，留空保留'
+    : '无需密码可留空';
+  const current = $('catalogs').value;
+  catalogs = data.opds;
+  $('catalogs').replaceChildren(
+    new Option('添加新书源', ''),
+    ...catalogs.map((c) => new Option(c.name, c.id)),
+  );
+  $('catalogs').value = catalogs.some((c) => c.id === current) ? current : '';
+  fillCatalog();
+}
+$('library-tab').onclick = () => {
+  showTab('library');
+  loadConnections().catch(fail);
+};
+$('catalogs').onchange = fillCatalog;
+function connectionInput(form) {
+  const data = {};
+  for (const item of form.elements) {
+    if (item.name) data[item.name] = item.type === 'checkbox' ? item.checked : item.value;
+  }
+  return data;
+}
+async function saveConnection(form, op, data) {
+  if (busy) return;
+  busy = true;
+  const buttons = [...form.querySelectorAll('button')];
+  buttons.forEach((button) => {
+    button.disabled = true;
+  });
+  try {
+    await rpc(op, data);
+    await loadConnections();
+    message(op === 'deleteOPDS' ? '已删除书源。' : '连接已保存到电视。');
+  } catch (error) {
+    fail(error);
+  } finally {
+    busy = false;
+    buttons.forEach((button) => {
+      button.disabled = false;
+    });
+    $('delete-catalog').disabled = !$('catalogs').value;
+  }
+}
+webdavForm.onsubmit = (event) => {
+  event.preventDefault();
+  void saveConnection(webdavForm, 'saveWebDAV', connectionInput(webdavForm));
+};
+opdsForm.onsubmit = (event) => {
+  event.preventDefault();
+  void saveConnection(opdsForm, 'saveOPDS', {
+    ...connectionInput(opdsForm),
+    id: $('catalogs').value,
+  });
+};
+$('delete-catalog').onclick = () => {
+  if ($('catalogs').value && confirm('删除这个书源？不会删除已下载的书籍。'))
+    void saveConnection(opdsForm, 'deleteOPDS', { id: $('catalogs').value });
+};

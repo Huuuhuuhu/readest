@@ -5,14 +5,9 @@ import { useEnv } from '@/context/EnvContext';
 import { isTauriAppPlatform } from '@/services/environment';
 import { useTVScope } from '@/hooks/useTVScope';
 import { eventDispatcher } from '@/utils/event';
-import { useCustomTTSStore } from '@/store/customTTSStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { resolveTTSInput, publicTTSConfig } from '@/services/tvPortalConfig';
-import {
-  OpenAICompatibleSpeechProvider,
-  customVoiceId,
-} from '@/services/tts/providers/openaiCompatible';
+import { handleTVPortalRequest } from '@/services/tvPortalService';
 import { ingestFile } from '@/services/ingestService';
 import QRCode from '@/components/settings/integrations/QRCode';
 interface Upload {
@@ -49,11 +44,6 @@ const labels: Record<string, string> = {
   'import-failed': '导入失败',
 };
 const button = 'btn eink-bordered min-h-12 px-5';
-const base64 = (buffer: ArrayBuffer) => {
-  let value = '';
-  for (const byte of new Uint8Array(buffer)) value += String.fromCharCode(byte);
-  return btoa(value);
-};
 /** The native server lives independently of this sheet; hiding it never changes playback or focus. */
 export default function TVPortal({ appActive = true }: { appActive?: boolean }) {
   const { envConfig } = useEnv();
@@ -64,6 +54,7 @@ export default function TVPortal({ appActive = true }: { appActive?: boolean }) 
   const [starting, setStarting] = useState(false);
   const scope = useRef<HTMLDivElement>(null);
   const importing = useRef(false);
+  const announcedBatches = useRef(new Set<string>());
   const requestQueue = useRef<Promise<void>>(Promise.resolve());
   const close = () => setOpen(false);
   useTVScope(scope, open, { id: 'phone-portal', priority: 1000, onBack: close, onMenu: close });
@@ -74,6 +65,16 @@ export default function TVPortal({ appActive = true }: { appActive?: boolean }) 
       setAddress((current) =>
         next.addresses.includes(current) ? current : (next.addresses[0] ?? ''),
       );
+    if (next?.active) {
+      const pending = next.uploads.find((item) => item.status === 'pending');
+      if (pending && !announcedBatches.current.has(pending.batch)) {
+        announcedBatches.current.add(pending.batch);
+        eventDispatcher.dispatch('toast', {
+          type: 'info',
+          message: '手机请求上传书籍，请打开手机助手批准此批文件。',
+        });
+      }
+    }
     if (!next?.active || importing.current) return;
     const upload = next.uploads.find((item) => item.status === 'complete');
     if (!upload) return;
@@ -86,7 +87,8 @@ export default function TVPortal({ appActive = true }: { appActive?: boolean }) 
         { file: path, books: useLibraryStore.getState().library, forceCopy: true },
         { appService, settings: useSettingsStore.getState().settings },
       );
-      if (book) await useLibraryStore.getState().updateBooks(envConfig, [book]);
+      if (!book) throw new Error('Unsupported book');
+      await useLibraryStore.getState().updateBooks(envConfig, [book]);
       success = true;
       eventDispatcher.dispatch('toast', { type: 'info', message: `已接收：${upload.name}` });
     } catch {
@@ -139,66 +141,7 @@ export default function TVPortal({ appActive = true }: { appActive?: boolean }) 
             return;
           const { id, op, data } = event.payload;
           try {
-            let result: unknown;
-            const store = useCustomTTSStore.getState();
-            if (!store.loaded) await store.loadCustomTTSServices(envConfig);
-            const services = useCustomTTSStore.getState().services;
-            const old = services.find(
-              (service) => service.id === data?.['id'] && !service.deletedAt,
-            );
-            if (op === 'getConfig') result = { tts: publicTTSConfig(services) };
-            else if (op === 'deleteTTS') {
-              if (!old) throw new Error('服务不存在');
-              store.removeService(old.id);
-              try {
-                await store.saveCustomTTSServices(envConfig);
-              } catch (error) {
-                useCustomTTSStore.setState({ services });
-                throw error;
-              }
-              result = { ok: true };
-            } else {
-              const input = resolveTTSInput(data, old);
-              if (op === 'saveTTS') {
-                if (data?.['id'] && !old) throw new Error('服务已删除，请刷新');
-                if (!old && services.filter((service) => !service.deletedAt).length >= 30)
-                  throw new Error('最多保存 30 个朗读服务');
-                const serviceId = old?.id ?? store.addService(input).id;
-                if (old) store.updateService(serviceId, input);
-                try {
-                  await store.saveCustomTTSServices(envConfig);
-                } catch (error) {
-                  useCustomTTSStore.setState({ services });
-                  throw error;
-                }
-                result = { id: serviceId };
-              } else if (op === 'testTTS') {
-                const text = typeof data?.['text'] === 'string' ? data['text'].trim() : '';
-                if (!text || text.length > 200) throw new Error('试听文字需为 1–200 字');
-                const service = {
-                  ...input,
-                  id: old?.id ?? 'preview',
-                  addedAt: 0,
-                  updatedAt: 0,
-                  disabled: false,
-                };
-                const provider = new OpenAICompatibleSpeechProvider(() => [service]);
-                const voice =
-                  service.voices?.split(',')[0]?.trim() ||
-                  (await provider.getAllVoices())[0]?.id?.split(':').slice(1).join(':') ||
-                  'alloy';
-                const audio = await provider.synthesize(
-                  { text, lang: 'zh-CN', voice: customVoiceId(service.id, voice), pitch: 1 },
-                  AbortSignal.timeout(30000),
-                );
-                if (audio.audio.byteLength > 8 * 1024 * 1024)
-                  throw new Error('试听音频过大，请缩短文本');
-                result = {
-                  audio: base64(audio.audio),
-                  mime: service.responseFormat === 'wav' ? 'audio/wav' : 'audio/mpeg',
-                };
-              } else throw new Error('操作不支持');
-            }
+            const result = await handleTVPortalRequest(envConfig, op, data);
             await invoke('tv_portal_respond', { id, result });
           } catch {
             // Provider responses can echo credentials. Never forward raw exceptions or log request bodies.
@@ -281,7 +224,7 @@ export default function TVPortal({ appActive = true }: { appActive?: boolean }) 
                 )}
               </div>
               <div>
-                <p>扫码打开普通手机浏览器，上传书籍或设置朗读服务。</p>
+                <p>扫码打开普通手机浏览器，上传书籍、设置朗读服务或书库连接。</p>
                 <p>
                   授权至 {new Date(status.expiresAt * 1000).toLocaleTimeString()}
                   ，关闭或网络变化后失效。

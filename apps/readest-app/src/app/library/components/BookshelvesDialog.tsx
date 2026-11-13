@@ -1,3 +1,4 @@
+import TVReorderControls from '@/components/TVReorderControls';
 import {
   useCallback,
   useEffect,
@@ -81,12 +82,16 @@ const noop = () => {};
 const noopAsync = async () => false;
 function BookshelfTab({
   shelf,
+  index,
+  count,
   selected,
   onSelect,
   onMove,
   onRename,
 }: {
   shelf: BookshelfDefinition;
+  index: number;
+  count: number;
   selected: boolean;
   onSelect: () => void;
   onMove: (direction: number) => void;
@@ -204,6 +209,7 @@ function BookshelfTab({
             </span>
             {!shelf.enabled && <span className='sr-only'>({_('Disabled')})</span>}
           </button>
+          <TVReorderControls label={name} index={index} count={count} onMove={onMove} />
           {selected && (
             <button
               type='button'
@@ -587,6 +593,8 @@ export function BookshelvesEditor({
             <BookshelfTab
               key={s.id}
               shelf={s}
+              index={index}
+              count={draft.length}
               selected={s.id === selectedId}
               onSelect={() => setSelectedId(s.id)}
               onMove={(direction) => move(s.id, index + direction)}

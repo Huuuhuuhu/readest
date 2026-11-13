@@ -1,3 +1,5 @@
+import TVReorderControls from '@/components/TVReorderControls';
+import { isTVMode } from '@/utils/tvInput';
 import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
 import { MdAdd, MdDelete, MdDragIndicator, MdEdit, MdInfoOutline } from 'react-icons/md';
@@ -129,6 +131,9 @@ const builtinLabel = (id: string, _: (key: string) => string): string => {
 
 interface SortableRowProps {
   row: ProviderRow;
+  index: number;
+  count: number;
+  onMove: (direction: number) => void;
   enabled: boolean;
   /** True when System Dictionary is on and this row is a non-system provider.
    * The toggle reflects the persisted enabled flag (so the user sees what
@@ -145,6 +150,9 @@ interface SortableRowProps {
 
 const SortableRow: React.FC<SortableRowProps> = ({
   row,
+  index,
+  count,
+  onMove,
   enabled,
   lockedBySystem,
   isDeleteMode,
@@ -180,16 +188,19 @@ const SortableRow: React.FC<SortableRowProps> = ({
           and imported alike. The handle is the only element that registers
           drag listeners — clicks on the rest of the row don't initiate a
           drag, which keeps the toggle and delete buttons clickable. */}
-      <button
-        type='button'
-        className='touch-target btn btn-ghost btn-xs h-7 w-5 cursor-grab touch-none p-0 active:cursor-grabbing'
-        aria-label={_('Drag to reorder')}
-        title={_('Drag to reorder')}
-        {...attributes}
-        {...listeners}
-      >
-        <MdDragIndicator className='text-base-content/60 h-4 w-4' />
-      </button>
+      {!isTVMode() && (
+        <button
+          type='button'
+          className='touch-target btn btn-ghost btn-xs h-7 w-5 cursor-grab touch-none p-0 active:cursor-grabbing'
+          aria-label={_('Drag to reorder')}
+          title={_('Drag to reorder')}
+          {...attributes}
+          {...listeners}
+        >
+          <MdDragIndicator className='text-base-content/60 h-4 w-4' />
+        </button>
+      )}
+      <TVReorderControls label={row.label} index={index} count={count} onMove={onMove} />
 
       <div className='min-w-0 flex-1'>
         <div className='flex items-center gap-2'>
@@ -762,9 +773,12 @@ const CustomDictionaries: React.FC<CustomDictionariesProps> = ({ onBack }) => {
     setDragOverId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    await moveProvider(String(active.id), String(over.id));
+  };
+  const moveProvider = async (from: string, to: string) => {
     const order = [...settings.providerOrder];
-    const fromIdx = order.indexOf(String(active.id));
-    const toIdx = order.indexOf(String(over.id));
+    const fromIdx = order.indexOf(from);
+    const toIdx = order.indexOf(to);
     if (fromIdx < 0 || toIdx < 0) return;
     const [moved] = order.splice(fromIdx, 1);
     if (!moved) return;
@@ -847,10 +861,16 @@ const CustomDictionaries: React.FC<CustomDictionariesProps> = ({ onBack }) => {
             onDragCancel={handleDragCancel}
           >
             <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-              {rows.map((row) => (
+              {rows.map((row, index) => (
                 <SortableRow
                   key={row.id}
                   row={row}
+                  index={index}
+                  count={rows.length}
+                  onMove={(direction) => {
+                    const target = rows[index + direction];
+                    if (target) void moveProvider(row.id, target.id);
+                  }}
                   enabled={settings.providerEnabled[row.id] !== false}
                   // System-dictionary handoff is exclusive at lookup time, so
                   // while it's on the other providers' toggles only express a

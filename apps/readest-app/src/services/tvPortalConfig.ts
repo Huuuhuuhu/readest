@@ -53,3 +53,18 @@ export const publicTTSConfig = (services: CustomTTSService[]) =>
       disabled: !!s.disabled,
       hasApiKey: !!s.apiKey,
     }));
+
+export const connectionText = text;
+export function connectionURL(value: unknown): string {
+  const address = text(value, 2048, true);
+  const url = new URL(address);
+  if (
+    !['http:', 'https:'].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.hash ||
+    url.search
+  )
+    throw new Error('地址需为 HTTP(S)，凭据请填入独立字段');
+  return address;
+}

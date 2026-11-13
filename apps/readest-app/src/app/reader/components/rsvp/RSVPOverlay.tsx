@@ -253,12 +253,15 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
   const transportPlaying = ttsActive ? ttsPlaying : state.playing;
   const tvRef = useRef<HTMLDivElement>(null);
   const [tvControls, setTVControls] = useState(false);
+  const [tvProgress, setTVProgress] = useState<number | null>(null);
   useTVScope(tvRef, state.active && isTVMode(), {
     id: 'rsvp',
     priority: 80,
     reading: !tvControls,
     onBack: () => {
-      if (tvControls) setTVControls(false);
+      if (tvProgress !== null) setTVProgress(null);
+      else if (showSettings) setShowSettings(false);
+      else if (tvControls) setTVControls(false);
       else onClose();
     },
     onMenu: () => setTVControls((value) => !value),
@@ -270,8 +273,15 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
     onArrow: (key) => {
       if (tvControls) return false;
       if (key === 'ArrowUp') setTVControls(true);
-      else if (key === 'ArrowLeft') controller.decreaseSpeed();
-      else if (key === 'ArrowRight') controller.increaseSpeed();
+      else if (key === 'ArrowLeft' || key === 'ArrowRight') {
+        const direction = key === 'ArrowRight' ? 1 : -1;
+        if (ttsDriven)
+          onSetTtsRate?.(
+            Math.min(4, Math.max(0.25, Math.round((ttsRate + direction * 0.1) * 100) / 100)),
+          );
+        else if (direction > 0) controller.increaseSpeed();
+        else controller.decreaseSpeed();
+      }
       return true;
     },
   });
@@ -281,6 +291,26 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
   const [showWpmDropdown, setShowWpmDropdown] = useState(false);
   const [showRateDropdown, setShowRateDropdown] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const speedDropdownRef = useRef<HTMLDivElement>(null);
+  useTVScope(chapterDropdownRef, state.active && showChapterDropdown, {
+    id: 'rsvp-chapters',
+    priority: 90,
+    initialFocus: () => chapterDropdownRef.current?.querySelector('[data-active="true"]') ?? null,
+    onBack: () => setShowChapterDropdown(false),
+    onMenu: () => setShowChapterDropdown(false),
+  });
+  useTVScope(speedDropdownRef, state.active && (showWpmDropdown || showRateDropdown), {
+    id: 'rsvp-speed',
+    priority: 90,
+    onBack: () => {
+      setShowWpmDropdown(false);
+      setShowRateDropdown(false);
+    },
+    onMenu: () => {
+      setShowWpmDropdown(false);
+      setShowRateDropdown(false);
+    },
+  });
   const [contextCollapsed, setContextCollapsed] = useState(() => {
     try {
       return localStorage.getItem(STORAGE_KEY_CONTEXT) === '1';
@@ -847,6 +877,13 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
+      {isTVMode() && (
+        <p className='shrink-0 px-4 py-1 text-center text-sm'>
+          {tvControls
+            ? '方向键选择控件，返回继续速读'
+            : '确认播放／暂停 · 左右调速 · 上键打开控件 · 返回退出'}
+        </p>
+      )}
       {/* ── Header ── */}
       <div className='rsvp-header flex shrink-0 items-center gap-2 px-3 py-2 md:gap-3 md:px-5 md:py-3'>
         <button
@@ -954,6 +991,7 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
             <>
               <Overlay onDismiss={() => setShowWpmDropdown(false)} />
               <div
+                ref={speedDropdownRef}
                 data-testid='rsvp-wpm-dropdown'
                 className='absolute end-0 top-full z-[100] mt-1.5 max-h-64 min-w-[7rem] overflow-y-auto rounded-2xl border border-gray-500/20 shadow-2xl'
                 style={{ backgroundColor: bgColor }}
@@ -983,6 +1021,7 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
             <>
               <Overlay onDismiss={() => setShowRateDropdown(false)} />
               <div
+                ref={speedDropdownRef}
                 className='absolute end-0 top-full z-[100] mt-1.5 max-h-64 min-w-[7rem] overflow-y-auto rounded-2xl border border-gray-500/20 shadow-2xl'
                 style={{ backgroundColor: bgColor }}
               >
@@ -1192,9 +1231,12 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
               )}
             </span>
           </div>
+          {isTVMode() && tvProgress !== null && (
+            <p role='status'>预览 {tvProgress}% · 确认跳转，返回取消</p>
+          )}
           <div
             role='slider'
-            tabIndex={0}
+            tabIndex={isTVMode() ? -1 : 0}
             aria-label={_('Reading progress')}
             aria-valuenow={Math.round(state.progress)}
             aria-valuemin={0}
@@ -1216,13 +1258,33 @@ const RSVPOverlay: React.FC<RSVPOverlayProps> = ({
             }}
             title={_('Drag to seek')}
           >
+            {isTVMode() && (
+              <input
+                type='range'
+                min={0}
+                max={100}
+                step={1}
+                value={tvProgress ?? state.progress}
+                className='absolute inset-0 z-10 h-6 w-full opacity-0'
+                aria-label='速读进度：左右预览，确认跳转'
+                aria-valuetext={`${Math.round(tvProgress ?? state.progress)}%`}
+                onChange={(event) => setTVProgress(Number(event.target.value))}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (tvProgress !== null) controller.seekToPosition(tvProgress);
+                  setTVProgress(null);
+                }}
+                onBlur={() => setTVProgress(null)}
+              />
+            )}
+
             <div
               className={`absolute left-0 top-0 h-full rounded-sm ${isProgressBarDragging ? '' : 'transition-[width] duration-100'}`}
-              style={{ width: `${state.progress}%`, backgroundColor: accentColor }}
+              style={{ width: `${tvProgress ?? state.progress}%`, backgroundColor: accentColor }}
             />
             <div
               className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-sm ${isProgressBarDragging ? '' : 'transition-[left] duration-100'}`}
-              style={{ left: `${state.progress}%`, backgroundColor: accentColor }}
+              style={{ left: `${tvProgress ?? state.progress}%`, backgroundColor: accentColor }}
             />
           </div>
         </div>

@@ -282,8 +282,9 @@ export class OpenAICompatibleSpeechProvider implements SpeechProvider {
         signal: controller.signal,
       });
       if (!res.ok) {
-        const detail = (await res.text().catch(() => '')).slice(0, 300);
-        const message = `${service.name}: HTTP ${res.status}${detail ? ` ${detail}` : ''}`;
+        // Providers can echo Authorization or request bodies in error responses.
+        // Keep failures useful without leaking credentials into UI or logs.
+        const message = `${service.name}: HTTP ${res.status}`;
         if (FATAL_STATUSES.has(res.status)) throw new SpeechSynthesisFatalError(message);
         if (res.status < 500 && !TRANSIENT_STATUSES.has(res.status)) {
           throw new SpeechSynthesisPermanentError(message);

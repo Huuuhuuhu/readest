@@ -30,6 +30,7 @@ import AtmosphereOverlay from '@/components/AtmosphereOverlay';
 import AppLockScreen from '@/components/AppLockScreen';
 import CarMediaLibraryBridge from '@/components/CarMediaLibraryBridge';
 import AppLockDialog from '@/components/settings/AppLockDialog';
+import TVSelectDialog from './TVSelectDialog';
 import TVPortal from '@/components/TVPortal';
 
 import { useAppLockStore } from '@/store/appLockStore';
@@ -165,6 +166,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
               <WindowResizeHandles />
             </div>
             <TVPortal appActive={!appShellHidden} />
+            <TVSelectDialog />
             <AppLockDialog />
             {showAppLockScreen && <AppLockScreen />}
             <WindowOutline />

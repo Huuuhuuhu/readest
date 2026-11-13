@@ -17,6 +17,7 @@ describe('TTSScrubber', () => {
     cleanup();
     vi.clearAllMocks();
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 
   test('scrubs continuously in 1-second steps regardless of duration', () => {
@@ -30,6 +31,36 @@ describe('TTSScrubber', () => {
     );
     const slider = screen.getByRole('slider') as HTMLInputElement;
     expect(slider.getAttribute('step')).toBe('1');
+  });
+
+  test('TV arrows only preview; OK commits once and Back cancels without closing the parent', () => {
+    vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
+    const onSeek = vi.fn().mockResolvedValue(undefined);
+    const preview = vi.fn();
+    render(
+      <TTSScrubber
+        bookKey='tv'
+        isEink={false}
+        onSeek={onSeek}
+        onSeekPreview={preview}
+        onGetPlaybackInfo={makeGet(10)}
+      />,
+    );
+    const slider = screen.getByRole('slider') as HTMLInputElement;
+    fireEvent.change(slider, { target: { value: '50' } });
+    fireEvent.keyUp(slider, { key: 'ArrowRight' });
+    expect(onSeek).not.toHaveBeenCalled();
+    expect(preview).not.toHaveBeenCalled();
+    const back = new CustomEvent('tv-back', { cancelable: true });
+    act(() => {
+      slider.dispatchEvent(back);
+    });
+    expect(back.defaultPrevented).toBe(true);
+    expect(slider.value).toBe('10');
+    fireEvent.change(slider, { target: { value: '30' } });
+    fireEvent.click(slider);
+    fireEvent.click(slider);
+    expect(onSeek).toHaveBeenCalledExactlyOnceWith(30);
   });
 
   test('previews the drag location at most every 100ms and stops after release', () => {

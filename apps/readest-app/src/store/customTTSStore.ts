@@ -92,9 +92,9 @@ export const useCustomTTSStore = create<CustomTTSState>((set, get) => ({
   saveCustomTTSServices: async (envConfig) => {
     const { settings, setSettings, saveSettings } = useSettingsStore.getState();
     // Tombstones stay in memory for the pull orchestrator but are not persisted.
-    settings.customTTSServices = get().services.filter((s) => !s.deletedAt);
-    setSettings(settings);
-    await saveSettings(envConfig, settings);
+    const services = get().services.filter((s) => !s.deletedAt);
+    await saveSettings(envConfig, { ...settings, customTTSServices: services });
+    setSettings({ ...useSettingsStore.getState().settings, customTTSServices: services });
   },
 }));
 

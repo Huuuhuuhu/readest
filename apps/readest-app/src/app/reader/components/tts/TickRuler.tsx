@@ -1,3 +1,4 @@
+import { isTVMode } from '@/utils/tvInput';
 import clsx from 'clsx';
 import { ChangeEvent, useMemo, useRef, useState } from 'react';
 
@@ -67,6 +68,10 @@ const TickRuler = ({
     // React fires range onChange continuously during a drag; track the value
     // and commit only on pointer/key release.
     const next = Math.round(parseFloat(e.target.value) * 100) / 100;
+    if (isTVMode()) {
+      onSelect(next);
+      return;
+    }
     dragValueRef.current = next;
     setDragValue(next);
   };

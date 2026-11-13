@@ -32,9 +32,9 @@ declare global {
   }
 }
 
-export const getTVScope = () =>
+export const getTVScope = (retiring?: TVScope) =>
   scopes
-    .filter((scope) => scope.element.isConnected)
+    .filter((scope) => scope.element.isConnected || scope === retiring)
     .reduce<TVScope | undefined>(
       (top, scope) => (!top || (scope.priority ?? 0) >= (top.priority ?? 0) ? scope : top),
       undefined,
@@ -64,7 +64,11 @@ export const isTVVisible = (element: HTMLElement) => {
     return false;
   for (let node: HTMLElement | null = element; node; node = node.parentElement) {
     const style = getComputedStyle(node);
-    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')
+    if (
+      style.display === 'none' ||
+      style.visibility === 'hidden' ||
+      (style.opacity === '0' && !(node === element && element.matches('input[type=range]')))
+    )
       return false;
   }
   const rect = element.getBoundingClientRect();
@@ -134,7 +138,9 @@ export const registerTVScope = (scope: TVScope): (() => void) => {
     const active = scope.element.ownerDocument.activeElement as HTMLElement | null;
     if (scope.id && active && scope.element.contains(active) && identity(active))
       rememberedFocus.set(scope.id, identity(active)!);
-    const wasTop = getTVScope() === scope;
+    // React may detach a conditional surface before its effect cleanup. It
+    // still owned focus and must restore it, even though isConnected is false.
+    const wasTop = getTVScope(scope) === scope;
     const index = scopes.indexOf(scope);
     if (index >= 0) scopes.splice(index, 1);
     revision++;
@@ -223,6 +229,39 @@ export const installTVInput = (doc: Document = document): (() => void) => {
       cancelable: true,
     });
     if (!target.dispatchEvent(custom)) return;
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      const direction = key === 'ArrowRight' ? 1 : -1;
+      if (target instanceof HTMLSelectElement) {
+        let index = target.selectedIndex + direction;
+        while (index >= 0 && index < target.options.length) {
+          const option = target.options[index]!;
+          if (
+            !option.disabled &&
+            !(option.parentElement instanceof HTMLOptGroupElement && option.parentElement.disabled)
+          ) {
+            target.selectedIndex = index;
+            target.dispatchEvent(new Event('change', { bubbles: true }));
+            break;
+          }
+          index += direction;
+        }
+        return;
+      }
+      if (target instanceof HTMLInputElement && target.type === 'range') {
+        const step = parseFloat(target.step) || 1;
+        const next = Math.min(
+          parseFloat(target.max) || 100,
+          Math.max(parseFloat(target.min) || 0, parseFloat(target.value) + direction * step),
+        );
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+          target,
+          String(Math.round(next * 1e6) / 1e6),
+        );
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+        return;
+      }
+    }
     const root = scope?.element ?? doc.body;
     const items = getTVControls(root);
     const origin = target.getBoundingClientRect();
@@ -303,7 +342,9 @@ export const installTVInput = (doc: Document = document): (() => void) => {
         )
           return;
         if (scope?.onActivate?.()) return;
-        if (textField(target)) beginEditing(target);
+        if (target instanceof HTMLSelectElement)
+          win.dispatchEvent(new CustomEvent('tv-select', { detail: target }));
+        else if (textField(target)) beginEditing(target);
         else if (scope?.reading) scope.onMenu?.();
         else if (isTVVisible(target)) target.click();
       }
@@ -323,7 +364,8 @@ export const installTVInput = (doc: Document = document): (() => void) => {
       consume(event);
       if (event.type === 'keydown' && !event.repeat) {
         cancelHold();
-        scope.onBack();
+        if (target.dispatchEvent(new CustomEvent('tv-back', { bubbles: true, cancelable: true })))
+          scope.onBack();
       }
       return;
     }

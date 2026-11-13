@@ -229,7 +229,7 @@ describe('services/constants', () => {
     });
 
     it('has boolean flags', () => {
-      expect(typeof Reflect.get(DEFAULT_SYSTEM_SETTINGS, 'keepLogin')).toBe('boolean');
+      expect(Reflect.get(DEFAULT_SYSTEM_SETTINGS, 'keepLogin')).toBeUndefined();
       expect(typeof DEFAULT_SYSTEM_SETTINGS.alwaysOnTop).toBe('boolean');
       expect(typeof DEFAULT_SYSTEM_SETTINGS.openBookInNewWindow).toBe('boolean');
       expect(typeof DEFAULT_SYSTEM_SETTINGS.alwaysShowStatusBar).toBe('boolean');
@@ -238,7 +238,7 @@ describe('services/constants', () => {
       expect(typeof DEFAULT_SYSTEM_SETTINGS.autohideCursor).toBe('boolean');
       expect(typeof DEFAULT_SYSTEM_SETTINGS.openLastBooks).toBe('boolean');
       expect(typeof DEFAULT_SYSTEM_SETTINGS.autoImportBooksOnOpen).toBe('boolean');
-      expect(typeof Reflect.get(DEFAULT_SYSTEM_SETTINGS, 'telemetryEnabled')).toBe('boolean');
+      expect(Reflect.get(DEFAULT_SYSTEM_SETTINGS, 'telemetryEnabled')).toBeUndefined();
       expect(typeof DEFAULT_SYSTEM_SETTINGS.discordRichPresenceEnabled).toBe('boolean');
     });
 

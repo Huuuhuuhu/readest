@@ -118,8 +118,8 @@ for (const [stage, fullRefresh] of [false, true].entries()) {
       await refresh();
       expect(h.login).not.toHaveBeenCalled();
       expect(h.pull).toHaveBeenCalledWith(fullRefresh, true);
-      expect(h.opds).not.toHaveBeenCalled();
-      expect(h.abs).not.toHaveBeenCalled();
+      expect(h.opds).toHaveBeenCalledWith(true);
+      expect(h.abs).toHaveBeenCalledOnce();
     });
 
     it('ignores disabled and deleted sources when deciding whether to prompt', async () => {

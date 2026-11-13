@@ -137,3 +137,18 @@ footer {
     padding: 16px;
   }
 }
+
+nav {
+  flex-wrap: wrap;
+}
+details {
+  border: 1px solid #ccd3dd;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+}
+summary {
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}

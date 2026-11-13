@@ -1,5 +1,6 @@
+import { isTVMode } from '@/utils/tvInput';
 import clsx from 'clsx';
-import { ChangeEvent, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { formatPlaybackTime } from '@/utils/time';
 import { eventDispatcher } from '@/utils/event';
@@ -26,6 +27,7 @@ const TTSScrubber = ({
   onGetPlaybackInfo,
 }: TTSScrubberProps) => {
   const _ = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
   const playback = usePlaybackInfo({ bookKey, isEink, onGetPlaybackInfo });
   const [dragValue, setDragValue] = useState<number | null>(null);
   const dragValueRef = useRef<number | null>(null);
@@ -66,14 +68,32 @@ const TTSScrubber = ({
     dragValueRef.current = value;
     setDragValue(value);
     playback.setRefreshPaused(true);
-    throttledPreview?.(value);
+    if (!isTVMode()) throttledPreview?.(value);
   };
 
   const handlePointerCommit = () => {
     if (dragValueRef.current !== null) commitSeek(dragValueRef.current);
   };
 
+  const cancelTVSeek = () => {
+    if (!isTVMode()) return;
+    dragValueRef.current = null;
+    setDragValue(null);
+    playback.setRefreshPaused(false);
+  };
+  useEffect(() => {
+    const input = inputRef.current;
+    const back = (event: Event) => {
+      if (dragValueRef.current === null) return;
+      event.preventDefault();
+      cancelTVSeek();
+    };
+    input?.addEventListener('tv-back', back);
+    return () => input?.removeEventListener('tv-back', back);
+  });
+
   const handleKeyUp = () => {
+    if (isTVMode()) return;
     // Holding an arrow key must not fire a network seek per press.
     if (keyboardCommitRef.current) clearTimeout(keyboardCommitRef.current);
     keyboardCommitRef.current = setTimeout(() => {
@@ -95,6 +115,10 @@ const TTSScrubber = ({
     <div dir='ltr' className={clsx('flex w-full items-center gap-2 py-1', stale && 'opacity-60')}>
       <span className='min-w-9 text-center text-xs tabular-nums'>{elapsedLabel}</span>
       <input
+        ref={inputRef}
+        onClick={isTVMode() ? handlePointerCommit : undefined}
+        onBlur={cancelTVSeek}
+        title={isTVMode() ? '左右预览进度，确认跳转，返回取消' : undefined}
         className='tts-scrubber text-base-content min-w-0 grow'
         type='range'
         min={0}
@@ -115,6 +139,11 @@ const TTSScrubber = ({
           total: ready ? formatPlaybackTime(total, forceHours) : '--:--',
         })}
       />
+      {isTVMode() && dragValue !== null && (
+        <span role='status' className='text-sm'>
+          确认跳转／返回取消
+        </span>
+      )}
       <span className='min-w-10 text-center text-xs tabular-nums'>{remainingLabel}</span>
     </div>
   );

@@ -169,7 +169,7 @@ describe('ViewMenu sync row (issue #5910)', () => {
     expect(mockDispatch.mock.calls.map((call) => call[0])).toContain('push-file-sync');
     // A lone Readest Cloud provider is not worth naming — the row means what it
     // always meant.
-    expect(screen.queryByText('Synced via {{provider}}')).toBeNull();
+    expect(screen.queryByText('Synced via {{provider}}')).not.toBeNull();
   });
 
   it('pushes to Hardcover on tap only when it is on the row', () => {

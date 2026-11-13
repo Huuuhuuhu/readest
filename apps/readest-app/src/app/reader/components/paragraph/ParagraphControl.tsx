@@ -76,6 +76,7 @@ const ParagraphControl: React.FC<ParagraphControlProps> = ({ bookKey, viewRef, g
         gridInsets={gridInsets}
         ttsSyncStatus={ttsSyncStatus}
         onResumeTtsFollow={reengageTtsFollow}
+        onToggleTtsAudio={toggleTtsAudio}
         onClose={toggleParagraphMode}
       />
       <ParagraphBar

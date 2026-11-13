@@ -1660,3 +1660,7 @@
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+[data-tv-mode='true'] input[type='range']:focus {
+  opacity: 1 !important;
+}

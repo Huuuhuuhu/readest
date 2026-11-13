@@ -128,7 +128,9 @@ const SideBar = ({}) => {
         isSearchBarVisible
           ? '[data-tv-search]'
           : '[aria-current="page"], [aria-current="true"], [data-tv-empty-toc]',
-      ) ?? null,
+      ) ??
+      sidebarRef.current?.querySelector<HTMLElement>('[role="treeitem"]') ??
+      null,
   });
 
   const handleToggleSearchBar = () => {

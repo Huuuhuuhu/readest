@@ -116,7 +116,7 @@ const AutoScrollControl: React.FC<AutoScrollControlProps> = ({
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [startHideTimer]);
 
-  const isVisible = isBarVisible && hoveredBookKey !== bookKey;
+  const isVisible = tv || (isBarVisible && hoveredBookKey !== bookKey);
 
   const buttonClass = clsx(
     'flex items-center justify-center rounded-full p-1.5',

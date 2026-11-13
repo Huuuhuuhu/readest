@@ -47,6 +47,51 @@ afterEach(() => {
 });
 
 describe('TV remote input ownership', () => {
+  it('adjusts a transparent range with left/right while up/down still navigates', () => {
+    const range = document.querySelector('input')!;
+    range.type = 'range';
+    range.min = '0';
+    range.max = '10';
+    range.step = '0.5';
+    range.value = '5';
+    range.style.opacity = '0';
+    const changed = vi.fn();
+    range.addEventListener('input', changed);
+    range.focus();
+    press('ArrowRight');
+    expect(range.value).toBe('5.5');
+    expect(changed).toHaveBeenCalledTimes(1);
+    press('ArrowLeft');
+    expect(range.value).toBe('5');
+    press('ArrowDown');
+    expect(document.activeElement?.textContent).toBe('Save');
+  });
+  it('changes native selections with left/right and opens an accessible picker on OK', () => {
+    const select = document.createElement('select');
+    select.innerHTML = '<option>a</option><option disabled>b</option><option>c</option>';
+    document.querySelector('main')!.prepend(select);
+    const open = vi.fn();
+    window.addEventListener('tv-select', open);
+    select.focus();
+    press('ArrowRight');
+    expect(select.value).toBe('c');
+    press('Enter');
+    expect(open).toHaveBeenCalledTimes(1);
+    window.removeEventListener('tv-select', open);
+  });
+  it('lets a pending seek cancel before closing its containing dialog', () => {
+    const back = vi.fn();
+    removeScope();
+    removeScope = registerTVScope({ element: document.querySelector('main')!, onBack: back });
+    const button = document.querySelector('button')!;
+    button.focus();
+    button.addEventListener('tv-back', (e) => e.preventDefault(), { once: true });
+    press('Escape');
+    expect(back).not.toHaveBeenCalled();
+    press('Escape');
+    expect(back).toHaveBeenCalledTimes(1);
+  });
+
   it('focuses the current chapter when a virtual list mounts after its scope', async () => {
     removeScope();
     const root = document.querySelector('main')!;

@@ -1509,6 +1509,76 @@ describe('paragraph mode selection (#6200)', () => {
     }
   });
 
+  it('lets a TV remote select the whole paragraph and a Unicode character range', async () => {
+    vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    try {
+      const spy = vi.spyOn(eventDispatcher, 'dispatch');
+      const { container } = await renderOverlayWithSource(
+        vi.fn(),
+        '<p>甲😀乙丙丁</p><h2>Next</h2>',
+      );
+      fireEvent.click(
+        [...container.querySelectorAll('button')].find((b) => b.textContent === '选择整段')!,
+      );
+      expect(selectionReports(spy).at(-1)?.[1]).toMatchObject({ cfi: sourceCfi, index: 3 });
+      fireEvent.click(
+        [...container.querySelectorAll('button')].find((b) => b.textContent === '精确选字')!,
+      );
+      const inputs = container.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]');
+      fireEvent.change(inputs[0]!, { target: { value: '2' } });
+      fireEvent.blur(inputs[0]!);
+      fireEvent.change(inputs[1]!, { target: { value: '3' } });
+      fireEvent.blur(inputs[1]!);
+      fireEvent.click(
+        [...container.querySelectorAll('button')].find((b) => b.textContent === '确认选区')!,
+      );
+      const report = selectionReports(spy).at(-1)?.[1] as { range: Range };
+      expect(report.range.toString()).toBe('😀乙');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('maps a TV cross-paragraph selection to one source CFI and retains the selected text', async () => {
+    vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    try {
+      const spy = vi.spyOn(eventDispatcher, 'dispatch');
+      const { container, doc } = await renderOverlayWithSource(
+        vi.fn(),
+        '<p>First paragraph.</p><h2></h2><p>Second paragraph.</p>',
+      );
+      const click = (label: string) =>
+        fireEvent.click(
+          [...container.querySelectorAll('button')].find((b) => b.textContent === label)!,
+        );
+      click('精确选字');
+      click('设为跨段起点');
+      const range = doc.createRange();
+      range.selectNodeContents(doc.querySelectorAll('p')[1]!);
+      await act(async () => {
+        await eventDispatcher.dispatch('paragraph-focus', {
+          bookKey: overlayBookKey,
+          range,
+          presentation,
+        });
+      });
+      click('选至当前终点');
+      await waitFor(() =>
+        expect(container.querySelector('[aria-label="选区预览"]')?.textContent).toBe(
+          'First paragraph.Second paragraph.',
+        ),
+      );
+      const report = selectionReports(spy).at(-1)?.[1] as { range: Range; cfi: string };
+      expect(report.range.toString()).toBe('First paragraph.Second paragraph.');
+      expect(report.cfi).toBe(sourceCfi);
+      expect(mockGetCFI).toHaveBeenLastCalledWith(3, expect.any(Range));
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('reports a settled selection in the clone with the CFI of that text in the book', async () => {
     const dispatchSpy = vi.spyOn(eventDispatcher, 'dispatch');
     const { clone, doc } = await renderOverlayWithSource();

@@ -64,6 +64,7 @@ interface ParagraphOverlayProps {
   ttsSyncStatus?: TtsSyncStatus;
   /** Re-engage following after a manual nav decoupled it (indicator action). */
   onResumeTtsFollow?: () => void;
+  onToggleTtsAudio?: () => void;
   onClose?: () => void;
 }
 
@@ -175,6 +176,7 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
   gridInsets = { top: 0, right: 0, bottom: 0, left: 0 },
   ttsSyncStatus = 'idle',
   onResumeTtsFollow,
+  onToggleTtsAudio,
   onClose,
 }) => {
   const { appService } = useEnv();
@@ -205,12 +207,37 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
   const [tvStart, setTVStart] = useState(1);
   const [tvEnd, setTVEnd] = useState(1);
   const [tvLength, setTVLength] = useState(1);
+  const tvAnchor = useRef<Range | null>(null);
+  const [tvAnchorLabel, setTVAnchorLabel] = useState('');
+  const [tvSelection, setTVSelection] = useState<{
+    text: string;
+    cfi: string;
+    index: number;
+  } | null>(null);
+  const tvSelectionRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (!tvSelection || !tvSelectionRef.current) return;
+    const range = document.createRange();
+    range.selectNodeContents(tvSelectionRef.current);
+    selectionActiveRef.current = true;
+    eventDispatcher.dispatch('footnote-selection', {
+      key: bookKey,
+      range,
+      cfi: tvSelection.cfi,
+      index: tvSelection.index,
+      href: getProgress(bookKey)?.sectionHref,
+    });
+  }, [tvSelection, bookKey, getProgress]);
   useTVScope(containerRef, isVisible && isTVMode(), {
     id: 'paragraph',
     priority: 60,
+    initialFocus: () => containerRef.current?.querySelector('[data-tv-select-paragraph]') ?? null,
     onBack: () => {
-      if (tvPrecise) setTVPrecise(false);
-      else onClose?.();
+      if (tvPrecise) {
+        setTVPrecise(false);
+        tvAnchor.current = null;
+        setTVAnchorLabel('');
+      } else onClose?.();
     },
     onMenu: () => onClose?.(),
   });
@@ -425,7 +452,8 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
         setTVLength(Math.max(1, count));
         setTVStart(1);
         setTVEnd(Math.max(1, count));
-        setTVPrecise(false);
+        setTVPrecise(!!tvAnchor.current);
+        setTVSelection(null);
         clearReportedSelection();
         addParagraph(range, presentation);
       }
@@ -441,6 +469,9 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
       setIsChangingSection(false);
       setTtsHighlight(null);
       sourceRangeRef.current = null;
+      tvAnchor.current = null;
+      setTVAnchorLabel('');
+      setTVSelection(null);
       clearReportedSelection();
       setTimeout(() => {
         setIsVisible(false);
@@ -491,7 +522,7 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
   // sat before — fixes Shift+P/Escape not toggling when focus was still inside
   // the book iframe (#4717).
   useEffect(() => {
-    if (!isVisible) return;
+    if (!isVisible || isTVMode()) return;
     containerRef.current?.focus({ preventScroll: true });
   }, [isVisible]);
 
@@ -934,6 +965,64 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
     [appService?.isMobile],
   );
 
+  const tvSourceSelection = () => {
+    const source = sourceRangeRef.current;
+    if (!source) return null;
+    const chars = Array.from(rangeTextExcludingInert(source));
+    return getTextSubRange(
+      source,
+      chars.slice(0, tvStart - 1).join('').length,
+      chars.slice(0, tvEnd).join('').length,
+    );
+  };
+  const setTVSelectionStart = () => {
+    const range = tvSourceSelection();
+    if (!range) return;
+    setTVAnchorLabel(range.toString().trim().slice(0, 24) || `第 ${tvStart} 字`);
+    range.collapse(true);
+    tvAnchor.current = range;
+  };
+  const finishTVSelection = () => {
+    const anchor = tvAnchor.current;
+    const end = tvSourceSelection();
+    const view = getView(bookKey);
+    if (
+      !anchor ||
+      !end ||
+      anchor.startContainer.ownerDocument !== end.startContainer.ownerDocument
+    ) {
+      eventDispatcher.dispatch('toast', {
+        type: 'info',
+        message: '跨段选择需在同一章节内，请重新设置起点。',
+      });
+      return;
+    }
+    const range = anchor.cloneRange();
+    range.setEnd(end.endContainer, end.endOffset);
+    const index = view?.renderer
+      .getContents()
+      .find((content) => content.doc === range.startContainer.ownerDocument)?.index;
+    const text = rangeTextExcludingInert(range);
+    if (range.collapsed || index === undefined || !text.trim() || text.length > 50000) {
+      eventDispatcher.dispatch('toast', {
+        type: 'info',
+        message: '请在起点之后选择终点；单次选择不超过 5 万字。',
+      });
+      return;
+    }
+    try {
+      const cfi = view!.getCFI(index, range);
+      setTVSelection({ text, cfi, index });
+      tvAnchor.current = null;
+      setTVAnchorLabel('');
+    } catch {
+      eventDispatcher.dispatch('toast', {
+        type: 'error',
+        message: '该文档无法定位此选区，请使用单段选择。',
+      });
+    }
+  };
+
   const selectForTV = (precise: boolean) => {
     const root = getCloneRoot();
     if (!root) return;
@@ -966,7 +1055,8 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
       tabIndex={-1}
       className={clsx(
         'fixed inset-0 z-40',
-        'flex flex-col items-center justify-center',
+        'flex flex-col items-center',
+        isTVMode() ? 'justify-start' : 'justify-center',
         // Solid page color, not a translucent blur of the book behind it — the
         // blurred backdrop read as foreign chrome next to the rest of the app
         // (#5275), and without the blur any translucency leaks ghost text.
@@ -988,7 +1078,7 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
     >
       {isTVMode() && (
         <div
-          className='bg-base-100 absolute inset-x-4 top-3 z-30 rounded border p-3'
+          className='bg-base-100 z-30 w-full shrink-0 border-b p-3'
           onClick={(event) => event.stopPropagation()}
         >
           <p>段落选择：方向键选择，确认操作。可选整段，再高亮、批注、翻译或复制。</p>
@@ -1005,24 +1095,54 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
             >
               下一段
             </button>
-            <button className='btn btn-contrast' onClick={() => selectForTV(false)}>
+            <button
+              data-tv-select-paragraph
+              className='btn btn-contrast'
+              onClick={() => selectForTV(false)}
+            >
               选择整段
             </button>
             <button className='btn eink-bordered' onClick={() => setTVPrecise((value) => !value)}>
               精确选字
             </button>
-            <button
-              className='btn eink-bordered'
-              onClick={() => eventDispatcher.dispatch('tts-toggle-play', { bookKey })}
-            >
-              朗读／暂停
+            <button className='btn eink-bordered' onClick={onToggleTtsAudio}>
+              朗读／停止
             </button>
             <button className='btn eink-bordered' onClick={() => onClose?.()}>
               退出段落模式
             </button>
+            <button
+              className='btn eink-bordered'
+              onClick={() =>
+                contentRef.current
+                  ?.querySelector('[data-tv-paragraph-frame]')
+                  ?.scrollBy({ top: -250, left: -250 })
+              }
+            >
+              文字上滚
+            </button>
+            <button
+              className='btn eink-bordered'
+              onClick={() =>
+                contentRef.current
+                  ?.querySelector('[data-tv-paragraph-frame]')
+                  ?.scrollBy({ top: 250, left: 250 })
+              }
+            >
+              文字下滚
+            </button>
           </div>
+          {tvSelection && (
+            <p
+              ref={tvSelectionRef}
+              aria-label='选区预览'
+              className='max-h-24 overflow-auto whitespace-pre-wrap border p-2'
+            >
+              {tvSelection.text}
+            </p>
+          )}
           {tvPrecise && (
-            <div className='mt-2 flex items-center gap-4'>
+            <div className='mt-2 flex flex-wrap items-center gap-4'>
               <NumberInput
                 label='起始字'
                 value={tvStart}
@@ -1043,6 +1163,21 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
               <button className='btn btn-contrast' onClick={() => selectForTV(true)}>
                 确认选区
               </button>
+              <button className='btn eink-bordered' onClick={setTVSelectionStart}>
+                设为跨段起点
+              </button>
+              <button
+                className='btn eink-bordered'
+                disabled={!tvAnchorLabel}
+                onClick={finishTVSelection}
+              >
+                选至当前终点
+              </button>
+              {tvAnchorLabel && (
+                <p role='status'>
+                  起点：{tvAnchorLabel}… 可用上一段／下一段移动，修改结束字后确认终点。
+                </p>
+              )}
               <p>左右调整字位，上下切换起点、终点和确认；返回回到整段操作。</p>
             </div>
           )}
@@ -1068,6 +1203,7 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
         ref={contentRef}
         className={clsx(
           'relative flex w-full cursor-default flex-col items-center px-4 sm:px-6',
+          isTVMode() && 'min-h-0 flex-1 overflow-auto',
           layoutContext.vertical ? 'justify-center py-2' : '',
         )}
         onClick={handleContentClick}
@@ -1100,6 +1236,7 @@ const ParagraphOverlay: React.FC<ParagraphOverlayProps> = ({
         `}</style>
         {activeParagraph ? (
           <div
+            data-tv-paragraph-frame
             className={clsx(
               // No surface of its own: the paragraph sits on the page color, so
               // there is nothing left to round off (#5275).

@@ -12,11 +12,11 @@ export const useBooksSync = () => {
   const { envConfig } = useEnv();
   const running = useRef<Promise<void> | null>(null);
   const pullLibrary = useCallback(
-    async (_fullRefresh = false, verbose = false) => {
+    async (fullRefresh = false, verbose = false) => {
       if (running.current) return running.current;
       if (!getActiveFileSyncBackends(useSettingsStore.getState().settings).length) return;
       const pass = async () => {
-        const result = await runFileLibrarySyncPass(envConfig, _);
+        const result = await runFileLibrarySyncPass(envConfig, _, fullRefresh);
         if (verbose) {
           const ok = result && !result.indexPushFailed && !result.failures;
           eventDispatcher.dispatch('toast', {

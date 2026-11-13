@@ -1,3 +1,5 @@
+import TVReorderControls from '@/components/TVReorderControls';
+import { isTVMode } from '@/utils/tvInput';
 import clsx from 'clsx';
 import React, { useCallback, useRef, useState } from 'react';
 import {
@@ -51,9 +53,20 @@ interface ToolChipProps {
   label: string;
   variant: ZoneId;
   onActivate: () => void;
+  index?: number;
+  count?: number;
+  onMove?: (direction: number) => void;
 }
 
-const ToolChip: React.FC<ToolChipProps> = ({ type, label, variant, onActivate }) => {
+const ToolChip: React.FC<ToolChipProps> = ({
+  type,
+  label,
+  variant,
+  onActivate,
+  index = 0,
+  count = 0,
+  onMove,
+}) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: type,
   });
@@ -68,7 +81,7 @@ const ToolChip: React.FC<ToolChipProps> = ({ type, label, variant, onActivate })
     opacity: isDragging ? 0.85 : 1,
   };
   const isToolbar = variant === 'toolbar';
-  return (
+  const button = (
     <button
       ref={setNodeRef}
       type='button'
@@ -94,6 +107,15 @@ const ToolChip: React.FC<ToolChipProps> = ({ type, label, variant, onActivate })
       {Icon ? <Icon className={isToolbar ? undefined : 'h-4 w-4 shrink-0'} /> : null}
       {isToolbar ? null : <span className='whitespace-nowrap'>{label}</span>}
     </button>
+  );
+  return isTVMode() ? (
+    <div className='eink-bordered flex items-center gap-2 rounded-lg border p-1'>
+      {button}
+      <span>{label}</span>
+      {onMove && <TVReorderControls label={label} index={index} count={count} onMove={onMove} />}
+    </div>
+  ) : (
+    button
   );
 };
 
@@ -298,6 +320,12 @@ const AnnotationToolbarCustomizer: React.FC<AnnotationToolbarCustomizerProps> = 
       type={type}
       label={_(toolButtonOf(type)?.label ?? type)}
       variant='toolbar'
+      index={items.toolbar.indexOf(type)}
+      count={items.toolbar.length}
+      onMove={(direction) => {
+        const target = items.toolbar[items.toolbar.indexOf(type) + direction];
+        if (target) commit(reorderToolbar(items.toolbar, type, target));
+      }}
       onActivate={() => moveToAvailable(type)}
     />
   );

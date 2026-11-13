@@ -430,7 +430,17 @@ async fn route(
     }
     if path == "/api/rpc" {
         let op = body.get("op").and_then(Value::as_str).unwrap_or("");
-        if !["getConfig", "saveTTS", "deleteTTS", "testTTS"].contains(&op) {
+        if ![
+            "getConfig",
+            "saveTTS",
+            "deleteTTS",
+            "testTTS",
+            "saveWebDAV",
+            "saveOPDS",
+            "deleteOPDS",
+        ]
+        .contains(&op)
+        {
             return Ok(error(StatusCode::BAD_REQUEST, "操作不支持"));
         }
         let id = Uuid::new_v4().to_string();

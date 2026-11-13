@@ -69,7 +69,6 @@ use tauri_plugin_oauth::start;
 use tauri_plugin_opener::OpenerExt;
 use transfer_file::{download_file, upload_file};
 
-#[cfg(any(desktop, target_os = "ios"))]
 fn allow_file_in_scopes<R: tauri::Runtime>(app: &AppHandle<R>, files: Vec<PathBuf>) {
     let fs_scope = app.fs_scope();
     let asset_protocol_scope = app.asset_protocol_scope();

@@ -57,6 +57,19 @@ describe('customTTSStore', () => {
     expect(saveSettings).toHaveBeenCalled();
   });
 
+  it('retains persisted settings when a save fails, and restores them on reload', async () => {
+    const previous = remote({ apiKey: 'local-secret' });
+    useSettingsStore.getState().settings.customTTSServices = [previous];
+    const store = useCustomTTSStore.getState();
+    await store.loadCustomTTSServices({} as EnvConfigType);
+    store.updateService(previous.id, { name: 'Unsaved' });
+    saveSettings.mockRejectedValueOnce(new Error('disk full'));
+    await expect(store.saveCustomTTSServices({} as EnvConfigType)).rejects.toThrow('disk full');
+    expect(useSettingsStore.getState().settings.customTTSServices).toEqual([previous]);
+    await store.loadCustomTTSServices({} as EnvConfigType);
+    expect(useCustomTTSStore.getState().services).toEqual([previous]);
+  });
+
   it('keeps the local apiKey when a remote row arrives without one', () => {
     useCustomTTSStore.setState({ services: [remote({ name: 'Local', apiKey: 'sk-local' })] });
     useCustomTTSStore.getState().applyRemoteService(remote());

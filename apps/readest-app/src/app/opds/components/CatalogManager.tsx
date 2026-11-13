@@ -1,5 +1,8 @@
 'use client';
 
+import TVReorderControls from '@/components/TVReorderControls';
+import { isTVMode } from '@/utils/tvInput';
+
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -129,6 +132,9 @@ interface CatalogCardProps {
   subState: OPDSSubscriptionState | undefined;
   /** False when there is nothing to reorder (a single catalog); hides the handle. */
   reorderable: boolean;
+  index: number;
+  count: number;
+  onMove: (direction: number) => void;
   onOpen: (catalog: OPDSCatalog) => void;
   onEdit: (catalog: OPDSCatalog) => void;
   onRemove: (id: string) => void;
@@ -145,6 +151,9 @@ function CatalogCard({
   catalog,
   subState,
   reorderable,
+  index,
+  count,
+  onMove,
   onOpen,
   onEdit,
   onRemove,
@@ -194,10 +203,11 @@ function CatalogCard({
         catalog.disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-base-300 cursor-pointer',
       )}
     >
+      <TVReorderControls label={catalog.name} index={index} count={count} onMove={onMove} />
       <div className='flex flex-1 flex-col gap-2.5 px-4 pb-2 pt-4'>
         {/* Header: drag handle + icon + name | overflow menu (Edit / Remove). */}
         <div className='flex items-start justify-between gap-2'>
-          {reorderable && (
+          {reorderable && !isTVMode() && (
             // The handle is the only element carrying drag listeners, so the
             // rest of the card stays a plain browse target. stopPropagation on
             // the wrapper (not the button — that would clobber dnd-kit's own
@@ -682,12 +692,24 @@ export function CatalogManager({ inSubPage = false }: CatalogManagerProps = {}) 
                 a two-column grid from `sm:` up. */}
             <SortableContext items={catalogs.map((c) => c.id)} strategy={rectSortingStrategy}>
               <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-                {catalogs.map((catalog) => (
+                {catalogs.map((catalog, index) => (
                   <CatalogCard
                     key={catalog.id}
                     catalog={catalog}
                     subState={subscriptionStates[catalog.id]}
                     reorderable={catalogs.length > 1}
+                    index={index}
+                    count={catalogs.length}
+                    onMove={(direction) => {
+                      useCustomOPDSStore.getState().reorderCatalogs(
+                        arrayMove(
+                          catalogs.map((c) => c.id),
+                          index,
+                          index + direction,
+                        ),
+                      );
+                      persistMutation();
+                    }}
                     onOpen={handleOpenCatalog}
                     onEdit={handleEditCatalog}
                     onRemove={handleRemoveCatalog}

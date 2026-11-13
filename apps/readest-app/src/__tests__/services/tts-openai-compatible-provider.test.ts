@@ -267,7 +267,8 @@ describe('OpenAICompatibleSpeechProvider', () => {
       .catch((e) => e);
     expect(err).toBeInstanceOf(SpeechSynthesisFatalError);
     expect(err.message).toContain('401');
-    expect(err.message).toContain('bad key');
+    expect(err.message).not.toContain('bad key');
+    expect(err.message).not.toContain('sk-test');
   });
 
   it('skips a sentence the service rejects, retries rate limits and server errors', async () => {

@@ -101,6 +101,7 @@ const syncOneBackend = async (
   envConfig: EnvConfigType,
   kind: FileSyncBackendKind,
   _: TranslationFunc,
+  fullSync = false,
 ): Promise<SyncLibraryResult | null> => {
   const appService = await envConfig.getAppService();
   const current = useSettingsStore.getState().settings;
@@ -121,7 +122,7 @@ const syncOneBackend = async (
   const result = await engine.syncLibrary(useLibraryStore.getState().library, {
     strategy: strategy === 'prompt' ? 'silent' : strategy,
     syncBooks: ps?.syncBooks ?? false,
-    fullSync: false,
+    fullSync,
     concurrency: 6,
     deviceId,
     onProgress: ({ index, total, action }) => {
@@ -167,9 +168,9 @@ const syncOneBackend = async (
 export const runFileLibrarySyncPass = async (
   envConfig: EnvConfigType,
   _: TranslationFunc,
+  fullSync = false,
 ): Promise<SyncLibraryResult | null> => {
-  // Paused means paused (#4959): a downgraded account's still-enabled backends
-  // must not sync, and must not fall back to Readest Cloud either.
+  // Only explicitly enabled independent backends participate.
   const backends = getActiveFileSyncBackends(useSettingsStore.getState().settings);
   if (backends.length === 0) return null;
 
@@ -185,7 +186,7 @@ export const runFileLibrarySyncPass = async (
       const kind = backends[i]!;
       if (i > 0) useFileSyncStore.getState().switchSync(kind, _('Syncing…'));
       try {
-        const result = await syncOneBackend(envConfig, kind, _);
+        const result = await syncOneBackend(envConfig, kind, _, fullSync);
         if (result) {
           useFileSyncStore.getState().setLastError(kind, formatSyncFailure(result, _));
           // Spread the latest counters, but ACCUMULATE everything that reports
