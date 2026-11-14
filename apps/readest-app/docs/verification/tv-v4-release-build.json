@@ -1,0 +1,167 @@
+{
+  "sourceCommit": "a789a1c37a867bb074ef01b1f1b5263dcb72bf46",
+  "branch": "tv/0.12.20",
+  "workflow": {
+    "id": 43577358965,
+    "head_sha": "a789a1c37a867bb074ef01b1f1b5263dcb72bf46",
+    "html_url": "https://github.com/Huuuhuuhu/readest/actions/runs/43577358965",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "checks": {
+    "frontendPassed": 14347,
+    "frontendSkipped": 10,
+    "frontendTestFilesPassed": 1157,
+    "frontendTestFilesSkipped": 1,
+    "rustPassed": 192,
+    "rustFailed": 0,
+    "typeCheck": "passed",
+    "biomeLint": "passed (2 pre-existing info-level notices)",
+    "format": "passed",
+    "rustFmt": "passed",
+    "clippy": "passed with -D warnings",
+    "nativeKeyJUnit": "app:testUniversalReleaseUnitTest passed",
+    "armv7Build": "passed",
+    "signature": "apksigner verified; same TV release certificate",
+    "zipAlignment": "16 KB page / 4-byte ZIP alignment verified",
+    "artifactDigest": "Archive SHA-256 matches GitHub Actions digest"
+  },
+  "browserWalkthrough": {
+    "sourceCommit": "a789a1c37a867bb074ef01b1f1b5263dcb72bf46",
+    "date": "2026-11-14",
+    "environment": "Desktop Edge, local Next.js TV mode. Keyboard events emulate remote buttons; no Android TV connected.",
+    "passed": [
+      "Fresh library has no highlighted control; first OK selects first book without opening; second opens",
+      "First book row Up reaches leftmost toolbar; Search Right reaches adjacent Import control",
+      "Original dark text-import dialog is centered",
+      "Speed Right reaches Voice and OK opens voice list; Back restores Voice",
+      "Voice Up reaches centered Pause; OK pauses and Down restores Voice",
+      "Closing player retains playback state; original mini-player Stop is reachable with arrows",
+      "Narration does not take focus from the open player",
+      "Actual batch import of 16 TXT fixtures; second-row third card Up -> first-row third card -> toolbar Search; no diagonal falloff; import tile reachable"
+    ],
+    "automatedOnly": [
+      "960x540 TV dialog centering",
+      "Jump 1 to 600 cancels old synthesis; late audio discarded",
+      "Chapter 695 to 696 removes prior temporary audio",
+      "Bounded memory/duration/count and hidden/system-engine suppression",
+      "Live player uses generated audio key and in-flight result; explicit offline download persists audio"
+    ],
+    "notVerified": [
+      "Physical ARMv7 first-sentence and inter-sentence latency",
+      "Physical TV CPU/memory/frame-rate profiling",
+      "OEM remote and Android IME",
+      "Physical phone/TV transfer, restart and network switching"
+    ],
+    "images": ["original-player-focus.png", "original-import-dialog.png", "book-grid-focus.png"]
+  },
+  "directMicrosoftProbe": {
+    "date": "2026-11-14",
+    "destination": "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1",
+    "voice": "zh-CN-XiaoxiaoNeural",
+    "text": "这是电视阅读器的语音连接测试。",
+    "milliseconds": 1797,
+    "audioBytes": 19728,
+    "wordBoundaries": 7,
+    "environment": "Development computer; not Android TV performance measurement",
+    "readestProxyUsed": false
+  },
+  "localChecks": {
+    "fullSuite": "14342 passed / 10 skipped before final grid refinement; exact release head rerun in CI",
+    "finalNavigation": "42 focused tests passed after the final grid changes",
+    "regressions": "Old same-row score, wide-tile alignment, nested card targets, touching-cell boundary and shelf-hook behavior fail their new assertions before fixes",
+    "typeAndFormat": "passed"
+  },
+  "artifact": {
+    "id": 14107082433,
+    "name": "readest-tv-armv7-a789a1c37a867bb074ef01b1f1b5263dcb72bf46",
+    "archiveSha256": "cf48eaf1eea517ca894ea8003ab852120920df423c108b1924792351b076db39",
+    "archiveBytes": 33208366,
+    "unsignedApkBytes": 44192112,
+    "sourceCommit": "a789a1c37a867bb074ef01b1f1b5263dcb72bf46"
+  },
+  "apk": {
+    "apk": "Readest-TV-0.12.20-tv.4-armv7.apk",
+    "sha256": "d67f773e1a920fccee476918bf6ee7e285380a7da888af4dd57c9e3dd6498bf7",
+    "size": 44281495,
+    "applicationId": "com.bilingify.readest.tv",
+    "versionName": "0.12.20-tv.4",
+    "versionCode": 12023,
+    "abi": "armeabi-v7a",
+    "minimumAndroid": "8.0 / API 26",
+    "certificateSha256": "1f1b5c0a40289dee9ee6627f525ff484db7d8586658ebf103b23cc5eaf01967c",
+    "releaseBuild": true,
+    "leanbackLauncher": true,
+    "billingPermission": false
+  },
+  "notes": [
+    "Temporary foreground lookahead is capped at about 180 seconds, 128 sentences and 8 MiB compressed audio, current and next section only.",
+    "Live playback reuses prepared lookahead audio or its pending synthesis. Automatic TV audio is transient; explicit offline downloads remain persistent.",
+    "The original recorded/system speech paths do not trigger a different online engine. No Readest proxy or identity is used.",
+    "Physical TV latency, frame rate, OEM remote keys and IME are not verified by desktop browser or unit checks."
+  ],
+  "publication": {
+    "id": 445165250,
+    "tag_name": "tv-0.12.20-v4",
+    "target_commitish": "a789a1c37a867bb074ef01b1f1b5263dcb72bf46",
+    "html_url": "https://github.com/Huuuhuuhu/readest/releases/tag/tv-0.12.20-v4",
+    "draft": false,
+    "prerelease": true,
+    "assets": [
+      {
+        "name": "book-grid-focus.png",
+        "size": 78939,
+        "digest": "sha256:a6b0ad175bde9b26f9bd5330ed0573c0bf5200096a6aef31a860fd31be74eb0d",
+        "browser_download_url": "https://github.com/Huuuhuuhu/readest/releases/download/tv-0.12.20-v4/book-grid-focus.png"
+      },
+      {
+        "name": "build-verification.json",
+        "size": 5115,
+        "digest": "sha256:e6aae25ed75da001ee9f977c3e99f1d63a911029423b3243a3386b5734e954ab",
+        "browser_download_url": "https://github.com/Huuuhuuhu/readest/releases/download/tv-0.12.20-v4/build-verification.json"
+      },
+      {
+        "name": "Network-services.md",
+        "size": 10930,
+        "digest": "sha256:14cdb6ca11d15597d45364880d25c6a28c9460f0534e399213332e657acf49b5",
+        "browser_download_url": "https://github.com/Huuuhuuhu/readest/releases/download/tv-0.12.20-v4/Network-services.md"
+      },
+      {
+        "name": "original-import-dialog.png",
+        "size": 26996,
+        "digest": "sha256:fddc904e83e2769e3867d66a91a6dcd8e6ae5b63c65688fdb4ff61f236d2fc3b",
+        "browser_download_url": "https://github.com/Huuuhuuhu/readest/releases/download/tv-0.12.20-v4/original-import-dialog.png"
+      },
+      {
+        "name": "original-player-focus.png",
+        "size": 192351,
+        "digest": "sha256:655fd08e68f6cab3e1f0fd1dcdd2d9358e86c5c050c6448e9f51d6b3e3945208",
+        "browser_download_url": "https://github.com/Huuuhuuhu/readest/releases/download/tv-0.12.20-v4/original-player-focus.png"
+      },
+      {
+        "name": "Readest-TV-0.12.20-tv.4-armv7.apk",
+        "size": 44281495,
+        "digest": "sha256:d67f773e1a920fccee476918bf6ee7e285380a7da888af4dd57c9e3dd6498bf7",
+        "browser_download_url": "https://github.com/Huuuhuuhu/readest/releases/download/tv-0.12.20-v4/Readest-TV-0.12.20-tv.4-armv7.apk"
+      },
+      {
+        "name": "SHA256SUMS.txt",
+        "size": 101,
+        "digest": "sha256:70943e7cccc7bfee86e9808b612eb62242715844fd7fd9b248511f8918de47a4",
+        "browser_download_url": "https://github.com/Huuuhuuhu/readest/releases/download/tv-0.12.20-v4/SHA256SUMS.txt"
+      },
+      {
+        "name": "TV-acceptance-steps.md",
+        "size": 4999,
+        "digest": "sha256:c578dac2b228128c541aeb5434b6003cec4a4c2c99849d1d57bfbeabc4c1e7c1",
+        "browser_download_url": "https://github.com/Huuuhuuhu/readest/releases/download/tv-0.12.20-v4/TV-acceptance-steps.md"
+      },
+      {
+        "name": "TV-remote-sample.txt",
+        "size": 563976,
+        "digest": "sha256:341c035d6cb19f7336fe4d5997fc7dc489ff1e868c38d4539b0138e676fb6fb3",
+        "browser_download_url": "https://github.com/Huuuhuuhu/readest/releases/download/tv-0.12.20-v4/TV-remote-sample.txt"
+      }
+    ]
+  }
+}

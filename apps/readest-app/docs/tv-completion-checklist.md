@@ -9,7 +9,8 @@
 - [x] Avoid TV route snapshots and whole-document input rescans on narration text updates.
 - [x] Browser remote walkthrough: initial library selection, toolbar Right, Speed → Voice → Back, and original mini-player Stop. Live direct Microsoft sample: 1,797 ms / 19,728 bytes / 7 boundaries on the development computer.
 - [x] Import 16 generated TXT fixtures into the real library. Second-row third card Up selects the first-row third card, then Up selects the leftmost toolbar control. No diagonal jump when the final row lacks that column; inline detail buttons do not intercept card navigation. The import tile remains reachable.
-- [ ] Final CI/build/signature/publication record follows the code build.
+- [x] Final code `a789a1c37a867bb074ef01b1f1b5263dcb72bf46`: 14,347 frontend tests passed (10 skipped), 192 Rust tests passed, TypeScript/Biome/format, Rust fmt/clippy, ARMv7 build and native Android key tests all passed. [CI run 43577358965](https://github.com/Huuuhuuhu/readest/actions/runs/43577358965).
+- [x] Signed ARMv7 APK published as [tv-0.12.20-v4](https://github.com/Huuuhuuhu/readest/releases/tag/tv-0.12.20-v4), version code 12023, using the existing TV certificate. All nine uploaded asset digests read back and verified. APK SHA-256 `d67f773e1a920fccee476918bf6ee7e285380a7da888af4dd57c9e3dd6498bf7`. [Build and publication record](verification/tv-v4-release-build.json).
 - [ ] Physical ARMv7 TV performance and remote/IME checks remain for the user's installed APK; no hardware is connected here.
 
 ## tv.3 — original reading UI and full-width layout
