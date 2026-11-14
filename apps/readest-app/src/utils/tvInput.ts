@@ -364,7 +364,10 @@ export const installTVInput = (doc: Document = document): (() => void) => {
       // A button in this visual row/column always wins over a diagonal one.
       // This matters when a wide Speed tile sits below small transport icons.
       const inLane = sideways === 0;
-      const candidateScore = forward + sideways * 4;
+      // Wide tiles can overlap several smaller controls in the next row. A
+      // small center-alignment weight prevents a one-pixel height difference
+      // from sending Voice Up to Previous instead of the centered Play button.
+      const candidateScore = forward + sideways * 4 + Math.abs(horizontal ? dy : dx) * 0.25;
       if ((inLane && !bestInLane) || (inLane === bestInLane && candidateScore < score)) {
         best = item;
         score = candidateScore;

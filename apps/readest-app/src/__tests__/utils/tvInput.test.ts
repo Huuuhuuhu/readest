@@ -106,6 +106,17 @@ describe('TV remote input ownership', () => {
     expect(open).toHaveBeenCalledOnce();
   });
 
+  it('prefers the aligned transport button above a wide Voice tile over an overlapping neighbor', async () => {
+    await Promise.resolve();
+    const [voice, pause, previous] = [...document.querySelectorAll<HTMLElement>('input,button')];
+    place(voice!, 100, 200, 124, 56);
+    place(pause!, 134, 128, 56, 56);
+    place(previous!, 82, 139, 36, 36);
+    voice!.focus();
+    press('ArrowUp');
+    expect(document.activeElement).toBe(pause);
+  });
+
   it('leaves the first book row for the leftmost toolbar control, not the same book column', async () => {
     await Promise.resolve();
     const root = document.querySelector('main')!;
