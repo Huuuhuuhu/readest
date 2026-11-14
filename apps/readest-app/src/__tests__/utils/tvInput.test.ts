@@ -151,12 +151,19 @@ describe('TV remote input ownership', () => {
     const root = document.querySelector('main')!;
     root.innerHTML =
       '<section data-tv-library-grid>' +
-      Array.from({ length: 6 }, (_, i) => `<button data-book-hash="${i}">Book ${i}</button>`).join(
-        '',
-      ) +
+      Array.from(
+        { length: 6 },
+        (_, i) =>
+          `<div role="button" tabindex="0" data-book-hash="${i}">Book ${i}<button>Details</button></div>`,
+      ).join('') +
       '</section>';
-    const books = [...root.querySelectorAll('button')];
-    books.forEach((book, i) => place(book, (i % 3) * 180, Math.floor(i / 3) * 240, 150, 220));
+    const books = [...root.querySelectorAll<HTMLElement>('[data-book-hash]')];
+    books.forEach((book, i) => {
+      const x = (i % 3) * 180,
+        y = Math.floor(i / 3) * 240;
+      place(book, x, y, 150, 220);
+      place(book.querySelector('button')!, x + 100, y + 190, 30, 30);
+    });
     books[5]!.focus();
     press('ArrowUp');
     expect(document.activeElement).toBe(books[2]);
@@ -164,6 +171,9 @@ describe('TV remote input ownership', () => {
     expect(document.activeElement).toBe(books[1]);
     press('ArrowDown');
     expect(document.activeElement).toBe(books[4]);
+    books[3]!.focus();
+    press('ArrowLeft');
+    expect(document.activeElement).toBe(books[3]);
   });
 
   it('keeps focus on original toolbars when a font reflow focuses the book inside the same reader', async () => {
@@ -179,6 +189,19 @@ describe('TV remote input ownership', () => {
     page.focus();
     await Promise.resolve();
     expect(document.activeElement).toBe(toolbarButtons[1]);
+  });
+
+  it('does not cross columns when grid cells touch and the last row has no matching book', async () => {
+    await Promise.resolve();
+    const root = document.querySelector('main')!;
+    root.innerHTML =
+      '<section data-tv-library-grid><button data-book-hash="top-third">Third</button><button data-book-hash="bottom-second">Second</button></section>';
+    const [third, second] = [...root.querySelectorAll('button')];
+    place(third!, 300, 0, 150, 220);
+    place(second!, 150, 220, 150, 220);
+    third!.focus();
+    press('ArrowDown');
+    expect(document.activeElement).toBe(third);
   });
 
   it('keeps a dialog focused when background narration tries to focus the book', async () => {

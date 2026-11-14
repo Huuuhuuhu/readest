@@ -332,6 +332,8 @@ export const installTVInput = (doc: Document = document): (() => void) => {
     const root = scope?.element ?? doc.body;
     const items = scope ? scopeControls(scope) : getTVControls(root);
     const grid = target.closest('[data-tv-library-grid]');
+    const bookItemSelector = '[data-book-hash], [data-group-name]';
+    const navigatingBooks = !!grid && target.matches(bookItemSelector);
     if (grid && key === 'ArrowUp') {
       const row = target.getBoundingClientRect();
       const above = items.some(
@@ -351,6 +353,12 @@ export const installTVInput = (doc: Document = document): (() => void) => {
     let bestInLane = false;
     for (const item of items) {
       if (item === target || item.contains(target) || target.contains(item)) continue;
+      if (navigatingBooks) {
+        // Book cards are the grid cells. Inline detail/cloud buttons remain in
+        // the original book menu; they must not intercept movement to a card.
+        const card = item.closest(bookItemSelector);
+        if (!grid!.contains(item) || (card && card !== item)) continue;
+      }
       const rect = item.getBoundingClientRect();
       const dx = rect.left + rect.width / 2 - origin.left - origin.width / 2;
       const dy = rect.top + rect.height / 2 - origin.top - origin.height / 2;
@@ -361,6 +369,14 @@ export const installTVInput = (doc: Document = document): (() => void) => {
         ? Math.max(0, rect.top - origin.bottom, origin.top - rect.bottom)
         : Math.max(0, rect.left - origin.right, origin.left - rect.right);
       if (forward <= 2) continue;
+      if (navigatingBooks) {
+        const overlap = horizontal
+          ? Math.min(rect.bottom, origin.bottom) - Math.max(rect.top, origin.top)
+          : Math.min(rect.right, origin.right) - Math.max(rect.left, origin.left);
+        // Virtualized grid cells touch at their edges. Touching is not an
+        // aligned column/row, especially in the partly filled last row.
+        if (overlap <= 2) continue;
+      }
       // A button in this visual row/column always wins over a diagonal one.
       // This matters when a wide Speed tile sits below small transport icons.
       const inLane = sideways === 0;

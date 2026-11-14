@@ -8,6 +8,7 @@
 - [x] Add bounded foreground-only compressed speech lookahead, beginning at import/current reading anchor. Reuse live synthesis keys and pending results, prune old chapters, and keep explicit offline downloads separate.
 - [x] Avoid TV route snapshots and whole-document input rescans on narration text updates.
 - [x] Browser remote walkthrough: initial library selection, toolbar Right, Speed → Voice → Back, and original mini-player Stop. Live direct Microsoft sample: 1,797 ms / 19,728 bytes / 7 boundaries on the development computer.
+- [x] Import 16 generated TXT fixtures into the real library. Second-row third card Up selects the first-row third card, then Up selects the leftmost toolbar control. No diagonal jump when the final row lacks that column; inline detail buttons do not intercept card navigation. The import tile remains reachable.
 - [ ] Final CI/build/signature/publication record follows the code build.
 - [ ] Physical ARMv7 TV performance and remote/IME checks remain for the user's installed APK; no hardware is connected here.
 

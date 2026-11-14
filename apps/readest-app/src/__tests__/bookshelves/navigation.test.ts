@@ -32,6 +32,25 @@ describe('mixed shelf spatial navigation', () => {
   });
 });
 describe('library arrow-key focus handling', () => {
+  it('does not redirect a TV grid move diagonally into a partly filled last row', () => {
+    const container = mount();
+    container.innerHTML =
+      '<div role="button" tabindex="0" id="third"></div><div role="button" tabindex="0" id="second"></div>';
+    const third = container.querySelector<HTMLElement>('#third')!;
+    const second = container.querySelector<HTMLElement>('#second')!;
+    third.getBoundingClientRect = () => new DOMRect(300, 0, 150, 220);
+    second.getBoundingClientRect = () => new DOMRect(150, 220, 150, 220);
+    third.focus();
+    third.dispatchEvent(
+      new CustomEvent('tv-navigate', {
+        detail: { key: 'ArrowDown' },
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(document.activeElement).toBe(third);
+  });
+
   it('lets the unified TV router move between mounted book cards', () => {
     const container = mount();
     container.innerHTML =

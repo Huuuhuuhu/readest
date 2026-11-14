@@ -3,7 +3,12 @@ import { useEffect } from 'react';
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 type Position = Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>;
 /** Choose the nearest row/column in the requested physical direction. */
-export const spatialTarget = (positions: Position[], current: number, key: string): number => {
+export const spatialTarget = (
+  positions: Position[],
+  current: number,
+  key: string,
+  alignedOnly = false,
+): number => {
   const origin = positions[current];
   if (!origin) return -1;
   const horizontal = key === 'ArrowLeft' || key === 'ArrowRight';
@@ -19,6 +24,14 @@ export const spatialTarget = (positions: Position[], current: number, key: strin
     const forward = (horizontal ? dx : dy) * sign;
     const sideways = Math.abs(horizontal ? dy : dx);
     if (forward <= 5 || (horizontal && sideways > Math.max(origin.height, rect.height) / 2)) return;
+    if (alignedOnly) {
+      const overlap = horizontal
+        ? Math.min(rect.top + rect.height, origin.top + origin.height) -
+          Math.max(rect.top, origin.top)
+        : Math.min(rect.left + rect.width, origin.left + origin.width) -
+          Math.max(rect.left, origin.left);
+      if (overlap <= 2) return;
+    }
     const distance = forward + sideways * 2;
     if (distance < score) {
       score = distance;
@@ -65,6 +78,7 @@ export function useSpatialNavigation(containerRef: React.RefObject<HTMLElement |
               items.map((item) => item.getBoundingClientRect()),
               current,
               key,
+              tv,
             );
       if (next >= 0) {
         items[next]!.focus({ preventScroll: true });
@@ -91,7 +105,7 @@ export function useSpatialNavigation(containerRef: React.RefObject<HTMLElement |
             },
             ...mounted.map((item) => item.getBoundingClientRect()),
           ];
-          const target = spatialTarget(positions, 0, key);
+          const target = spatialTarget(positions, 0, key, tv);
           if (target > 0) mounted[target - 1]?.focus({ preventScroll: true });
         });
         e.preventDefault();
