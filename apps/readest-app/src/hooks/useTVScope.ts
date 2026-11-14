@@ -15,6 +15,7 @@ export function useTVScope(
       id: options.id,
       priority: options.priority,
       reading: options.reading,
+      controls: options.controls ? () => latest.current.controls?.() ?? [] : undefined,
       onArrow: options.onArrow
         ? (key, repeat) => latest.current.onArrow?.(key, repeat) ?? false
         : undefined,
@@ -29,6 +30,7 @@ export function useTVScope(
     options.id,
     options.priority,
     options.reading,
+    !!options.controls,
     !!options.onBack,
     !!options.onMenu,
     !!options.onArrow,

@@ -19,6 +19,7 @@ import MobileFooterBar from './MobileFooterBar';
 import DesktopFooterBar from './DesktopFooterBar';
 import { getFooterBarPosition, HORIZONTAL_SCROLLBAR_LIFT } from './position';
 import TTSControl from '../tts/TTSControl';
+import { isTVMode } from '@/utils/tvInput';
 
 const FooterBar: React.FC<FooterBarProps> = ({
   bookKey,
@@ -97,6 +98,11 @@ const FooterBar: React.FC<FooterBarProps> = ({
   }, [view]);
 
   const handleSpeakText = useCallback(async () => {
+    if (isTVMode()) {
+      setHoveredBookKey('');
+      eventDispatcher.dispatch('tv-open-tts', { bookKey });
+      return;
+    }
     if (!view || !progress || !viewState) return;
 
     const eventType = viewState.ttsEnabled ? 'tts-stop' : 'tts-speak';
@@ -183,7 +189,7 @@ const FooterBar: React.FC<FooterBarProps> = ({
   );
 
   useEffect(() => {
-    if (!appService?.isAndroidApp) return;
+    if (!appService?.isAndroidApp || isTVMode()) return;
 
     if (hoveredBookKey) {
       acquireBackKeyInterception();
@@ -199,9 +205,9 @@ const FooterBar: React.FC<FooterBarProps> = ({
   }, [hoveredBookKey]);
 
   const footerBarRef = useRef<HTMLDivElement>(null);
-  useSpatialNavigation(footerBarRef, isVisible);
+  useSpatialNavigation(footerBarRef, isVisible && !isTVMode());
 
-  const forceMobileLayout = isForcedMobileLayout(appService?.isMobile, isIPhoneDuo);
+  const forceMobileLayout = isTVMode() || isForcedMobileLayout(appService?.isMobile, isIPhoneDuo);
 
   const commonProps: FooterBarChildProps = {
     bookKey,
@@ -265,7 +271,7 @@ const FooterBar: React.FC<FooterBarProps> = ({
             e.clientX < rect.right &&
             e.clientY >= rect.top &&
             e.clientY < rect.bottom;
-          if (!isMobile && !inFooter) setHoveredBookKey('');
+          if (!isTVMode() && !isMobile && !inFooter) setHoveredBookKey('');
         }}
       />
 
@@ -279,7 +285,7 @@ const FooterBar: React.FC<FooterBarProps> = ({
         onFocus={() =>
           !appService?.isMobile && !isWindowFocusRestore() && setHoveredBookKey(bookKey)
         }
-        onMouseLeave={() => window.innerWidth >= 640 && setHoveredBookKey('')}
+        onMouseLeave={() => !isTVMode() && window.innerWidth >= 640 && setHoveredBookKey('')}
       >
         <MobileFooterBar {...commonProps} />
         <DesktopFooterBar {...commonProps} />

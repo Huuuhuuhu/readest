@@ -3,6 +3,7 @@ export interface TVScope {
   id?: string;
   priority?: number;
   reading?: boolean;
+  controls?: () => HTMLElement[];
   initialFocus?: () => HTMLElement | null;
   onBack?: () => void;
   onMenu?: () => void;
@@ -80,6 +81,12 @@ export const getTVControls = (root: HTMLElement) =>
     (element) => element.tabIndex >= 0 && isTVVisible(element),
   );
 
+const scopeControls = (scope: TVScope) => scope.controls?.() ?? getTVControls(scope.element);
+const ownsFocus = (scope: TVScope, element: Element | null) =>
+  !!element &&
+  scope.element.contains(element) &&
+  (!scope.controls || scopeControls(scope).includes(element as HTMLElement));
+
 const identity = (element: HTMLElement) =>
   element.dataset['bookHash'] ||
   element.dataset['groupName'] ||
@@ -91,17 +98,36 @@ export const focusTV = (element: HTMLElement | null | undefined) => {
   if (!element) return;
   if (textField(element)) prepareField(element);
   element.focus({ preventScroll: true });
-  element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  // scrollIntoView also scrolls overflow:hidden book cells. Only scroll real
+  // lists/panels; focusing chrome must never shift the rendered reading page.
+  for (
+    let parent = element.parentElement;
+    parent && parent !== element.ownerDocument.body;
+    parent = parent.parentElement
+  ) {
+    const style = getComputedStyle(parent);
+    const rect = element.getBoundingClientRect();
+    const box = parent.getBoundingClientRect();
+    if (/^(auto|scroll)$/.test(style.overflowY)) {
+      const top = box.top + parent.clientTop;
+      const bottom = top + parent.clientHeight;
+      parent.scrollTop += rect.top < top ? rect.top - top : Math.max(0, rect.bottom - bottom);
+    }
+    if (/^(auto|scroll)$/.test(style.overflowX)) {
+      const left = box.left + parent.clientLeft;
+      const right = left + parent.clientWidth;
+      parent.scrollLeft += rect.left < left ? rect.left - left : Math.max(0, rect.right - right);
+    }
+  }
 };
 
 const focusScope = (scope: TVScope) => {
   const saved = scope.id ? rememberedFocus.get(scope.id) : undefined;
   const target =
-    scope.initialFocus?.() ||
-    (saved && getTVControls(scope.element).find((el) => identity(el) === saved));
+    scope.initialFocus?.() || (saved && scopeControls(scope).find((el) => identity(el) === saved));
   if (target) focusTV(target);
   else if (scope.reading) focusTV(scope.element);
-  else focusTV(getTVControls(scope.element)[0] ?? scope.element);
+  else focusTV(scopeControls(scope)[0] ?? scope.element);
 };
 
 export const registerTVScope = (scope: TVScope): (() => void) => {
@@ -147,11 +173,7 @@ export const registerTVScope = (scope: TVScope): (() => void) => {
     if (!wasTop) return;
     queueMicrotask(() => {
       const top = getTVScope();
-      if (
-        previous?.isConnected &&
-        isTVVisible(previous) &&
-        (!top || top.element.contains(previous))
-      )
+      if (previous?.isConnected && isTVVisible(previous) && (!top || ownsFocus(top, previous)))
         focusTV(previous);
       else if (top) focusScope(top);
     });
@@ -189,16 +211,16 @@ export const installTVInput = (doc: Document = document): (() => void) => {
   const scopeFocus = new WeakMap<TVScope, HTMLElement>();
   const repairFocus = () => {
     const scope = getTVScope();
-    if (!scope || scope.reading || scope.element.contains(doc.activeElement)) return;
+    if (!scope || scope.reading || ownsFocus(scope, doc.activeElement)) return;
     queueMicrotask(() => {
       if (
         getTVScope() !== scope ||
-        scope.element.contains(doc.activeElement) ||
+        ownsFocus(scope, doc.activeElement) ||
         !isTVVisible(scope.element)
       )
         return;
       const previous = scopeFocus.get(scope);
-      if (previous && scope.element.contains(previous) && isTVVisible(previous)) focusTV(previous);
+      if (previous && ownsFocus(scope, previous) && isTVVisible(previous)) focusTV(previous);
       else focusScope(scope);
     });
   };
@@ -236,7 +258,7 @@ export const installTVInput = (doc: Document = document): (() => void) => {
     const target = event.target as HTMLElement;
     if (textField(target)) prepareField(target);
     const scope = getTVScope();
-    if (scope && !scope.reading && !scope.element.contains(target)) {
+    if (scope && !scope.reading && !ownsFocus(scope, target)) {
       // Narration/renderer position updates must not steal a panel's focus.
       // Wait for the current commit so a newly opened higher scope can take over.
       repairFocus();
@@ -287,7 +309,7 @@ export const installTVInput = (doc: Document = document): (() => void) => {
       }
     }
     const root = scope?.element ?? doc.body;
-    const items = getTVControls(root);
+    const items = scope ? scopeControls(scope) : getTVControls(root);
     const origin = target.getBoundingClientRect();
     const horizontal = key === 'ArrowLeft' || key === 'ArrowRight';
     const sign = key === 'ArrowLeft' || key === 'ArrowUp' ? -1 : 1;

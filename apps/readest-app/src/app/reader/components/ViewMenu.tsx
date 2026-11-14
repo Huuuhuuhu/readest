@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { useState } from 'react';
 
 import { BiMoon, BiSun } from 'react-icons/bi';
-import { PiGear, PiChartBar, PiCardsThree } from 'react-icons/pi';
+import { PiGear, PiChartBar, PiCardsThree, PiQrCode } from 'react-icons/pi';
 import { TbSunMoon } from 'react-icons/tb';
 import { MdZoomOut, MdZoomIn, MdCheck, MdInfoOutline, MdOutlineSensors } from 'react-icons/md';
 import { MdRemove, MdAdd, MdContrast } from 'react-icons/md';
@@ -44,17 +44,16 @@ import { canToggleFullScreen, toggleFullScreen } from '@/utils/window';
 import { setCoverSpread } from '@/utils/spread';
 import MenuItem from '@/components/MenuItem';
 import Menu from '@/components/Menu';
+import { isTVMode } from '@/utils/tvInput';
 
 interface ViewMenuProps {
   bookKey: string;
-  embedded?: boolean;
   setIsDropdownOpen?: (open: boolean) => void;
   onShowMetaHashDialog?: () => void;
 }
 
 const ViewMenu: React.FC<ViewMenuProps> = ({
   bookKey,
-  embedded = false,
   setIsDropdownOpen,
   onShowMetaHashDialog,
 }) => {
@@ -308,20 +307,10 @@ const ViewMenu: React.FC<ViewMenuProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rtlSpread]);
 
-  const Container = embedded ? 'div' : Menu;
   return (
-    <Container
-      className={clsx(
-        'view-menu',
-        embedded
-          ? 'w-full'
-          : 'dropdown-content dropdown-right no-triangle z-20 mt-1.5 border bgcolor-base-200 shadow-2xl',
-      )}
-      style={
-        embedded
-          ? undefined
-          : { marginRight: appService?.isMobile || window.innerWidth < 640 ? '-36px' : 0 }
-      }
+    <Menu
+      className='view-menu dropdown-content dropdown-right no-triangle z-20 mt-1.5 border bgcolor-base-200 shadow-2xl'
+      style={{ marginRight: appService?.isMobile || window.innerWidth < 640 ? '-36px' : 0 }}
       onCancel={() => setIsDropdownOpen?.(false)}
     >
       {bookData.bookDoc?.rendition?.layout === 'pre-paginated' && (
@@ -568,7 +557,7 @@ const ViewMenu: React.FC<ViewMenuProps> = ({
             title={_('Sync Info')}
             className='hover:bg-base-300 text-base-content/70 mx-1 rounded-md px-2'
             onClick={() => {
-              if (!embedded) setIsDropdownOpen?.(false);
+              setIsDropdownOpen?.(false);
               onShowMetaHashDialog?.();
             }}
           >
@@ -605,9 +594,19 @@ const ViewMenu: React.FC<ViewMenuProps> = ({
       />
       <MenuItem label={_('Reading Statistics')} Icon={PiChartBar} onClick={openReadingStats} />
       <MenuItem label={_('Vocabulary')} Icon={PiCardsThree} onClick={openVocabulary} />
+      {isTVMode() && (
+        <MenuItem
+          label={_('Phone Companion')}
+          Icon={PiQrCode}
+          onClick={() => {
+            setIsDropdownOpen?.(false);
+            eventDispatcher.dispatch('open-tv-portal');
+          }}
+        />
+      )}
       <MenuItem label={_('Settings')} Icon={PiGear} onClick={openSettingsDialog} />
       <hr aria-hidden='true' className='border-base-300 my-1' />
-    </Container>
+    </Menu>
   );
 };
 

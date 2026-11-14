@@ -29,6 +29,8 @@ import {
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
 import { getTargetLang, isCJKEnv } from '@/utils/misc';
 import { safeLoadJSON, safeSaveJSON } from './persistence';
+import { TV_READING_LAYOUT } from './constants';
+import { isTVMode } from '@/utils/tvInput';
 
 export interface Context {
   fs: FileSystem;
@@ -55,6 +57,7 @@ export function getDefaultViewSettings(ctx: Context): ViewSettings {
     ...(ctx.isEink ? DEFAULT_EINK_VIEW_SETTINGS : {}),
     ...(isCJKEnv() ? DEFAULT_CJK_VIEW_SETTINGS : {}),
     ...{ ...DEFAULT_TRANSLATOR_CONFIG, translateTargetLang: getTargetLang() },
+    ...(isTVMode() ? TV_READING_LAYOUT : {}),
   };
 }
 
@@ -205,6 +208,12 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
   }
 
   if (migrateBookshelfSettings(settings)) {
+    await saveSettings(ctx.fs, settings);
+  }
+
+  if (isTVMode() && !settings.tvLayoutVersion) {
+    Object.assign(settings.globalViewSettings, TV_READING_LAYOUT);
+    settings.tvLayoutVersion = 1;
     await saveSettings(ctx.fs, settings);
   }
 

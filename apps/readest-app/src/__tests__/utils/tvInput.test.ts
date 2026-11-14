@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installTVInput, registerTVScope } from '@/utils/tvInput';
+import { focusTV, installTVInput, registerTVScope } from '@/utils/tvInput';
 
 let stop: () => void;
 let removeScope: () => void;
@@ -47,6 +47,35 @@ afterEach(() => {
 });
 
 describe('TV remote input ownership', () => {
+  it('does not scroll the clipped book cell when focusing an inline footer control', () => {
+    const cell = document.querySelector('main')!;
+    cell.style.overflow = 'hidden';
+    const button = cell.querySelector('button')!;
+    // Native scrollIntoView scrolls even overflow:hidden ancestors, shifting
+    // the whole page when an inactive footer panel extends below the cell.
+    button.scrollIntoView = () => {
+      cell.scrollTop = 152;
+    };
+    focusTV(button);
+    expect(cell.scrollTop).toBe(0);
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('keeps focus on original toolbars when a font reflow focuses the book inside the same reader', async () => {
+    removeScope();
+    const root = document.querySelector('main')!;
+    const toolbarButtons = [...root.querySelectorAll('button')];
+    const page = document.createElement('button');
+    page.textContent = 'Book document';
+    root.append(page);
+    removeScope = registerTVScope({ element: root, controls: () => toolbarButtons });
+    await Promise.resolve();
+    toolbarButtons[1]!.focus();
+    page.focus();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(toolbarButtons[1]);
+  });
+
   it('keeps a dialog focused when background narration tries to focus the book', async () => {
     const dialog = document.createElement('section');
     dialog.innerHTML = '<button>Pause narration</button><button>Voice</button>';

@@ -44,6 +44,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({
 
   return (
     <div
+      data-reader-navigation
       className={clsx(
         'not-eink:bg-base-200 eink:bg-base-100 z-30 mt-auto flex w-full justify-between px-8 py-4',
         'eink:border-base-content eink:border-t',

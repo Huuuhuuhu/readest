@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface SliderProps {
   label: string;
@@ -44,6 +44,24 @@ const Slider: React.FC<SliderProps> = ({
   positionToValue,
 }) => {
   const [value, setValue] = useState(initialValue);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    const navigate = (event: Event) => {
+      const { key } = (event as CustomEvent<{ key: string }>).detail;
+      if (key !== 'ArrowLeft' && key !== 'ArrowRight') return;
+      event.preventDefault();
+      const direction =
+        (key === 'ArrowRight' ? 1 : -1) * (getComputedStyle(input).direction === 'rtl' ? -1 : 1);
+      const next = Math.min(max, Math.max(min, Math.round((value + direction * step) * 1e6) / 1e6));
+      setValue(next);
+      onChange?.(next);
+    };
+    input.addEventListener('tv-navigate', navigate);
+    return () => input.removeEventListener('tv-navigate', navigate);
+  }, [value, min, max, step, onChange]);
 
   // Default linear mapping functions
   const defaultValueToPosition = (val: number, minVal: number, maxVal: number) => {
@@ -132,6 +150,7 @@ const Slider: React.FC<SliderProps> = ({
           </div>
         </div>
         <input
+          ref={inputRef}
           type='range'
           min={0}
           max={100}

@@ -713,6 +713,7 @@ export interface PageboundBookLink {
 }
 
 export interface BookConfig {
+  tvLayoutVersion?: number;
   schemaVersion?: number;
   bookHash?: string;
   metaHash?: string;

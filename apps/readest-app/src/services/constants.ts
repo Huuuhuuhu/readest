@@ -385,6 +385,15 @@ export const DEFAULT_BOOK_FONT: BookFont = {
   fontWeight: 400,
 };
 
+// Use the existing renderer's size limits to fill a television, in both flows.
+// Margins remain adjustable through the original Layout panel.
+export const TV_READING_LAYOUT = {
+  maxColumnCount: 1,
+  maxInlineSize: 9999,
+  maxBlockSize: 9999,
+  scrolled: false,
+};
+
 export const DEFAULT_BOOK_LAYOUT: BookLayout = {
   marginTopPx: 44,
   marginBottomPx: 44,

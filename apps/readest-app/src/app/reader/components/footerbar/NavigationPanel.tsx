@@ -11,6 +11,7 @@ import { getNavigationIcon } from './utils';
 import Button from '@/components/Button';
 import Slider from '@/components/Slider';
 import PageJumpInput from './PageJumpInput';
+import { isTVMode } from '@/utils/tvInput';
 
 interface NavigationPanelProps {
   bookKey: string;
@@ -62,11 +63,18 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
     setPreviewFraction(null);
   }, [progress]);
 
+  useEffect(() => {
+    if (isTVMode() && actionTab !== 'progress') {
+      setPreviewFraction(null);
+      setProgressValue(progressValid ? progressFraction * 100 : 0);
+    }
+  }, [actionTab, progressValid, progressFraction]);
+
   const handleProgressChange = useCallback(
     (value: number) => {
       setProgressValue(value);
       setPreviewFraction(value / 100);
-      navigationHandlers.onProgressChange(value);
+      if (!isTVMode()) navigationHandlers.onProgressChange(value);
     },
     [navigationHandlers],
   );
@@ -116,6 +124,18 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
         </div>
       </div>
       <div className='flex w-full items-center justify-between gap-x-6'>
+        {isTVMode() && (
+          <button
+            className='btn btn-ghost btn-sm'
+            disabled={previewFraction === null}
+            onClick={() => {
+              navigationHandlers.onProgressChange(progressValue);
+              setPreviewFraction(null);
+            }}
+          >
+            {_('Go')}
+          </button>
+        )}
         <Button
           icon={getNavigationIcon(
             viewSettings?.rtl,

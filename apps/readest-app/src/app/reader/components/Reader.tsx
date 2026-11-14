@@ -2,10 +2,9 @@
 
 import clsx from 'clsx';
 import * as React from 'react';
-import { useEffect, useRef, useState, Suspense } from 'react';
+import { useEffect, useRef, Suspense } from 'react';
 import { useTVScope } from '@/hooks/useTVScope';
-import { isTVMode } from '@/utils/tvInput';
-import TVReadingMenu from './TVReadingMenu';
+import { focusTV, getTVControls, isTVMode, isTVVisible } from '@/utils/tvInput';
 import { useRouter } from 'next/navigation';
 
 import { useEnv } from '@/context/EnvContext';
@@ -60,13 +59,13 @@ Z-Index Layering Guide:
 
 const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
   const readerRef = useRef<HTMLDivElement>(null);
-  const [tvMenuOpen, setTVMenuOpen] = useState(false);
+  const lastToolbarFocus = useRef<HTMLElement | null>(null);
   const router = useRouter();
   const { appService } = useEnv();
   const { settings } = useSettingsStore();
   const { libraryLoaded } = useLibrary();
   const { sideBarBookKey } = useSidebarStore();
-  const { hoveredBookKey } = useReaderStore();
+  const { hoveredBookKey, setHoveredBookKey, bottomBarTab, setBottomBarTab } = useReaderStore();
   const { showSystemUI, dismissSystemUI } = useThemeStore();
   const { acquireBackKeyInterception, releaseBackKeyInterception } = useDeviceControlStore();
   const { isSideBarVisible, isSideBarPinned } = useSidebarStore();
@@ -162,12 +161,46 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoveredBookKey]);
 
+  // Closing an inline footer panel restores its own tab, not an invisible slider.
+  useEffect(() => {
+    if (
+      isTVMode() &&
+      hoveredBookKey &&
+      !bottomBarTab &&
+      lastToolbarFocus.current &&
+      isTVVisible(lastToolbarFocus.current)
+    )
+      focusTV(lastToolbarFocus.current);
+  }, [hoveredBookKey, bottomBarTab]);
+
   useTVScope(readerRef, libraryLoaded && !!settings.globalReadSettings, {
     id: 'reader',
-    reading: true,
-    onMenu: () => setTVMenuOpen(true),
+    reading: !hoveredBookKey,
+    controls: hoveredBookKey
+      ? () => {
+          const cell = document.getElementById(`gridcell-${hoveredBookKey}`);
+          return cell
+            ? [...cell.querySelectorAll<HTMLElement>('.header-bar, .footer-bar')].flatMap(
+                getTVControls,
+              )
+            : [];
+        }
+      : undefined,
+    initialFocus: () => {
+      if (!hoveredBookKey) return null;
+      const cell = document.getElementById(`gridcell-${hoveredBookKey}`);
+      const bar = cell?.querySelector<HTMLElement>('[data-reader-navigation]');
+      return bar ? (getTVControls(bar)[0] ?? null) : null;
+    },
+    onMenu: () => {
+      lastToolbarFocus.current = null;
+      setBottomBarTab('');
+      setHoveredBookKey(hoveredBookKey ? '' : sideBarBookKey);
+    },
     onBack: () => {
-      if (getIsNotebookVisible()) setNotebookVisible(false);
+      if (hoveredBookKey && bottomBarTab) setBottomBarTab('');
+      else if (hoveredBookKey) setHoveredBookKey('');
+      else if (getIsNotebookVisible()) setNotebookVisible(false);
       else void eventDispatcher.dispatch('close-reader', { onClose: () => router.back() });
     },
   });
@@ -177,6 +210,10 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
       ref={readerRef}
       tabIndex={isTVMode() ? -1 : undefined}
       data-tv-reading='true'
+      onFocusCapture={(event) => {
+        if (event.target.closest('[data-reader-navigation], .header-bar'))
+          lastToolbarFocus.current = event.target;
+      }}
       className={clsx(
         'reader-page bg-base-100 text-base-content full-height select-none overflow-hidden',
         appService?.hasRoundedWindow && isRoundedWindow && 'window-border rounded-window',
@@ -184,17 +221,6 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
     >
       <Suspense fallback={<div className='full-height'></div>}>
         <ReaderContent ids={ids} settings={settings} />
-        {isTVMode() && sideBarBookKey && (
-          <TVReadingMenu
-            bookKey={sideBarBookKey}
-            open={tvMenuOpen}
-            onClose={() => setTVMenuOpen(false)}
-            onLibrary={() => {
-              setTVMenuOpen(false);
-              void eventDispatcher.dispatch('close-reader', { onClose: () => router.back() });
-            }}
-          />
-        )}
         <AboutWindow />
         <ReadingStatsDialog />
         <VocabularyDialog />

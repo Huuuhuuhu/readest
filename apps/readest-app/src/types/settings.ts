@@ -466,6 +466,7 @@ export interface HardwarePageTurnerSettings {
 }
 
 export interface SystemSettings {
+  tvLayoutVersion?: number;
   version: number;
   migrationVersion: number;
   localBooksDir: string;

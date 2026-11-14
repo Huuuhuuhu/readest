@@ -8,6 +8,7 @@ import { useNotebookStore } from '@/store/notebookStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import Button from '@/components/Button';
+import { isTVMode } from '@/utils/tvInput';
 
 interface NotebookTogglerProps {
   bookKey: string;
@@ -22,7 +23,7 @@ const NotebookToggler: React.FC<NotebookTogglerProps> = ({ bookKey }) => {
   const iconSize18 = useResponsiveSize(18);
 
   const handleToggleSidebar = () => {
-    if (appService?.isMobile) {
+    if (appService?.isMobile || isTVMode()) {
       setHoveredBookKey('');
     }
     if (sideBarBookKey === bookKey) {

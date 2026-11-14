@@ -35,6 +35,7 @@ import TranslationToggler from './TranslationToggler';
 import DuoBookModeToggler from './DuoBookModeToggler';
 import ViewMenu from './ViewMenu';
 import SyncInfoDialog from './SyncInfoDialog';
+import { isTVMode } from '@/utils/tvInput';
 
 interface HeaderBarProps {
   bookKey: string;
@@ -169,7 +170,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   const forceMobileLayout = isForcedMobileLayout(appService?.isMobile, isIPhoneDuo);
   const triggerHeight = viewSettings ? getHeaderTriggerHeight(gridInsets.top, viewSettings) : 0;
 
-  useSpatialNavigation(headerRef, isHeaderVisible);
+  useSpatialNavigation(headerRef, isHeaderVisible && !isTVMode());
   const trafficLightInHeader =
     appService?.hasTrafficLight && !trafficLightInFullscreen && !isSideBarVisible && isTopLeft;
   const windowButtonVisible =
@@ -214,7 +215,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
         // A pointer that crosses the strip straight into the book never enters
         // the header, so the header's own mouseleave never comes (#6999).
         onMouseLeave={(e) => {
-          if (!appService?.isMobile && isMouseOutsideHeader(e.clientX, e.clientY)) {
+          if (!isTVMode() && !appService?.isMobile && isMouseOutsideHeader(e.clientX, e.clientY)) {
             setHoveredBookKey('');
           }
         }}
@@ -255,7 +256,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           !appService?.isMobile && !isWindowFocusRestore() && setHoveredBookKey(bookKey)
         }
         onMouseLeave={(e) => {
-          if (!appService?.isMobile && isMouseOutsideHeader(e.clientX, e.clientY)) {
+          if (!isTVMode() && !appService?.isMobile && isMouseOutsideHeader(e.clientX, e.clientY)) {
             setHoveredBookKey('');
           }
         }}

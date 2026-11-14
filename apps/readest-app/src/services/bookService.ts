@@ -40,6 +40,8 @@ import { isPseStreamFileName, openPseStreamBook, parsePseStreamFileName } from '
 import { DEFAULT_BOOK_SEARCH_CONFIG, DEFAULT_FIXED_LAYOUT_VIEW_SETTINGS } from './constants';
 import { isContentURI, isValidURL, makeSafeFilename } from '@/utils/misc';
 import { deserializeConfig, serializeConfig, serializeRawConfig } from '@/utils/serializer';
+import { isTVMode } from '@/utils/tvInput';
+import { TV_READING_LAYOUT } from './constants';
 import { ClosableFile } from '@/utils/file';
 import { TxtToEpubConverter } from '@/utils/txt';
 import { svg2png } from '@/utils/svg';
@@ -1255,7 +1257,15 @@ export async function loadBookConfig(
     if (await fs.exists(getConfigFilename(book), 'Books')) {
       str = (await fs.readFile(getConfigFilename(book), 'Books', 'text')) as string;
     }
-    return deserializeConfig(str, globalViewSettings, DEFAULT_BOOK_SEARCH_CONFIG);
+    const config = deserializeConfig(str, globalViewSettings, DEFAULT_BOOK_SEARCH_CONFIG);
+    if (isTVMode() && !config.tvLayoutVersion && !FIXED_LAYOUT_FORMATS.has(book.format)) {
+      // Existing per-book overrides must not resurrect the old narrow column.
+      // New books inherit the user's current global layout. The stamp lives
+      // outside viewSettings so serialization cannot strip it as a default.
+      if (str !== '{}') Object.assign(config.viewSettings!, TV_READING_LAYOUT);
+      config.tvLayoutVersion = 1;
+    }
+    return config;
   } catch {
     return deserializeConfig('{}', globalViewSettings, DEFAULT_BOOK_SEARCH_CONFIG);
   }

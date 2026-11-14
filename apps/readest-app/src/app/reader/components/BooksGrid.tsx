@@ -40,6 +40,7 @@ import HintInfo from './HintInfo';
 import ReadingRuler from './ReadingRuler';
 import DoubleBorder from './DoubleBorder';
 import ReadingStatsTracker from './ReadingStatsTracker';
+import { isTVMode } from '@/utils/tvInput';
 
 interface BooksGridProps {
   bookKeys: string[];
@@ -215,7 +216,8 @@ const BookCellInner: React.FC<BookCellProps> = ({
       // page in both layers.
       data-view-transition-root=''
       className={clsx(
-        'relative h-full w-full overflow-hidden',
+        'relative h-full w-full',
+        isTVMode() ? 'overflow-clip' : 'overflow-hidden',
         appServiceHasRoundedWindow && 'rounded-window',
       )}
     >

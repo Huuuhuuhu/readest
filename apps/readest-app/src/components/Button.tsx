@@ -25,6 +25,7 @@ const Button: React.FC<ButtonProps> = ({ icon, onClick, disabled = false, label,
       )}
       title={label}
       aria-label={label}
+      disabled={disabled}
       onClick={disabled ? undefined : onClick}
     >
       {icon}

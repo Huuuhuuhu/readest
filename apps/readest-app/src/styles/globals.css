@@ -1,22 +1,16 @@
 @import 'tailwindcss' source('../');
 
-/* Keep reading text at its saved size; enlarge the surrounding TV interface. */
-[data-tv-mode='true'] {
-  font-size: 20px;
-}
+/* Preserve Readest's surfaces and typography; a remote adds visible focus. */
 [data-tv-mode='true'] kbd {
   display: none;
 }
 [data-tv-mode='true'] [role='menuitem'] {
   min-height: 44px;
 }
-[data-tv-mode='true'] [role='menuitem'] .text-pretty {
-  font-size: 1rem;
-}
 /* A TV is viewed from across the room: use a solid, theme-aware focus edge. */
 [data-tv-mode='true'] :focus {
-  outline: 3px solid var(--color-base-content) !important;
-  outline-offset: -3px !important;
+  outline: 2px solid var(--color-base-content) !important;
+  outline-offset: -2px !important;
 }
 [data-tv-mode='true'] [data-tv-reading='true']:focus {
   outline: none !important;
@@ -26,17 +20,12 @@
   outline-style: double !important;
   outline-width: 5px !important;
 }
-[data-tv-mode='true'] .settings-content,
-[data-tv-mode='true'] .menu-container {
-  font-size: 20px;
-}
-[data-tv-mode='true'] .btn {
-  font-size: inherit;
-  min-height: 44px;
-}
 /* A remote needs a visible target as soon as a dialog owns its keys. */
 [data-tv-mode='true'] .modal,
-[data-tv-mode='true'] .modal-box {
+[data-tv-mode='true'] .modal-box,
+[data-tv-mode='true'] .header-bar,
+[data-tv-mode='true'] .footer-bar,
+[data-tv-mode='true'] .footer-bar > div {
   transition: none !important;
   animation: none !important;
 }

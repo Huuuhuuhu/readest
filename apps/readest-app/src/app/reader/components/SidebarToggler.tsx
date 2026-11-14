@@ -4,6 +4,8 @@ import { TbLayoutSidebar, TbLayoutSidebarFilled } from 'react-icons/tb';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import Button from '@/components/Button';
+import { isTVMode } from '@/utils/tvInput';
+import { useReaderStore } from '@/store/readerStore';
 
 interface SidebarTogglerProps {
   bookKey: string;
@@ -13,6 +15,7 @@ const SidebarToggler: React.FC<SidebarTogglerProps> = ({ bookKey }) => {
   const _ = useTranslation();
   const { sideBarBookKey, isSideBarVisible, setSideBarBookKey, toggleSideBar } = useSidebarStore();
   const handleToggleSidebar = () => {
+    if (isTVMode()) useReaderStore.getState().setHoveredBookKey('');
     if (sideBarBookKey === bookKey) {
       toggleSideBar();
     } else {

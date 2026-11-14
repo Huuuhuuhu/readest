@@ -1,5 +1,5 @@
-import { cleanup, render } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { act, cleanup, render } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import Slider from '@/components/Slider';
 
@@ -13,6 +13,28 @@ afterEach(cleanup);
  * which measures the rendered boxes in Chromium.
  */
 describe('Slider', () => {
+  it('uses real value steps for a remote, rather than rounding a percentage back to the same font size', () => {
+    const onChange = vi.fn();
+    const { getByRole } = render(
+      <Slider label='Font Size' min={8} max={30} initialValue={16} onChange={onChange} />,
+    );
+    const input = getByRole('slider');
+    const arrow = (key: string) =>
+      act(() => {
+        input.dispatchEvent(
+          new CustomEvent('tv-navigate', { bubbles: true, cancelable: true, detail: { key } }),
+        );
+      });
+    arrow('ArrowRight');
+    expect(onChange).toHaveBeenLastCalledWith(17);
+    arrow('ArrowRight');
+    expect(onChange).toHaveBeenLastCalledWith(18);
+    arrow('ArrowLeft');
+    expect(onChange).toHaveBeenLastCalledWith(17);
+    arrow('ArrowUp');
+    expect(onChange).toHaveBeenCalledTimes(3);
+  });
+
   it('fills the track and centers the thumb on its end at the maximum value', () => {
     const { container, getByRole } = render(
       <Slider label='Reading Progress' initialValue={100} heightPx={44} />,
