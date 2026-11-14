@@ -8,6 +8,7 @@
 // cache must never be able to break playback.
 
 import { md5 } from 'js-md5';
+import { isTVMode } from '@/utils/tvInput';
 import type { TTSWordBoundary } from '@/libs/edgeTTS';
 import type { TTSVoice } from '../types';
 import type {
@@ -85,6 +86,11 @@ export const computeTTSCacheKey = (providerId: string, req: SpeechSynthesisReque
     ]),
   );
 
+export const speechCacheKey = (provider: SpeechProvider, req: SpeechSynthesisRequest): string => {
+  const scope = provider.cacheScope?.(req);
+  return computeTTSCacheKey(scope ? `${provider.id}#${scope}` : provider.id, req);
+};
+
 // Recently read or synthesized sentences kept in memory: a store read costs
 // hundreds of ms on device, and audio fetched ahead plays from here at the
 // paragraph boundary. A few minutes of speech is a few MB.
@@ -120,8 +126,11 @@ export class CachingProvider implements SpeechProvider {
   }
 
   #key(req: SpeechSynthesisRequest): string {
-    const scope = this.#inner.cacheScope?.(req);
-    return computeTTSCacheKey(scope ? `${this.#inner.id}#${scope}` : this.#inner.id, req);
+    return speechCacheKey(this.#inner, req);
+  }
+
+  cacheScope(req: SpeechSynthesisRequest): string {
+    return this.#inner.cacheScope?.(req) ?? '';
   }
 
   get label(): string {
@@ -271,17 +280,29 @@ export class CachingProvider implements SpeechProvider {
       console.warn('TTS cache read failed; synthesizing instead', err);
     }
     const result = await this.#inner.synthesize(req, signal, options);
+    signal.throwIfAborted();
     this.#remember(key, result);
+    if (!isTVMode()) await this.persist(req, result);
+    return result;
+  }
+
+  // TV lookahead/live audio is disposable. Only an explicit offline chapter
+  // download writes it to disk; automatic cleanup never touches pinned books.
+  async persist(req: SpeechSynthesisRequest, result: SpeechSynthesisResult): Promise<void> {
     try {
       await this.#store.put(
-        key,
+        this.#key(req),
         { audio: result.audio, boundaries: result.boundaries },
         { provider: this.#inner.id, voice: req.voice },
       );
     } catch (err) {
       console.warn('TTS cache write failed; continuing uncached', err);
     }
-    return result;
+  }
+
+  clearRecent(): void {
+    this.#recent.clear();
+    this.#recentBytes = 0;
   }
 
   // A synced pack arrived after these sentences' own lookups missed: the

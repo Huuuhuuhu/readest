@@ -21,6 +21,7 @@ import { Book, BookConfig, BookContent, ImportBookOptions, ViewSettings } from '
 import type { BookNav } from '@/services/nav';
 import { getLibraryFilename, getLibraryBackupFilename } from '@/utils/book';
 import { getFilename } from '@/utils/path';
+import { isTVMode } from '@/utils/tvInput';
 
 import { getOSPlatform } from '@/utils/misc';
 import { buildAbsEbookUrl, isAbsEbook, parseAbsFilePath } from '@/utils/audiobook';
@@ -409,7 +410,7 @@ export abstract class BaseAppService implements AppService {
     books: Book[],
     options: ImportBookOptions = {},
   ): Promise<Book | null> {
-    return BookSvc.importBook(this.fs, file, books, {
+    const book = await BookSvc.importBook(this.fs, file, books, {
       saveBookConfig: this.saveBookConfig.bind(this),
       generateCoverImageUrl: this.generateCoverImageUrl.bind(this),
       // Pass the host platform through so the in-place fast path and the
@@ -418,6 +419,12 @@ export abstract class BaseAppService implements AppService {
       osPlatform: this.osPlatform,
       ...options,
     });
+    if (book && isTVMode()) {
+      void import('./tts/tvSpeechPrefetch')
+        .then(({ prefetchImportedTVBook }) => prefetchImportedTVBook(this, book))
+        .catch(() => {});
+    }
+    return book;
   }
 
   async deleteBook(book: Book, deleteAction: DeleteAction): Promise<void> {

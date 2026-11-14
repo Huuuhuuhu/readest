@@ -14,8 +14,6 @@ import { TTSController } from './TTSController';
 export { DEFAULT_SENTENCE_GAP_SEC } from './BufferedTTSClient';
 
 export class EdgeTTSClient extends BufferedTTSClient {
-  #edgeProvider: EdgeSpeechProvider;
-
   // `store` is the controller's shared per-book cache store (null: caching
   // off). Omitted, the client builds its own (standalone use and tests).
   constructor(
@@ -39,24 +37,9 @@ export class EdgeTTSClient extends BufferedTTSClient {
       provider = new CachingProvider(edgeProvider, cacheStore);
     }
     super(provider, controller, appService);
-    this.#edgeProvider = edgeProvider;
   }
 
   override async init(_protocol: EDGE_TTS_PROTOCOL = 'wss'): Promise<boolean> {
-    this.voices = await this.#edgeProvider.getAllVoices();
-    if (await this.#edgeProvider.init('wss')) {
-      this.initialized = true;
-      return true;
-    }
-    // Every probe failed: blocked, or offline. With a persistent cache a
-    // pre-downloaded book still plays (hits play, misses skip via the
-    // provider's permanent error), so init as cache-only rather than fail —
-    // and do NOT nag a signed-out user with a warm cache to sign in.
-    if (this.provider instanceof CachingProvider) {
-      this.initialized = true;
-      return true;
-    }
-    this.initialized = false;
-    return false;
+    return super.init();
   }
 }

@@ -89,7 +89,6 @@ type TTSPlayerSheetProps = {
   timeoutTimestamp: number;
   chapterRemainingSec: number | null;
   onClose: () => void;
-  onStop?: () => void;
   onTogglePlay: () => void;
   onBackward: (byMark: boolean) => void;
   onForward: (byMark: boolean) => void;
@@ -139,7 +138,6 @@ const TTSPlayerSheet = ({
   timeoutTimestamp,
   chapterRemainingSec,
   onClose,
-  onStop,
   onTogglePlay,
   onBackward,
   onForward,
@@ -727,11 +725,6 @@ const TTSPlayerSheet = ({
             </button>
           )}
         </div>
-      )}
-      {view === 'main' && isTVMode() && onStop && (
-        <button className='btn m-4' onClick={onStop}>
-          结束朗读
-        </button>
       )}
       {view === 'chapters' && (
         <TTSChaptersView

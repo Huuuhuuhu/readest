@@ -157,7 +157,6 @@ const TTSControl: React.FC<TTSControlProps> = ({ bookKey, gridInsets }) => {
           timeoutTimestamp={tts.timeoutTimestamp}
           chapterRemainingSec={tts.chapterRemainingSec}
           onClose={() => setShowPlayerSheet(false)}
-          onStop={handleStop}
           onTogglePlay={tts.handleTogglePlay}
           onBackward={tts.handleBackward}
           onForward={tts.handleForward}

@@ -23,29 +23,10 @@ export class EdgeSpeechProvider implements SpeechProvider {
   // Microsoft only. A failed connection never falls back to a Readest proxy.
   async init(protocol: EDGE_TTS_PROTOCOL = 'wss'): Promise<boolean> {
     this.#tts = new EdgeSpeechTTS(protocol);
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    try {
-      // Initialization gates every engine and the player controls. In
-      // particular, a native WebSocket can hang before its audio timer starts.
-      return await Promise.race([
-        this.#tts
-          .create({
-            lang: 'en',
-            text: 'test',
-            voice: 'en-US-AriaNeural',
-            rate: 1.0,
-            pitch: 1.0,
-          })
-          .then(() => true),
-        new Promise<false>((resolve) => {
-          timeout = setTimeout(() => resolve(false), 5000);
-        }),
-      ]);
-    } catch {
-      return false;
-    } finally {
-      clearTimeout(timeout);
-    }
+    // Voices are bundled. Probe synthesis added a round trip before the first
+    // actual sentence, even for offline cached audio. Report transport errors
+    // on the requested sentence instead of gating the whole player on a probe.
+    return true;
   }
 
   async getAllVoices(): Promise<TTSVoice[]> {
@@ -54,20 +35,23 @@ export class EdgeSpeechProvider implements SpeechProvider {
 
   async synthesize(
     req: SpeechSynthesisRequest,
-    _signal: AbortSignal,
+    signal: AbortSignal,
   ): Promise<SpeechSynthesisResult> {
     const tts = this.#tts;
     if (!tts) throw new Error('EdgeSpeechProvider not initialized');
     try {
       // Rate pinned to 1.0: keeps the audio cache rate-independent; the
       // playback rate is applied at playout.
-      const { data, boundaries } = await tts.createAudioData({
-        lang: req.lang,
-        text: req.text,
-        voice: req.voice,
-        rate: 1.0,
-        pitch: req.pitch,
-      });
+      const { data, boundaries } = await tts.createAudioData(
+        {
+          lang: req.lang,
+          text: req.text,
+          voice: req.voice,
+          rate: 1.0,
+          pitch: req.pitch,
+        },
+        signal,
+      );
       return { audio: data, boundaries };
     } catch (err) {
       // Permanent for this sentence: Edge answered without audio frames.

@@ -47,6 +47,80 @@ afterEach(() => {
 });
 
 describe('TV remote input ownership', () => {
+  it('does not rescan every input when narration updates a text label', async () => {
+    await Promise.resolve();
+    const label = document.createElement('span');
+    label.textContent = '00:01';
+    document.querySelector('main')!.append(label);
+    await Promise.resolve();
+    const scan = vi.spyOn(document, 'querySelectorAll');
+    label.textContent = '00:02';
+    await Promise.resolve();
+    expect(scan).not.toHaveBeenCalledWith('input, textarea');
+  });
+  const place = (element: HTMLElement, x: number, y: number, width = 44, height = 44) => {
+    Object.defineProperty(element, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        x,
+        y,
+        left: x,
+        top: y,
+        right: x + width,
+        bottom: y + height,
+        width,
+        height,
+        toJSON: () => ({}),
+      }),
+    });
+  };
+
+  it('prefers the same visual row over a closer diagonal control in either direction', async () => {
+    await Promise.resolve();
+    const [speed, voice, rewind] = [...document.querySelectorAll<HTMLElement>('input,button')];
+    place(speed!, 100, 300, 100, 56);
+    place(voice!, 210, 300, 100, 56);
+    place(rewind!, 165, 250, 40, 40);
+    speed!.focus();
+    press('ArrowRight');
+    expect(document.activeElement).toBe(voice);
+    press('ArrowLeft');
+    expect(document.activeElement).toBe(speed);
+  });
+
+  it('starts without a highlighted control and first OK selects, but does not open, the first book', async () => {
+    removeScope();
+    const root = document.querySelector('main')!;
+    root.tabIndex = -1;
+    const first = root.querySelector('button')!;
+    first.dataset['bookHash'] = 'first';
+    const open = vi.fn();
+    first.addEventListener('click', open);
+    removeScope = registerTVScope({ element: root, deferInitialFocus: true });
+    await Promise.resolve();
+    expect(document.activeElement).toBe(root);
+    press('Enter');
+    expect(document.activeElement).toBe(first);
+    expect(open).not.toHaveBeenCalled();
+    press('Enter');
+    expect(open).toHaveBeenCalledOnce();
+  });
+
+  it('leaves the first book row for the leftmost toolbar control, not the same book column', async () => {
+    await Promise.resolve();
+    const root = document.querySelector('main')!;
+    root.innerHTML =
+      '<header data-tv-library-toolbar><button>Search</button><button>Menu</button></header><section data-tv-library-grid><button data-book-hash="one">One</button><button data-book-hash="two">Two</button></section>';
+    const [search, menu, one, two] = [...root.querySelectorAll('button')];
+    place(search!, 400, 0);
+    place(menu!, 500, 0);
+    place(one!, 0, 100, 150, 220);
+    place(two!, 180, 100, 150, 220);
+    two!.focus();
+    press('ArrowUp');
+    expect(document.activeElement).toBe(search);
+  });
+
   it('does not scroll the clipped book cell when focusing an inline footer control', () => {
     const cell = document.querySelector('main')!;
     cell.style.overflow = 'hidden';
@@ -59,6 +133,26 @@ describe('TV remote input ownership', () => {
     focusTV(button);
     expect(cell.scrollTop).toBe(0);
     expect(document.activeElement).toBe(button);
+  });
+
+  it('moves between aligned book rows in the same column and across books horizontally', async () => {
+    await Promise.resolve();
+    const root = document.querySelector('main')!;
+    root.innerHTML =
+      '<section data-tv-library-grid>' +
+      Array.from({ length: 6 }, (_, i) => `<button data-book-hash="${i}">Book ${i}</button>`).join(
+        '',
+      ) +
+      '</section>';
+    const books = [...root.querySelectorAll('button')];
+    books.forEach((book, i) => place(book, (i % 3) * 180, Math.floor(i / 3) * 240, 150, 220));
+    books[5]!.focus();
+    press('ArrowUp');
+    expect(document.activeElement).toBe(books[2]);
+    press('ArrowLeft');
+    expect(document.activeElement).toBe(books[1]);
+    press('ArrowDown');
+    expect(document.activeElement).toBe(books[4]);
   });
 
   it('keeps focus on original toolbars when a font reflow focuses the book inside the same reader', async () => {

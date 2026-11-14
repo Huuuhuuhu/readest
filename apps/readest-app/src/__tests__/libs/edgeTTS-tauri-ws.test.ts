@@ -118,6 +118,20 @@ describe('EdgeSpeechTTS Tauri WebSocket transport (#5230)', () => {
     await expect(promise).rejects.toThrow(/closed/i);
   });
 
+  test('jumping chapters cancels synthesis and disconnects the native socket immediately', async () => {
+    const abort = new AbortController();
+    const promise = new EdgeSpeechTTS('wss').createAudioData(
+      makePayload('cancel obsolete chapter'),
+      abort.signal,
+    );
+    promise.catch(() => {});
+    await vi.waitFor(() => expect(ws.sent).toHaveLength(2));
+    abort.abort();
+    expect(await settleState(promise)).toBe('rejected');
+    expect(ws.disconnected).toBe(true);
+    expect(ws.listeners).toHaveLength(0);
+  });
+
   test('rejects when the plugin reports a read error (plain string message)', async () => {
     const { promise } = await startRequest('read error sentence');
     // tauri-plugin-websocket serializes read errors as a bare string with no

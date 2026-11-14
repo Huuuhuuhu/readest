@@ -37,7 +37,7 @@ android {
         applicationIdSuffix = ".tv"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12022 // Monotonic fork release code; upgrades earlier TV packages.
+        versionCode = 12023 // Monotonic fork release code; upgrades earlier TV packages.
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
         val storeFlavor = project.findProperty("storeFlavor")?.toString() ?: "foss"
         missingDimensionStrategy("store", storeFlavor)

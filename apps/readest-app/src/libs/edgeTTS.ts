@@ -437,7 +437,11 @@ export class EdgeSpeechTTS {
   >();
   constructor(_protocol?: EDGE_TTS_PROTOCOL) {}
 
-  async #fetchEdgeSpeechWs({ lang, text, voice, rate }: EdgeTTSPayload): Promise<EdgeSpeechAudio> {
+  async #fetchEdgeSpeechWs(
+    { lang, text, voice, rate }: EdgeTTSPayload,
+    signal?: AbortSignal,
+  ): Promise<EdgeSpeechAudio> {
+    signal?.throwIfAborted();
     const connectId = randomMd5();
     const params = new URLSearchParams({
       ConnectionId: connectId,
@@ -446,6 +450,7 @@ export class EdgeSpeechTTS {
       'Sec-MS-GEC-Version': `2-${CHROMIUM_FULL_VERSION}`,
     });
     const url = `${EDGE_SPEECH_URL}?${params.toString()}`;
+    signal?.throwIfAborted();
     const date = new Date().toString();
     const baseHeaders = {
       'User-Agent':
@@ -529,6 +534,7 @@ export class EdgeSpeechTTS {
         let unlisten: (() => void) | null = null;
         let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
         const cleanup = () => {
+          signal?.removeEventListener('abort', onAbort);
           if (inactivityTimer !== null) clearTimeout(inactivityTimer);
           inactivityTimer = null;
           unlisten?.();
@@ -541,6 +547,9 @@ export class EdgeSpeechTTS {
           cleanup();
           complete();
         };
+        const onAbort = () => settle(() => reject(new DOMException('Aborted', 'AbortError')));
+        signal?.addEventListener('abort', onAbort, { once: true });
+        if (signal?.aborted) return onAbort();
         // Frames stream steadily during synthesis, so prolonged silence means
         // a half-open socket (e.g. a mobile network handover) that will never
         // error or close on its own. Reject so the caller's retry can open a
@@ -552,8 +561,14 @@ export class EdgeSpeechTTS {
           }, WS_INACTIVITY_TIMEOUT_MS);
         };
         try {
+          armInactivityTimer();
           const TauriWebSocket = (await import('@tauri-apps/plugin-websocket')).default;
+          if (settled) return;
           ws = await TauriWebSocket.connect(url, { headers: baseHeaders });
+          if (settled) {
+            void ws.disconnect().catch(() => {});
+            return;
+          }
           let audioData = new ArrayBuffer(0);
           const boundaries: TTSWordBoundary[] = [];
           unlisten = ws.addListener((msg) => {
@@ -611,6 +626,14 @@ export class EdgeSpeechTTS {
         let closeSocket = () => {};
         // Releases the raw socket while the upgrade is still pending.
         const connecting = new AbortController();
+        const onAbort = () => {
+          if (settled) return;
+          settled = true;
+          watchdog.stop();
+          connecting.abort();
+          closeSocket();
+          rejectAudio(new DOMException('Aborted', 'AbortError'));
+        };
         const watchdog = inactivityWatchdog(() => {
           if (settled) return;
           settled = true;
@@ -619,13 +642,17 @@ export class EdgeSpeechTTS {
           rejectAudio(new Error('WebSocket timed out waiting for audio.'));
         });
         const resolve = (audio: EdgeSpeechAudio) => {
+          signal?.removeEventListener('abort', onAbort);
           watchdog.stop();
           resolveAudio(audio);
         };
         const reject = (error: Error) => {
+          signal?.removeEventListener('abort', onAbort);
           watchdog.stop();
           rejectAudio(error);
         };
+        signal?.addEventListener('abort', onAbort, { once: true });
+        if (signal?.aborted) return onAbort();
         (async () => {
           try {
             // Workers' own fetch() upgrade gets a plain HTTP 200 from
@@ -761,15 +788,22 @@ export class EdgeSpeechTTS {
       });
     } else {
       return new Promise((resolveAudio, rejectAudio) => {
+        let settled = false;
         const watchdog = inactivityWatchdog(() => {
           ws.close();
-          rejectAudio(new Error('WebSocket timed out waiting for audio.'));
+          reject(new Error('WebSocket timed out waiting for audio.'));
         });
         const resolve = (audio: EdgeSpeechAudio) => {
+          if (settled) return;
+          settled = true;
+          signal?.removeEventListener('abort', onAbort);
           watchdog.stop();
           resolveAudio(audio);
         };
         const reject = (error: Error) => {
+          if (settled) return;
+          settled = true;
+          signal?.removeEventListener('abort', onAbort);
           watchdog.stop();
           rejectAudio(error);
         };
@@ -782,17 +816,25 @@ export class EdgeSpeechTTS {
             ? new WebSocket(url, { headers: baseHeaders })
             : new WebSocket(url);
         ws.binaryType = 'arraybuffer';
+        const onAbort = () => {
+          reject(new DOMException('Aborted', 'AbortError'));
+          ws.close();
+        };
+        signal?.addEventListener('abort', onAbort, { once: true });
+        if (signal?.aborted) return onAbort();
 
         let audioData = new ArrayBuffer(0);
         const boundaries: TTSWordBoundary[] = [];
 
         ws.addEventListener('open', () => {
+          if (settled) return;
           watchdog.touch();
           ws.send(config);
           ws.send(content);
         });
 
         ws.addEventListener('message', (event: WebSocket.MessageEvent) => {
+          if (settled) return;
           watchdog.touch();
           if (typeof event.data === 'string') {
             const { headers, body } = getHeadersAndData(event.data);
@@ -878,7 +920,16 @@ export class EdgeSpeechTTS {
   // break replay from cache on Safari.
   async createAudioData(
     payload: EdgeTTSPayload,
+    signal?: AbortSignal,
   ): Promise<{ data: ArrayBuffer; boundaries: TTSWordBoundary[] }> {
+    if (signal) {
+      // Cancellable clients already deduplicate/cache above this transport.
+      // Keeping an unowned static promise here would retain obsolete chapters
+      // and let one caller's abort poison another caller's request.
+      const { response, boundaries } = await this.#fetchEdgeSpeechWs(payload, signal);
+      signal.throwIfAborted();
+      return { data: await response.arrayBuffer(), boundaries };
+    }
     const { blob, boundaries } = await this.#fetchAndCache(payload);
     return { data: await blob.arrayBuffer(), boundaries };
   }

@@ -5,11 +5,24 @@ type VTDocument = { startViewTransition?: (update: () => Promise<void>) => unkno
 const doc = document as unknown as VTDocument;
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   delete doc.startViewTransition;
   document.documentElement.removeAttribute('data-nav-direction');
 });
 
 describe('transitionAway', () => {
+  it('leaves immediately on TV without a full-screen snapshot or arrival polling', async () => {
+    vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
+    doc.startViewTransition = vi.fn(() => {
+      throw new Error('TV must not capture the screen');
+    });
+    const leave = vi.fn(async () => {});
+    const arrived = vi.fn(() => false);
+    await transitionAway(leave, arrived, 'back');
+    expect(leave).toHaveBeenCalledOnce();
+    expect(doc.startViewTransition).not.toHaveBeenCalled();
+    expect(arrived).not.toHaveBeenCalled();
+  });
   it('captures the page before leaving and holds it until the destination is ready', async () => {
     const order: string[] = [];
     let arrived = false;

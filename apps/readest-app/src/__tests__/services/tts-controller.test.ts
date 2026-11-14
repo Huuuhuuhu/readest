@@ -1388,6 +1388,29 @@ describe('TTSController', () => {
       expect(forwardSpy).toHaveBeenCalledWith(false, true);
     });
 
+    test('buffered playback starts without waiting for a second sentence to preload', async () => {
+      await controller.init();
+      await controller.initViewTTS(0);
+      const capabilities = controller.ttsClient.getCapabilities();
+      vi.mocked(controller.ttsClient.getCapabilities).mockReturnValue({
+        ...capabilities,
+        preloadsAudio: true,
+      });
+      vi.spyOn(controller, 'forward').mockResolvedValue();
+      vi.spyOn(controller, 'preloadNextSSML').mockResolvedValue();
+      speakingControllers.push(controller);
+      const preload = vi
+        .spyOn(controller, 'preloadSSML')
+        .mockImplementation(() => new Promise(() => {}));
+      await controller.speak('<speak>hello</speak>');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(controller.ttsClient.speak).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(AbortSignal),
+      );
+      expect(preload).not.toHaveBeenCalled();
+    });
+
     test('next paragraphs are preloaded once this paragraph is audible, not before', async () => {
       // Stepping the live cursor through upcoming paragraphs is synchronous
       // DOM work: done before this paragraph's audio is scheduled, it lands in

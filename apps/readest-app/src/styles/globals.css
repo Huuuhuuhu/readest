@@ -12,7 +12,8 @@
   outline: 2px solid var(--color-base-content) !important;
   outline-offset: -2px !important;
 }
-[data-tv-mode='true'] [data-tv-reading='true']:focus {
+[data-tv-mode='true'] [data-tv-reading='true']:focus,
+[data-tv-mode='true'] [data-tv-focus-root]:focus {
   outline: none !important;
 }
 [data-tv-mode='true'] input[data-tv-editing='true'],

@@ -3,6 +3,7 @@ export interface TVScope {
   id?: string;
   priority?: number;
   reading?: boolean;
+  deferInitialFocus?: boolean;
   controls?: () => HTMLElement[];
   initialFocus?: () => HTMLElement | null;
   onBack?: () => void;
@@ -54,7 +55,10 @@ const prepareField = (element: TextField) => {
   if (element !== editing && element.inputMode !== 'none') element.inputMode = 'none';
 };
 
-export const isTVVisible = (element: HTMLElement) => {
+export const isTVVisible = (
+  element: HTMLElement,
+  styles?: WeakMap<HTMLElement, CSSStyleDeclaration>,
+) => {
   if (
     !element.isConnected ||
     element.closest(
@@ -64,7 +68,8 @@ export const isTVVisible = (element: HTMLElement) => {
   )
     return false;
   for (let node: HTMLElement | null = element; node; node = node.parentElement) {
-    const style = getComputedStyle(node);
+    const style = styles?.get(node) ?? getComputedStyle(node);
+    styles?.set(node, style);
     if (
       style.display === 'none' ||
       style.visibility === 'hidden' ||
@@ -76,10 +81,12 @@ export const isTVVisible = (element: HTMLElement) => {
   return rect.width > 0 && rect.height > 0;
 };
 
-export const getTVControls = (root: HTMLElement) =>
-  Array.from(root.querySelectorAll<HTMLElement>(controls)).filter(
-    (element) => element.tabIndex >= 0 && isTVVisible(element),
+export const getTVControls = (root: HTMLElement) => {
+  const styles = new WeakMap<HTMLElement, CSSStyleDeclaration>();
+  return Array.from(root.querySelectorAll<HTMLElement>(controls)).filter(
+    (element) => element.tabIndex >= 0 && isTVVisible(element, styles),
   );
+};
 
 const scopeControls = (scope: TVScope) => scope.controls?.() ?? getTVControls(scope.element);
 const ownsFocus = (scope: TVScope, element: Element | null) =>
@@ -127,7 +134,7 @@ const focusScope = (scope: TVScope) => {
   const target =
     scope.initialFocus?.() || (saved && scopeControls(scope).find((el) => identity(el) === saved));
   if (target && isTVVisible(target)) focusTV(target);
-  else if (scope.reading) focusTV(scope.element);
+  else if (scope.reading || scope.deferInitialFocus) focusTV(scope.element);
   else focusTV(scopeControls(scope)[0] ?? scope.element);
 };
 
@@ -241,14 +248,22 @@ export const installTVInput = (doc: Document = document): (() => void) => {
     event.preventDefault();
     event.stopImmediatePropagation();
   };
-  const prepare = () => {
+  const prepare = (records?: MutationRecord[]) => {
     if (editing && !editing.isConnected) {
       delete editing.dataset['tvEditing'];
       editing = null;
     }
-    doc.querySelectorAll('input, textarea').forEach((el) => {
-      if (textField(el)) prepareField(el);
-    });
+    const roots = records
+      ? records.flatMap((record) =>
+          [...record.addedNodes].filter((node): node is HTMLElement => node instanceof HTMLElement),
+        )
+      : [doc.body];
+    for (const root of roots) {
+      if (textField(root)) prepareField(root);
+      root.querySelectorAll('input, textarea').forEach((el) => {
+        if (textField(el)) prepareField(el);
+      });
+    }
     for (const el of fields.keys()) if (!el.isConnected) fields.delete(el);
     repairFocus();
   };
@@ -316,11 +331,24 @@ export const installTVInput = (doc: Document = document): (() => void) => {
     }
     const root = scope?.element ?? doc.body;
     const items = scope ? scopeControls(scope) : getTVControls(root);
+    const grid = target.closest('[data-tv-library-grid]');
+    if (grid && key === 'ArrowUp') {
+      const row = target.getBoundingClientRect();
+      const above = items.some(
+        (item) => grid.contains(item) && item.getBoundingClientRect().bottom <= row.top + 2,
+      );
+      if (!above) {
+        const toolbar = items.filter((item) => item.closest('[data-tv-library-toolbar]'));
+        toolbar.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+        if (toolbar[0]) return focusTV(toolbar[0]);
+      }
+    }
     const origin = target.getBoundingClientRect();
     const horizontal = key === 'ArrowLeft' || key === 'ArrowRight';
     const sign = key === 'ArrowLeft' || key === 'ArrowUp' ? -1 : 1;
     let best: HTMLElement | undefined;
     let score = Infinity;
+    let bestInLane = false;
     for (const item of items) {
       if (item === target || item.contains(target) || target.contains(item)) continue;
       const rect = item.getBoundingClientRect();
@@ -333,10 +361,14 @@ export const installTVInput = (doc: Document = document): (() => void) => {
         ? Math.max(0, rect.top - origin.bottom, origin.top - rect.bottom)
         : Math.max(0, rect.left - origin.right, origin.left - rect.right);
       if (forward <= 2) continue;
+      // A button in this visual row/column always wins over a diagonal one.
+      // This matters when a wide Speed tile sits below small transport icons.
+      const inLane = sideways === 0;
       const candidateScore = forward + sideways * 4;
-      if (candidateScore < score) {
+      if ((inLane && !bestInLane) || (inLane === bestInLane && candidateScore < score)) {
         best = item;
         score = candidateScore;
+        bestInLane = inLane;
       }
     }
     if (best) focusTV(best);
@@ -394,6 +426,13 @@ export const installTVInput = (doc: Document = document): (() => void) => {
         )
           return;
         if (scope?.onActivate?.()) return;
+        if (scope?.deferInitialFocus && target === scope.element) {
+          const items = scopeControls(scope);
+          focusTV(
+            items.find((item) => item.matches('[data-book-hash], [data-group-name]')) ?? items[0],
+          );
+          return;
+        }
         if (target instanceof HTMLSelectElement)
           win.dispatchEvent(new CustomEvent('tv-select', { detail: target }));
         else if (textField(target)) beginEditing(target);
@@ -434,7 +473,12 @@ export const installTVInput = (doc: Document = document): (() => void) => {
       if (event.type === 'keydown') navigate(target, scope, event.key);
     }
   };
-  const onBlur = () => cancelHold();
+  const onBlur = () => {
+    cancelHold();
+    // Focusing a document inside foliate-view's shadow iframe may emit only a
+    // window blur, not a focusin in this document. The top dialog still owns keys.
+    repairFocus();
+  };
   win.addEventListener('keydown', onKey, true);
   win.addEventListener('keyup', onKey, true);
   win.addEventListener('blur', onBlur);

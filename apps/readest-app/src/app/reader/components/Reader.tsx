@@ -180,9 +180,11 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
       ? () => {
           const cell = document.getElementById(`gridcell-${hoveredBookKey}`);
           return cell
-            ? [...cell.querySelectorAll<HTMLElement>('.header-bar, .footer-bar')].flatMap(
-                getTVControls,
-              )
+            ? [
+                ...cell.querySelectorAll<HTMLElement>(
+                  '.header-bar, .footer-bar, [data-tts-mini-player]',
+                ),
+              ].flatMap(getTVControls)
             : [];
         }
       : undefined,

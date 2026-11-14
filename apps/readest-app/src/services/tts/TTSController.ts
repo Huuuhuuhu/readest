@@ -33,6 +33,7 @@ import { TTSUtils } from './TTSUtils';
 import { TTSClient } from './TTSClient';
 import { startAudioKeepAlive, stopAudioKeepAlive } from './WebAudioPlayer';
 import { isSameLang, isValidLang } from '@/utils/lang';
+import { isTVMode } from '@/utils/tvInput';
 import { normalizeLyricText } from '@/utils/ttsLyrics';
 import {
   computeWordOffsets,
@@ -497,8 +498,8 @@ export class TTSController extends EventTarget {
   async init() {
     const availableClients: TTSClient[] = [];
     this.#availableClients = availableClients;
-    // Started together: each can take seconds (Edge synthesizes a probe
-    // sentence, system TTS waits for its voices), and play waits on them all.
+    // Started together: system TTS and custom voice lists can take seconds.
+    // Edge prepares its bundled voices locally, without a network probe.
     // Results are still taken in priority order.
     const customReady = withinEngineTimeout(this.ttsCustomClient.init(), false);
     const edgeReady = withinEngineTimeout(this.ttsEdgeClient.init(), false);
@@ -821,6 +822,10 @@ export class TTSController extends EventTarget {
   }
 
   async #initTTSForSection(sectionIndex: number): Promise<boolean> {
+    if (isTVMode() && sectionIndex !== this.#ttsSectionIndex) {
+      this.ttsEdgeClient.clearTransientCache?.();
+      this.ttsCustomClient.clearTransientCache?.();
+    }
     const sections = this.view.book.sections;
     if (!sections || sectionIndex < 0 || sectionIndex >= sections.length) {
       return false;
@@ -1627,6 +1632,7 @@ export class TTSController extends EventTarget {
   }
 
   async preloadNextSSML(count: number = 4) {
+    const { signal } = this.#preloadAbort;
     const tts = this.#getTts();
     if (!tts) return;
     // A windowed engine takes preloads as hints it batches on a GPU worker that
@@ -1691,6 +1697,7 @@ export class TTSController extends EventTarget {
       // Offered again on every preload: the client takes it only once this
       // section's last audio file is playing (#7193).
       const narration = await this.#nextOpening.narration;
+      if (signal.aborted) return;
       if (narration) await this.#queueNarration(narration);
       for (const ssml of await this.#nextOpening.ssmls) {
         if (!budgetLeft()) break;
@@ -1701,14 +1708,15 @@ export class TTSController extends EventTarget {
 
     const ssmls: string[] = [];
     for (const raw of rawSsmls) {
+      if (signal.aborted) return;
       const ssml = await this.#preprocessSSML(raw);
       if (!ssml) break;
       ssmls.push(ssml);
     }
     // In reading order, one after another: a windowed provider queues preloads
     // as they arrive, so the paragraph read next must reach it first.
-    const { signal } = this.#preloadAbort;
     for (const ssml of ssmls) {
+      if (signal.aborted) return;
       await this.preloadSSML(ssml, signal);
     }
   }
@@ -1858,7 +1866,10 @@ export class TTSController extends EventTarget {
           } else {
             this.dispatchSpeakMark(marks[0]);
           }
-          await this.preloadSSML(ssml, signal);
+          // Buffered clients already fetch/decode ahead on their audio clock.
+          // Awaiting their preload held the first sentence until the SECOND
+          // network request finished, at every paragraph boundary.
+          if (!this.ttsClient.getCapabilities().preloadsAudio) await this.preloadSSML(ssml, signal);
         }
         if (signal.aborted) return;
         // Only the native client surfaces an offline engine failure as a

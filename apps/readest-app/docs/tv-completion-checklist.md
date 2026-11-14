@@ -1,5 +1,16 @@
 # TV fork completion record
 
+## tv.4 — spatial focus and foreground speech lookahead
+
+- [x] Prefer the same visible row/column over diagonal targets; retain book-grid columns and send the first row Up to the toolbar's leftmost control. First OK selects a book without opening it.
+- [x] Keep upstream dialog layout/theme on short TV viewports; remove the added full-player stop button and make the original mini-player controls reachable.
+- [x] Remove Edge's startup synthesis probe and the two-sentence first-play gate. Abort old native/browser sockets and late results on navigation.
+- [x] Add bounded foreground-only compressed speech lookahead, beginning at import/current reading anchor. Reuse live synthesis keys and pending results, prune old chapters, and keep explicit offline downloads separate.
+- [x] Avoid TV route snapshots and whole-document input rescans on narration text updates.
+- [x] Browser remote walkthrough: initial library selection, toolbar Right, Speed → Voice → Back, and original mini-player Stop. Live direct Microsoft sample: 1,797 ms / 19,728 bytes / 7 boundaries on the development computer.
+- [ ] Final CI/build/signature/publication record follows the code build.
+- [ ] Physical ARMv7 TV performance and remote/IME checks remain for the user's installed APK; no hardware is connected here.
+
 ## tv.3 — original reading UI and full-width layout
 
 - [x] Remove the separate TV reading menu/tool dialog and reuse Readest's original header, Android footer panels, ViewMenu and settings. Theme colors and component styling remain original.

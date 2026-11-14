@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { detectViewTransitionsAPI } from '@/utils/viewTransition';
 
 const NavigationTransition = createContext((navigate: () => void) => navigate());
 
@@ -25,7 +26,7 @@ export function ViewTransitions({ children }: { children: ReactNode }) {
   useEffect(() => () => pending.current?.(), []);
 
   const navigate = useCallback((update: () => void) => {
-    if (!document.startViewTransition) return update();
+    if (!detectViewTransitionsAPI()) return update();
     pending.current?.();
     const transition = document.startViewTransition(
       () =>

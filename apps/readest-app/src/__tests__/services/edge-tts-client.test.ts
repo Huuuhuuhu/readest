@@ -114,37 +114,23 @@ describe('EdgeTTSClient', () => {
   });
 
   describe('init', () => {
-    test('a hung native Edge probe stops blocking initialization after five seconds', async () => {
+    test('initializes immediately even if a transport probe would hang', async () => {
       vi.useFakeTimers();
       tauriPlatform = true;
-      let completeProbe!: () => void;
-      createBehavior = () =>
-        new Promise<undefined>((resolve) => {
-          completeProbe = () => resolve(undefined);
-        });
-      let result: boolean | undefined;
-      const init = client.init().then((value) => {
-        result = value;
-      });
-      await vi.advanceTimersByTimeAsync(4999);
-      expect(result).toBeUndefined();
-      await vi.advanceTimersByTimeAsync(1);
-      expect(result).toBe(false);
-      await init;
-      expect(await client.getAllVoices()).toHaveLength(4);
-      completeProbe();
-      await vi.advanceTimersByTimeAsync(0);
-      expect(client.initialized).toBe(false);
+      const probe = vi.fn(() => new Promise<undefined>(() => {}));
+      createBehavior = probe;
+      await expect(client.init()).resolves.toBe(true);
+      expect(probe).not.toHaveBeenCalled();
       expect(vi.getTimerCount()).toBe(0);
     });
 
-    test('a successful probe clears its deadline timer', async () => {
+    test('initialization needs no deadline timer', async () => {
       vi.useFakeTimers();
       await expect(client.init()).resolves.toBe(true);
       expect(vi.getTimerCount()).toBe(0);
     });
 
-    test('succeeds when create resolves and sets initialized to true', async () => {
+    test('marks the bundled engine ready without a network dependency', async () => {
       const result = await client.init();
       expect(result).toBe(true);
       expect(client.initialized).toBe(true);
@@ -157,76 +143,14 @@ describe('EdgeTTSClient', () => {
       expect(voices.map((v) => v.id)).toContain('en-US-AriaNeural');
     });
 
-    test('a failed Microsoft connection never falls back to an official proxy', async () => {
-      const mockController = {
-        isAuthenticated: true,
-        dispatchEvent: vi.fn(),
-      } as unknown as TTSController;
-      const c = new EdgeTTSClient(mockController);
-
-      // First call (wss protocol) fails, second call (https fallback) succeeds
-      let callCount = 0;
-      createBehavior = () => {
-        callCount++;
-        if (callCount === 1) return Promise.reject(new Error('wss failed'));
-        return Promise.resolve(undefined);
-      };
-
-      const result = await c.init();
-      expect(result).toBe(false);
-      expect(c.initialized).toBe(false);
-      expect(callCount).toBe(1);
-    });
-
-    test('wss failure does not fall back to https on Tauri even when authenticated', async () => {
-      tauriPlatform = true;
-      const mockController = {
-        isAuthenticated: true,
-        dispatchEvent: vi.fn(),
-      } as unknown as TTSController;
-      const c = new EdgeTTSClient(mockController);
-
-      let callCount = 0;
-      createBehavior = () => {
-        callCount++;
-        return Promise.reject(new Error('offline'));
-      };
-
-      const result = await c.init();
-      expect(result).toBe(false);
-      // Only the wss probe ran: the /api/tts/edge proxy must not be requested
-      // from the Tauri app (its native wss transport is the only Edge path).
-      expect(callCount).toBe(1);
-    });
-
-    test('a failed Microsoft connection never requests an application login', async () => {
+    test('offline initialization sends neither a probe nor an account event', async () => {
       const dispatchEvent = vi.fn();
-      const mockController = {
-        isAuthenticated: false,
-        dispatchEvent,
-      } as unknown as TTSController;
-      const c = new EdgeTTSClient(mockController);
-
-      createBehavior = () => Promise.reject(new Error('wss failed'));
-
-      const result = await c.init();
-      expect(result).toBe(false);
+      const c = new EdgeTTSClient({ dispatchEvent } as unknown as TTSController);
+      const probe = vi.fn(() => Promise.reject(new Error('offline')));
+      createBehavior = probe;
+      await expect(c.init()).resolves.toBe(true);
+      expect(probe).not.toHaveBeenCalled();
       expect(dispatchEvent).not.toHaveBeenCalled();
-    });
-
-    test('https failure sets initialized to false', async () => {
-      const mockController = {
-        isAuthenticated: true,
-        dispatchEvent: vi.fn(),
-      } as unknown as TTSController;
-      const c = new EdgeTTSClient(mockController);
-
-      // Both wss and https always fail
-      createBehavior = () => Promise.reject(new Error('failed'));
-
-      const result = await c.init();
-      expect(result).toBe(false);
-      expect(c.initialized).toBe(false);
     });
   });
 

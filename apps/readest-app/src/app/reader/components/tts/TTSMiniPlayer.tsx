@@ -213,6 +213,7 @@ const TTSMiniPlayer = ({
   return (
     <div
       role='status'
+      data-tts-mini-player
       aria-label={`${_('Reading aloud')}: ${book?.title ?? ''}`}
       className={clsx(
         'absolute z-40 inset-x-4 sm:inset-x-0 sm:mx-auto sm:w-full sm:max-w-md',

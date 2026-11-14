@@ -481,6 +481,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
 
   useTVScope(pageRef, libraryLoaded, {
     id: 'library',
+    deferInitialFocus: true,
     onBack: isSelectMode
       ? () => setIsSelectMode(false)
       : librarySearchQuery
@@ -1923,6 +1924,8 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   return (
     <div
       ref={pageRef}
+      tabIndex={-1}
+      data-tv-focus-root
       aria-label={_('Your Library')}
       className={clsx(
         'library-page text-base-content full-height flex select-none flex-col overflow-hidden',
@@ -1933,6 +1936,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       <div
         className='relative top-0 z-40 w-full'
         role='banner'
+        data-tv-library-toolbar
         tabIndex={-1}
         aria-label={_('Library Header')}
       >

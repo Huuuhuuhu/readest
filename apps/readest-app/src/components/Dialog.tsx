@@ -15,6 +15,7 @@ import { eventDispatcher } from '@/utils/event';
 import { getHorizontalInsetStyle } from '@/utils/insets';
 import { Overlay } from './Overlay';
 import { useTVScope } from '@/hooks/useTVScope';
+import { isTVMode } from '@/utils/tvInput';
 
 const VELOCITY_THRESHOLD = 0.5;
 const SNAP_THRESHOLD = 0.2;
@@ -117,7 +118,7 @@ const Dialog: React.FC<DialogProps> = ({
   const pendingSwipeRef = useRef<{ x: number; y: number } | null>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
   const iconSize22 = useResponsiveSize(22);
-  const isMobile = window.innerWidth < 640 || window.innerHeight < 640;
+  const isMobile = !isTVMode() && (window.innerWidth < 640 || window.innerHeight < 640);
   const [keyboardInset, setKeyboardInset] = useState(0);
   // Where a drag that began on a sheet lifted onto the keyboard started: that
   // sheet's top sits far above its resting place, so the usual snap bands

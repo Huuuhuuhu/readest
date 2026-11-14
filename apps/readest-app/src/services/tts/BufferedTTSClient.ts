@@ -17,7 +17,9 @@ import {
   recordMeasuredDuration,
   recordProvisionalDuration,
 } from './ttsDuration';
-import { CachingProvider } from './providers/cache';
+import { CachingProvider, speechCacheKey } from './providers/cache';
+import { speechAhead } from './speechAhead';
+import { isTVMode } from '@/utils/tvInput';
 import {
   SpeechProvider,
   SpeechSynthesisFatalError,
@@ -171,10 +173,12 @@ export class BufferedTTSClient implements TTSClient {
       try {
         // Rate is deliberately absent from the request: the provider
         // synthesizes at rate 1.0 and playout applies the playback rate.
-        const { audio, boundaries } = await this.provider.synthesize(
-          { lang, text, voice: voiceId, pitch: this.#pitch },
-          signal,
-        );
+        const req = { lang, text, voice: voiceId, pitch: this.#pitch };
+        const ready = isTVMode()
+          ? await speechAhead.ready(speechCacheKey(this.provider, req), signal)
+          : null;
+        if (signal.aborted) return undefined;
+        const { audio, boundaries } = ready ?? (await this.provider.synthesize(req, signal));
         return { data: audio, boundaries };
       } catch (err) {
         if (err instanceof SpeechSynthesisPermanentError) throw err;
@@ -831,6 +835,8 @@ export class BufferedTTSClient implements TTSClient {
         signal ?? new AbortController().signal,
       );
       if (!result) return false;
+      if (isTVMode())
+        await this.provider.persist(req, { audio: result.data, boundaries: result.boundaries });
     } catch (err) {
       // A fatal failure (quota) ends the whole download, not just this
       // sentence: let it reach the downloader.
@@ -851,6 +857,11 @@ export class BufferedTTSClient implements TTSClient {
     if (this.provider instanceof CachingProvider) {
       await this.provider.beginDownloadSections(sections);
     }
+  }
+
+  clearTransientCache(): void {
+    this.#preparedChunks.clear();
+    if (this.provider instanceof CachingProvider) this.provider.clearRecent();
   }
 
   async completeDownloadSections(sections: number[]): Promise<void> {

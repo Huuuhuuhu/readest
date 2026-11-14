@@ -60,6 +60,19 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe('Dialog aboveKeyboard', () => {
+  it('uses the original centered desktop dialog on a short landscape TV viewport', () => {
+    vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 960 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 540 });
+    render(
+      <Dialog isOpen snapHeight={0.65} title='Import' onClose={vi.fn()}>
+        <div data-testid='note' />
+      </Dialog>,
+    );
+    expect(sheet().style.bottom).toBe('');
+    expect(sheet().style.height).toBe('');
+    vi.unstubAllEnvs();
+  });
   it('rests the sheet on the keyboard at once, without sliding there', () => {
     render(
       <Dialog isOpen snapHeight={0.3} aboveKeyboard title='Note' onClose={vi.fn()}>

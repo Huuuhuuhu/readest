@@ -55,6 +55,7 @@ import { isLocalSendEnabled } from '@/services/localsend/devicePrefs';
 import { splitLibraryOpenIds } from '@/utils/audiobook';
 
 import { useSpatialNavigation } from '../hooks/useSpatialNavigation';
+import { isTVMode } from '@/utils/tvInput';
 import DeleteConfirmAlert from '@/components/DeleteConfirmAlert';
 import Spinner from '@/components/Spinner';
 import ModalPortal from '@/components/ModalPortal';
@@ -207,7 +208,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   const selectAllAppliedRef = useRef(false);
   const isImportingBook = useRef(false);
   const iconSize15 = useResponsiveSize(15);
-  const autofocusRef = useAutoFocus<HTMLDivElement>();
+  const autofocusRef = useAutoFocus<HTMLDivElement>({ condition: !isTVMode() });
   useSpatialNavigation(autofocusRef);
 
   const { setCurrentBookshelf, setLibrary, updateBooks } = useLibraryStore();
@@ -1001,6 +1002,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       ref={autofocusRef}
       tabIndex={-1}
       role='main'
+      data-tv-library-grid
       aria-label={_('Bookshelf')}
       className='bookshelf flex min-h-0 grow flex-col focus:outline-hidden'
     >

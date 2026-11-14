@@ -1,3 +1,5 @@
+import { isTVMode } from './tvInput';
+
 /**
  * Whether the engine implements the View Transitions API at all
  * (`document.startViewTransition`). This is the baseline a simple route
@@ -5,7 +7,7 @@
  * recent Android WebView.
  */
 export const detectViewTransitionsAPI = (): boolean =>
-  typeof document !== 'undefined' && 'startViewTransition' in document;
+  !isTVMode() && typeof document !== 'undefined' && 'startViewTransition' in document;
 
 /**
  * Whether the engine also supports nested view-transition groups

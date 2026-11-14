@@ -37,6 +37,8 @@ import {
   TTS_STOP_AT_CHAPTER_END,
 } from '@/services/tts/TTSSessionManager';
 import { getAnnotationOverlayColor } from '../utils/annotatorUtil';
+import { isTVMode } from '@/utils/tvInput';
+import { claimTVSpeechReader, followTVSpeech } from '@/services/tts/tvSpeechPrefetch';
 
 interface UseTTSControlProps {
   bookKey: string;
@@ -797,6 +799,45 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
     },
     [bookKey, getMergedRules, getViewSettings, transformCtx],
   );
+
+  useEffect(() => {
+    if (isTVMode()) return claimTVSpeechReader(bookKey);
+    return;
+  }, [bookKey]);
+
+  useEffect(() => {
+    if (!isTVMode() || !progress || !viewSettings) return;
+    const view = getView(bookKey);
+    const data = getBookData(bookKey);
+    if (!view?.book || !data?.book) return;
+    // The page location changes only on actual navigation; opening a menu or
+    // browsing the TOC does not replace the prefetch position or take focus.
+    let anchor: ((doc: Document) => Range) | undefined;
+    try {
+      anchor = view.resolveCFI(progress.location).anchor;
+    } catch {
+      /* section opening */
+    }
+    followTVSpeech({
+      bookHash: data.book.hash,
+      book: view.book,
+      section: progress.index,
+      position: progress.location,
+      anchor,
+      lang: view.language?.canonical || data.book.primaryLanguage || 'en',
+      settings: viewSettings,
+      pairedAudiobook: data.config?.audiobook,
+      preprocess: preprocessSSMLForTTS,
+    });
+  }, [
+    bookKey,
+    progress?.location,
+    progress?.index,
+    viewSettings,
+    preprocessSSMLForTTS,
+    getView,
+    getBookData,
+  ]);
 
   // Section change callback
   const handleSectionChange = useCallback(

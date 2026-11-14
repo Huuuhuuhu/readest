@@ -51,14 +51,15 @@ describe('EdgeSpeechProvider', () => {
     expect(provider.label).toBe('Edge TTS');
   });
 
-  test('init probes the transport and reports availability', async () => {
+  test('init prepares the bundled voices without synthesizing a network probe', async () => {
     const provider = new EdgeSpeechProvider();
     await expect(provider.init()).resolves.toBe(true);
     expect(h.lastConstructedProtocol).toBe('wss');
 
     h.create.mockRejectedValueOnce(new Error('boom'));
     const failing = new EdgeSpeechProvider();
-    await expect(failing.init()).resolves.toBe(false);
+    await expect(failing.init()).resolves.toBe(true);
+    expect(h.create).not.toHaveBeenCalled();
   });
 
   test('init accepts only the direct Microsoft protocol', async () => {
@@ -77,6 +78,7 @@ describe('EdgeSpeechProvider', () => {
     );
     expect(h.createAudioData).toHaveBeenCalledWith(
       expect.objectContaining({ rate: 1.0, pitch: 1.2, text: 'hello world' }),
+      expect.any(AbortSignal),
     );
   });
 
