@@ -56,8 +56,12 @@ describe('original reading progress panel on TV', () => {
     });
     expect(slider.getAttribute('aria-valuenow')).toBe('21');
     expect(navigationHandlers.onProgressChange).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: /^Go$/ }));
+    const go = screen.getByRole('button', { name: /^Go$/ }) as HTMLButtonElement;
+    go.focus();
+    fireEvent.click(go);
     expect(navigationHandlers.onProgressChange).toHaveBeenCalledExactlyOnceWith(21);
+    expect(go.disabled).toBe(true);
+    expect(document.activeElement).toBe(slider);
   });
 
   it('discards an unconfirmed seek when Back closes the panel', () => {

@@ -85,6 +85,7 @@ const scopeControls = (scope: TVScope) => scope.controls?.() ?? getTVControls(sc
 const ownsFocus = (scope: TVScope, element: Element | null) =>
   !!element &&
   scope.element.contains(element) &&
+  isTVVisible(element as HTMLElement) &&
   (!scope.controls || scopeControls(scope).includes(element as HTMLElement));
 
 const identity = (element: HTMLElement) =>
@@ -125,7 +126,7 @@ const focusScope = (scope: TVScope) => {
   const saved = scope.id ? rememberedFocus.get(scope.id) : undefined;
   const target =
     scope.initialFocus?.() || (saved && scopeControls(scope).find((el) => identity(el) === saved));
-  if (target) focusTV(target);
+  if (target && isTVVisible(target)) focusTV(target);
   else if (scope.reading) focusTV(scope.element);
   else focusTV(scopeControls(scope)[0] ?? scope.element);
 };
@@ -253,7 +254,12 @@ export const installTVInput = (doc: Document = document): (() => void) => {
   };
   prepare();
   const observer = new MutationObserver(prepare);
-  observer.observe(doc.body, { childList: true, subtree: true });
+  observer.observe(doc.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['disabled', 'aria-disabled', 'hidden', 'aria-hidden'],
+  });
   const onFocus = (event: FocusEvent) => {
     const target = event.target as HTMLElement;
     if (textField(target)) prepareField(target);

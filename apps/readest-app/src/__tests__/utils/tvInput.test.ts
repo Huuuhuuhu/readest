@@ -101,6 +101,16 @@ describe('TV remote input ownership', () => {
     expect(document.activeElement).toBe(main.querySelector('button'));
   });
 
+  it('moves focus to an available control when the focused action becomes disabled', async () => {
+    await Promise.resolve();
+    const button = document.querySelector('button')!;
+    button.focus();
+    button.disabled = true;
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(document.querySelector('input'));
+  });
+
   it('adjusts a transparent range with left/right while up/down still navigates', () => {
     const range = document.querySelector('input')!;
     range.type = 'range';

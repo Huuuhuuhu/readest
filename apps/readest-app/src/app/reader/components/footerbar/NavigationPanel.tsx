@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { RiArrowLeftSLine, RiArrowRightSLine } from 'react-icons/ri';
 import { RiArrowGoBackLine, RiArrowGoForwardLine } from 'react-icons/ri';
 import { RiArrowLeftDoubleLine, RiArrowRightDoubleLine } from 'react-icons/ri';
@@ -11,7 +11,7 @@ import { getNavigationIcon } from './utils';
 import Button from '@/components/Button';
 import Slider from '@/components/Slider';
 import PageJumpInput from './PageJumpInput';
-import { isTVMode } from '@/utils/tvInput';
+import { focusTV, isTVMode } from '@/utils/tvInput';
 
 interface NavigationPanelProps {
   bookKey: string;
@@ -43,6 +43,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
   const view = getView(bookKey);
   const progress = getProgress(bookKey);
   const viewSettings = getViewSettings(bookKey);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const [progressValue, setProgressValue] = React.useState(
     progressValid ? progressFraction * 100 : 0,
@@ -94,6 +95,7 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
 
   return (
     <div
+      ref={panelRef}
       className={classes}
       style={{
         bottom: appService?.isAndroidApp
@@ -129,6 +131,9 @@ export const NavigationPanel: React.FC<NavigationPanelProps> = ({
             className='btn btn-ghost btn-sm'
             disabled={previewFraction === null}
             onClick={() => {
+              // Go becomes disabled after committing; leave focus on the
+              // progress slider before the browser drops the disabled button.
+              focusTV(panelRef.current?.querySelector<HTMLInputElement>('input[type="range"]'));
               navigationHandlers.onProgressChange(progressValue);
               setPreviewFraction(null);
             }}
