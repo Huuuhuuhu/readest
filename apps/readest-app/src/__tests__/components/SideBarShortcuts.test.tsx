@@ -124,12 +124,18 @@ describe('SideBar Escape shortcut', () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });
 
   test('opens TV search at its input in navigation mode, not at the resize handle', async () => {
     vi.stubEnv('NEXT_PUBLIC_TV_MODE', 'true');
     HTMLElement.prototype.scrollIntoView = vi.fn();
+    // jsdom has no layout. TV focus now rejects unavailable initial controls,
+    // so represent the visible search panel's geometry explicitly.
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(0, 0, 320, 44),
+    );
     render(<SideBar />);
     await act(async () => {});
     const input = screen.getByRole('textbox', { name: 'Search book' }) as HTMLInputElement;
