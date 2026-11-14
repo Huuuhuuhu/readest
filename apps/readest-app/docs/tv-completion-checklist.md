@@ -1,5 +1,17 @@
 # TV fork completion record
 
+## tv.3 — original reading UI and full-width layout
+
+- [x] Remove the separate TV reading menu/tool dialog and reuse Readest's original header, Android footer panels, ViewMenu and settings. Theme colors and component styling remain original.
+- [x] Default TV reflowable books to full-width single-column pagination; migrate old global/per-book layouts once while preserving fonts, reading positions and subsequent user choices. Fixed-layout books are excluded.
+- [x] Keep directions inside the active toolbar/panel; correct real slider steps, prevent clipped book-cell scrolling and restore visible focus after seeking or disabling a control.
+- [x] Verify original controls in Edge TV mode: contents, font size, maximum columns and persistence, light/dark appearance, progress preview/confirmation and search confirm-to-edit/Back-to-navigation.
+- [x] Final source `2ae60204822588872afa4ec91b41d2eaa430f83a`: 14,328 frontend tests passed (10 existing skips), 192 Rust tests passed, TypeScript/Biome/format and Rust fmt/clippy passed. [CI run 43558972255](https://github.com/Huuuhuuhu/readest/actions/runs/43558972255).
+- [x] ARMv7 compilation and Android native remote-key tests passed. The APK is signed with the existing TV certificate; package/version/ABI/Leanback/no-BILLING and 16 KB ZIP alignment verified. [tv-0.12.20-v3](https://github.com/Huuuhuuhu/readest/releases/tag/tv-0.12.20-v3) is published, with all ten asset digests read back and verified. APK SHA-256 `951f20b5ddcabcbf1f7ad349eff723fd2c4fad04688069585ef947a53b7dfa85`. [Build and publication record](verification/tv-v3-release-build.json).
+- [ ] Physical TV/phone validation remains separate; desktop/browser and automated checks are not device testing.
+
+## tv.2 baseline
+
 Baseline: upstream 0.12.20 plus P1. The owner authorized completing all stages and publishing a signed armv7 APK, without a new design approval round.
 
 - [x] Remove Readest authentication, purchases, entitlement/quota code, telemetry and executable dependencies; do not simulate membership.
@@ -17,4 +29,4 @@ Baseline: upstream 0.12.20 plus P1. The owner authorized completing all stages a
 
 Documents: [implementation](android-tv.md), [network manifest](android-tv-network.md), [device acceptance](android-tv-acceptance.md).
 
-The release tag points to the exact CI-built code commit above. Later commits only complete documentation and verification records; they do not alter the APK implementation.
+Each release tag points to its exact CI-built code commit. Later documentation/verification-only commits do not alter that APK implementation.

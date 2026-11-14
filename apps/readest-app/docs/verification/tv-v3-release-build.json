@@ -1,0 +1,82 @@
+{
+  "sourceCommit": "2ae60204822588872afa4ec91b41d2eaa430f83a",
+  "branch": "tv/0.12.20",
+  "workflow": {
+    "id": 43558972255,
+    "head_sha": "2ae60204822588872afa4ec91b41d2eaa430f83a",
+    "html_url": "https://github.com/Huuuhuuhu/readest/actions/runs/43558972255",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "checks": {
+    "frontendPassed": 14328,
+    "frontendSkipped": 10,
+    "frontendTestFilesPassed": 1154,
+    "frontendTestFilesSkipped": 1,
+    "rustPassed": 192,
+    "rustFailed": 0,
+    "typeCheck": "passed",
+    "biomeLint": "passed (2 pre-existing info-level notices)",
+    "format": "passed",
+    "rustFmt": "passed",
+    "clippy": "passed with -D warnings",
+    "nativeKeyJUnit": "app:testUniversalReleaseUnitTest passed",
+    "armv7Build": "passed",
+    "zipAlignment": "16 KB page / 4-byte ZIP alignment verified",
+    "signature": "apksigner verified; certificate matches earlier TV releases",
+    "artifactDigest": "downloaded archive SHA-256 matches GitHub Actions artifact digest"
+  },
+  "browserWalkthrough": {
+    "date": "2026-11-14",
+    "environment": "Desktop Edge, local Next.js TV mode; keyboard events emulate remote buttons. Not an Android TV device test.",
+    "passed": [
+      "Full-width single-column paginated TXT using the original renderer",
+      "Original header/footer controls, font sliders, light and dark themes",
+      "Original ViewMenu, Settings > Layout > maximum columns 1/2/1 and persistence after reload",
+      "Contents browsing and confirmed chapter navigation",
+      "Progress preview does not seek; explicit Go seeks and returns focus to the slider; Back restores the progress button",
+      "Search opens focused and read-only; one OK edits, one Back restores navigation",
+      "No book-cell scrolling when focusing footer controls; renderer reflow does not steal toolbar focus"
+    ],
+    "not_verified": [
+      "OEM remote keycodes and Android IME on physical TV",
+      "Viewing distance and system audio",
+      "Physical phone-to-TV upload/configuration, network changes and restart",
+      "Fresh APK cold start with Readest domains blocked"
+    ]
+  },
+  "notes": [
+    "The custom TVReadingMenu and TVReadingTools were removed; original Readest controls are reused.",
+    "TV defaults migrate existing reflowable layouts once to full-width single-column pagination. Fonts, reading positions and later user overrides are preserved.",
+    "No runtime networking scope changed in this UI release. See the network manifest.",
+    "The final commit changes a jsdom test fixture only after the production focus fix; the entire CI suite is rebuilt and rerun for the release commit."
+  ],
+  "artifact": {
+    "id": 14099974470,
+    "name": "readest-tv-armv7-2ae60204822588872afa4ec91b41d2eaa430f83a",
+    "archiveSha256": "e3cc052f90bdc2af62b4cb7729b53efd4e5d445fc0ce1ff15e3009bd55b34ebb",
+    "archiveBytes": 33180386,
+    "unsignedApkBytes": 44161152,
+    "sourceCommit": "2ae60204822588872afa4ec91b41d2eaa430f83a"
+  },
+  "apk": {
+    "apk": "Readest-TV-0.12.20-tv.3-armv7.apk",
+    "sha256": "951f20b5ddcabcbf1f7ad349eff723fd2c4fad04688069585ef947a53b7dfa85",
+    "size": 44248727,
+    "applicationId": "com.bilingify.readest.tv",
+    "versionName": "0.12.20-tv.3",
+    "versionCode": 12022,
+    "abi": "armeabi-v7a",
+    "minimumAndroid": "8.0 / API 26",
+    "certificateSha256": "1f1b5c0a40289dee9ee6627f525ff484db7d8586658ebf103b23cc5eaf01967c",
+    "releaseBuild": true,
+    "leanbackLauncher": true,
+    "billingPermission": false
+  },
+  "publication": {
+    "url": "https://github.com/Huuuhuuhu/readest/releases/tag/tv-0.12.20-v3",
+    "tag": "tv-0.12.20-v3",
+    "prerelease": true,
+    "allTenAssetDigestsVerified": true
+  }
+}
